@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
@@ -8,6 +9,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.mixins import TimestampMixin, UUIDPkMixin
 from app.models.role import UserRole
+
+if TYPE_CHECKING:
+    from app.models.employee import Employee
 
 
 class User(UUIDPkMixin, TimestampMixin, Base):
@@ -26,7 +30,7 @@ class User(UUIDPkMixin, TimestampMixin, Base):
     mfa_secret: Mapped[str | None] = mapped_column(String(255), nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    employee: Mapped["Employee | None"] = relationship(  # noqa: F821
+    employee: Mapped["Employee | None"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
     roles: Mapped[list[UserRole]] = relationship(cascade="all, delete-orphan")

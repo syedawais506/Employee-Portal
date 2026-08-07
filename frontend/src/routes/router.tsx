@@ -10,11 +10,15 @@ import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { DepartmentListPage } from "@/features/departments/DepartmentListPage";
 import { EmployeeDetailPage } from "@/features/employees/EmployeeDetailPage";
 import { EmployeeListPage } from "@/features/employees/EmployeeListPage";
+import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
+import { OnboardingReviewPage } from "@/features/onboarding/OnboardingReviewPage";
+import { PublicOnboardingPage } from "@/features/onboarding/PublicOnboardingPage";
 import { MyProfilePage } from "@/features/profile/MyProfilePage";
 import { RoleListPage } from "@/features/roles/RoleListPage";
 import { ProtectedRoute, RequirePermission, RequireSuperAdmin } from "@/routes/ProtectedRoute";
 
 export const router = createBrowserRouter([
+  { path: "/onboarding/:token", element: <PublicOnboardingPage /> },
   {
     element: <AuthLayout />,
     children: [
@@ -45,6 +49,13 @@ export const router = createBrowserRouter([
           {
             element: <RequirePermission module="role" action="view" />,
             children: [{ path: "/roles", element: <RoleListPage /> }],
+          },
+          {
+            element: <RequirePermission module="onboarding" action="view" />,
+            children: [
+              { path: "/onboarding", element: <OnboardingPage /> },
+              { path: "/onboarding/review/:employeeId", element: <OnboardingReviewPage /> },
+            ],
           },
           {
             element: <RequireSuperAdmin />,

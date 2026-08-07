@@ -1,4 +1,5 @@
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
@@ -6,6 +7,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.mixins import TimestampMixin, UUIDPkMixin, company_fk
+
+if TYPE_CHECKING:
+    from app.models.company import Company
+    from app.models.employee import Employee
 
 
 class Department(UUIDPkMixin, TimestampMixin, Base):
@@ -19,6 +24,6 @@ class Department(UUIDPkMixin, TimestampMixin, Base):
     )
     cost_center_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
-    company: Mapped["Company"] = relationship(back_populates="departments")  # noqa: F821
+    company: Mapped["Company"] = relationship(back_populates="departments")
     parent: Mapped["Department | None"] = relationship(remote_side="Department.id")
-    employees: Mapped[list["Employee"]] = relationship(back_populates="department")  # noqa: F821
+    employees: Mapped[list["Employee"]] = relationship(back_populates="department")

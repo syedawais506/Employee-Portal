@@ -2,7 +2,7 @@
 
 A commercial-grade, multi-tenant Employee Management Portal (Zoho People–style), built to eventually serve multiple independent customer companies from a single deployment with fully isolated data.
 
-**This is Phase 1** of a multi-phase build: multi-tenant data model, authentication, dynamic RBAC/permission engine, and Company/Department/Employee management — fully wired end-to-end (React UI → FastAPI → PostgreSQL) rather than shallow-stubbed across every module. See [docs/ROADMAP.md](docs/ROADMAP.md) for what ships in later phases (onboarding, projects, timesheets, leave, assets, reports, notifications, attendance, billing, AI features).
+**Phases 1 & 2 are shipped**: multi-tenant data model, authentication, dynamic RBAC/permission engine, Company/Department/Employee management, and a full employee onboarding workflow (configurable document checklist, secure onboarding links, HR review, Admin activation, offer letters) — fully wired end-to-end (React UI → FastAPI → PostgreSQL) rather than shallow-stubbed across every module. See [docs/ROADMAP.md](docs/ROADMAP.md) for what ships in later phases (projects, timesheets, leave, assets, reports, notifications, attendance, billing, AI features).
 
 ## Documentation
 
@@ -13,11 +13,11 @@ A commercial-grade, multi-tenant Employee Management Portal (Zoho People–style
 | [docs/LLD.md](docs/LLD.md) | Low-Level Design — auth flow, RBAC engine, tenant enforcement, module internals |
 | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | ER diagram and table definitions |
 | [docs/API_CONTRACTS.md](docs/API_CONTRACTS.md) | REST API contract (also live at `/docs` via Swagger) |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Phased delivery plan, Phase 1 scope cut and rationale |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Phased delivery plan, scope cuts and rationale per phase |
 
 ## Tech Stack
 
-**Backend:** Python 3.13, FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2, JWT auth, Celery + Redis, PostgreSQL 16 (with Row-Level Security as defense-in-depth)
+**Backend:** Python 3.13, FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2, JWT auth, Celery + Redis, PostgreSQL 16 (with Row-Level Security as defense-in-depth), boto3 (S3/MinIO document storage), ReportLab (offer letter PDFs)
 **Frontend:** React 19, TypeScript, Vite, MUI, TanStack Query, React Hook Form, React Router, Zustand, Recharts
 **Infra:** Docker, Docker Compose, Nginx, GitHub Actions CI, MinIO (S3-compatible, dev), MailHog (SMTP capture, dev)
 
@@ -67,6 +67,16 @@ Log in as `admin@acme-demo.com` and `admin@globex-demo.com` in two browser sessi
 
 **Change these credentials before any non-local deployment.**
 
+### Try the onboarding workflow
+
+Each demo company already has a **Taylor NewHire** employee sitting in the review queue with documents submitted and awaiting HR review — log in as `admin@acme-demo.com` (or an `hr@...` account) and open **Onboarding** in the sidebar to review their documents and walk them through HR approval → account activation.
+
+To try the new-hire side of the flow yourself:
+1. As an Admin/HR user, create a new employee under **Employees → New Employee**.
+2. Open MailHog (http://localhost:8025) — the onboarding invite email (with a link to `/onboarding/<token>`) lands there instead of a real inbox.
+3. Open that link in an incognito/private window (it's an unauthenticated page) to set a password and upload the required documents as the new hire would.
+4. Back in the main app, go to **Onboarding** to review the documents, mark them HR-reviewed, then activate the account — the new hire can then log in with the password they set.
+
 ### Stopping / resetting
 
 ```bash
@@ -108,7 +118,7 @@ Frontend runs at `http://localhost:5173` and proxies `/api` to `http://localhost
 cd frontend && npm run typecheck && npm run lint && npm run test && npm run build
 ```
 
-The backend test suite includes a dedicated cross-tenant-isolation suite (`backend/tests/integration/test_tenant_isolation.py`) that asserts, through the real HTTP API, that one company's Admin cannot read, list, update, or delete another company's data.
+The backend test suite includes a dedicated cross-tenant-isolation suite (`backend/tests/integration/test_tenant_isolation.py`) that asserts, through the real HTTP API, that one company's Admin cannot read, list, update, or delete another company's data, plus a full onboarding-workflow suite (`test_onboarding.py`) covering invite → password → document upload → HR review → Admin activation.
 
 ## Security Notes for Deployment
 
@@ -119,4 +129,4 @@ The backend test suite includes a dedicated cross-tenant-isolation suite (`backe
 
 ## Roadmap
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the phase-by-phase plan: onboarding & documents, projects, timesheets, leave management, assets, reporting, notifications, attendance, subscription/billing, and AI features. Each phase builds on this Phase 1 foundation without requiring breaking schema changes.
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the phase-by-phase plan: projects, timesheets, leave management, assets, reporting, notifications, attendance, subscription/billing, and AI features. Each phase builds on the Phase 1 & 2 foundation without requiring breaking schema changes.

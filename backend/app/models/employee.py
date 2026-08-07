@@ -1,5 +1,6 @@
 import uuid
 from datetime import date
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Date, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
@@ -7,6 +8,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.mixins import SoftDeleteMixin, TimestampMixin, UUIDPkMixin, company_fk
+
+if TYPE_CHECKING:
+    from app.models.company import Company
+    from app.models.department import Department
+    from app.models.user import User
 
 
 class Employee(UUIDPkMixin, TimestampMixin, SoftDeleteMixin, Base):
@@ -33,10 +39,11 @@ class Employee(UUIDPkMixin, TimestampMixin, SoftDeleteMixin, Base):
     employment_type: Mapped[str] = mapped_column(String(30), default="full_time", nullable=False)
     joining_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+    onboarding_status: Mapped[str] = mapped_column(String(20), default="completed", nullable=False)
 
-    company: Mapped["Company"] = relationship(back_populates="employees")  # noqa: F821
-    user: Mapped["User"] = relationship(back_populates="employee")  # noqa: F821
-    department: Mapped["Department | None"] = relationship(back_populates="employees")  # noqa: F821
+    company: Mapped["Company"] = relationship(back_populates="employees")
+    user: Mapped["User"] = relationship(back_populates="employee")
+    department: Mapped["Department | None"] = relationship(back_populates="employees")
     manager: Mapped["Employee | None"] = relationship(remote_side="Employee.id")
 
     @property

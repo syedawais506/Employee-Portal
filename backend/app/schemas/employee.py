@@ -59,6 +59,7 @@ class EmployeeSummaryResponse(ORMModel):
     department: DepartmentRef | None
     status: str
     employment_type: str
+    onboarding_status: str
 
 
 class EmployeeDetailResponse(ORMModel):
@@ -74,3 +75,4 @@ class EmployeeDetailResponse(ORMModel):
     employment_type: str
     joining_date: date | None
     status: str
+    onboarding_status: str

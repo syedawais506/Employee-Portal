@@ -11,12 +11,27 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-from app.services.role_service import PERMISSION_CATALOG
-
 revision: str = "0001"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
+# Frozen snapshot of PERMISSION_CATALOG as it existed when this migration was
+# written. Migrations must never import live application state (e.g. from
+# app.services.role_service) — that dict grows in later phases (see 0002_*),
+# and importing it here would silently reseed whatever it currently contains
+# instead of what Phase 1 actually shipped, breaking replay on a fresh DB.
+PERMISSION_CATALOG_AT_0001: dict[str, list[str]] = {
+    "employee": ["view", "create", "update", "delete", "export", "import"],
+    "department": ["view", "create", "update", "delete"],
+    "role": ["view", "create", "update", "delete"],
+    "company": ["view", "create", "update", "delete"],
+    "project": ["view", "create", "update", "delete", "export"],
+    "timesheet": ["view", "create", "update", "delete", "approve", "reject", "export"],
+    "leave": ["view", "create", "update", "delete", "approve", "reject"],
+    "asset": ["view", "create", "update", "delete"],
+    "report": ["view", "export"],
+}
 
 
 def upgrade() -> None:
@@ -150,7 +165,7 @@ def upgrade() -> None:
 
     rows = [
         {"id": uuid.uuid4(), "module": module, "action": action}
-        for module, actions in PERMISSION_CATALOG.items()
+        for module, actions in PERMISSION_CATALOG_AT_0001.items()
         for action in actions
     ]
     op.bulk_insert(permission_table, rows)

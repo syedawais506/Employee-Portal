@@ -15,7 +15,7 @@ from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common import Page
 from app.services.audit_service import audit_service
-from app.services.auth_service import auth_service
+from app.services.onboarding_service import onboarding_service
 
 
 class EmployeeService:
@@ -99,7 +99,7 @@ class EmployeeService:
             company_id=company_id,
             email=email,
             password_hash=hash_password(secrets.token_urlsafe(16)),
-            is_active=True,
+            is_active=False,  # gated until Admin completes onboarding approval
             is_verified=False,
         )
         if role_ids:
@@ -119,9 +119,10 @@ class EmployeeService:
             employment_type=employment_type,
             joining_date=joining_date,
             status="active",
+            onboarding_status="invited",
         )
 
-        auth_service.request_password_reset(db, email)
+        onboarding_service.create_invite(db, company_id=company_id, employee=employee)
 
         audit_service.record(
             db,

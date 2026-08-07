@@ -3,14 +3,23 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import DownloadIcon from "@mui/icons-material/Download";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Grid, IconButton, Stack, Typography } from "@mui/material";
 
 import { extractApiErrorMessage } from "@/api/client";
 import { listDepartments } from "@/api/departments";
 import { getEmployee, listEmployees, updateEmployee } from "@/api/employees";
+import { downloadOfferLetter } from "@/api/onboarding";
 import { PageHeader } from "@/components/PageHeader";
 import { PermissionGate } from "@/components/PermissionGate";
 import { EmployeeFormDialog, type EmployeeFormValues } from "@/features/employees/EmployeeFormDialog";
+
+const ONBOARDING_STATUS_LABEL: Record<string, string> = {
+  invited: "Onboarding: Invited",
+  submitted: "Onboarding: Submitted",
+  hr_approved: "Onboarding: HR Approved",
+  completed: "Onboarding Complete",
+};
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -80,11 +89,27 @@ export function EmployeeDetailPage() {
         title={`${employee.first_name} ${employee.last_name}`}
         subtitle={employee.employee_code}
         actions={
-          <PermissionGate module="employee" action="update">
-            <IconButton onClick={() => setEditOpen(true)}>
-              <EditOutlinedIcon />
-            </IconButton>
-          </PermissionGate>
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={() => downloadOfferLetter(employee.id, employee.employee_code)}
+            >
+              Offer Letter
+            </Button>
+            {employee.onboarding_status !== "completed" && (
+              <PermissionGate module="onboarding" action="view">
+                <Button size="small" variant="outlined" onClick={() => navigate(`/onboarding/review/${employee.id}`)}>
+                  Review Onboarding
+                </Button>
+              </PermissionGate>
+            )}
+            <PermissionGate module="employee" action="update">
+              <IconButton onClick={() => setEditOpen(true)}>
+                <EditOutlinedIcon />
+              </IconButton>
+            </PermissionGate>
+          </Stack>
         }
       />
 
@@ -93,6 +118,12 @@ export function EmployeeDetailPage() {
           <Stack direction="row" spacing={1} sx={{ mb: 3 }}>
             <Chip label={employee.status.replace("_", " ")} size="small" color={employee.status === "active" ? "success" : "default"} />
             <Chip label={employee.employment_type.replace("_", " ")} size="small" variant="outlined" />
+            <Chip
+              label={ONBOARDING_STATUS_LABEL[employee.onboarding_status] ?? employee.onboarding_status}
+              size="small"
+              color={employee.onboarding_status === "completed" ? "success" : "warning"}
+              variant="outlined"
+            />
           </Stack>
           <Grid container spacing={3}>
             <Grid item xs={12} sm={6}>

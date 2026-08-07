@@ -18,7 +18,6 @@ from app.models.user import User
 from app.repositories.role_repository import RoleRepository
 from app.repositories.user_repository import UserRepository
 from app.services import permission_cache
-from app.services.audit_service import audit_service
 from app.tasks.email_tasks import send_password_reset_email, send_verification_email
 
 REFRESH_TOKEN_PREFIX = "refresh_jti:"

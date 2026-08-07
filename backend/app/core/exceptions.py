@@ -2,7 +2,7 @@ from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
 
-class AppException(Exception):
+class AppError(Exception):
     status_code: int = status.HTTP_400_BAD_REQUEST
     code: str = "APP_ERROR"
 
@@ -12,37 +12,37 @@ class AppException(Exception):
         super().__init__(message)
 
 
-class NotFoundError(AppException):
+class NotFoundError(AppError):
     status_code = status.HTTP_404_NOT_FOUND
     code = "NOT_FOUND"
 
 
-class PermissionDeniedError(AppException):
+class PermissionDeniedError(AppError):
     status_code = status.HTTP_403_FORBIDDEN
     code = "PERMISSION_DENIED"
 
 
-class ValidationAppError(AppException):
+class ValidationAppError(AppError):
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     code = "VALIDATION_ERROR"
 
 
-class ConflictError(AppException):
+class ConflictError(AppError):
     status_code = status.HTTP_409_CONFLICT
     code = "CONFLICT"
 
 
-class InvalidCredentialsError(AppException):
+class InvalidCredentialsError(AppError):
     status_code = status.HTTP_401_UNAUTHORIZED
     code = "INVALID_CREDENTIALS"
 
 
-class TokenError(AppException):
+class TokenError(AppError):
     status_code = status.HTTP_401_UNAUTHORIZED
     code = "TOKEN_INVALID"
 
 
-async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
+async def app_exception_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"code": exc.code, "message": exc.message, "details": exc.details}},
@@ -50,4 +50,4 @@ async def app_exception_handler(request: Request, exc: AppException) -> JSONResp
 
 
 def register_exception_handlers(app) -> None:  # noqa: ANN001
-    app.add_exception_handler(AppException, app_exception_handler)
+    app.add_exception_handler(AppError, app_exception_handler)

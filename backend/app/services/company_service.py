@@ -63,7 +63,7 @@ class CompanyService:
             role_service.create_default_role(db, company.id, role_name)
 
         admin_role = next(
-            r for r in self.role_repo.list(db, company.id) if r.name == ADMIN_ROLE_NAME
+            r for r in self.role_repo.list_roles(db, company.id) if r.name == ADMIN_ROLE_NAME
         )
 
         temp_password = secrets.token_urlsafe(16)
@@ -106,7 +106,13 @@ class CompanyService:
         return company
 
     def update_company(
-        self, db: Session, company_id: uuid.UUID, *, name: str | None, status: str | None, actor_user_id: uuid.UUID | None
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        name: str | None,
+        status: str | None,
+        actor_user_id: uuid.UUID | None,
     ) -> Company:
         company = self.get_company(db, company_id)
         before = {"name": company.name, "status": company.status}

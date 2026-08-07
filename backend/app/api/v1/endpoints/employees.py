@@ -78,7 +78,7 @@ def update_my_profile(
     db: Session = Depends(get_db),
 ):
     employee = employee_service.get_employee_by_user_id(db, current_user.id)
-    return employee_service.update_self(db, current_user.company_id, employee.id, phone=payload.phone)
+    return employee_service.update_self(db, employee.company_id, employee.id, phone=payload.phone)
 
 
 @router.get("/{employee_id}", response_model=EmployeeDetailResponse)

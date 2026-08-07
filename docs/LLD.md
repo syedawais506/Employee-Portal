@@ -226,4 +226,32 @@ All API errors return a consistent envelope:
 { "error": { "code": "PERMISSION_DENIED", "message": "You do not have permission to perform this action.", "details": null } }
 ```
 
-`AppException` subclasses (`NotFoundError`, `PermissionDeniedError`, `ValidationError`, `ConflictError`) map to HTTP 404/403/422/409 via a single FastAPI exception handler — routers raise domain exceptions, never construct `HTTPException` with hand-written status codes inline (keeps status-code mapping in one place).
+`AppError` subclasses (`NotFoundError`, `PermissionDeniedError`, `ValidationAppError`, `ConflictError`, `TokenError`) map to HTTP 404/403/422/409/401 via a single FastAPI exception handler — routers raise domain exceptions, never construct `HTTPException` with hand-written status codes inline (keeps status-code mapping in one place).
+
+---
+
+## 8. Onboarding Module (Phase 2)
+
+### 8.1 State machine
+
+```
+invited ──(password set + all required docs uploaded)──> submitted
+submitted ──(HR approves every required document, then hr-approve)──> hr_approved
+hr_approved ──(Admin approve)──> completed  [user.is_active=True, is_verified=True]
+```
+
+The `invited → submitted` transition is **not** a dedicated endpoint — `OnboardingService._maybe_advance_to_submitted` re-checks the condition after every password-set and document-upload call and flips the status automatically once both are satisfied. This avoids a redundant "submit" step the frontend would otherwise have to get right.
+
+### 8.2 Token design
+
+The onboarding invite is an opaque token (`secrets.token_urlsafe(32)`), emailed once and never persisted in raw form — only its SHA-256 hex digest (`OnboardingInvite.token_hash`) is stored, mirroring the pattern for password-reset tokens. `OnboardingInvite.used_at` is set the moment the new hire sets their password and doubles as the "password already set" flag returned to the frontend — there's no separate boolean column to keep in sync.
+
+Unlike the JWT-based auth tokens, this is a **database-backed** token: HR needs to see and reason about invite state (has it been used? expired?) independent of any single token's cryptographic validity, which a stateless JWT can't provide.
+
+### 8.3 Why account activation is deferred to Admin, not password-set
+
+`EmployeeService.create_employee` sets `user.is_active=False` at creation (a change from the simpler Phase 1 behavior, which activated immediately). The account stays inactive through the entire `invited`/`submitted`/`hr_approved` states — even after the new hire has set a real password — and only flips to `is_active=True` on `OnboardingService.admin_approve`. This is what makes "Admin approves onboarding → account activated" a real gate rather than a formality: a new hire who has submitted documents cannot log in and start using the portal until both HR and Admin have signed off.
+
+### 8.4 Document storage
+
+Files are never stored in Postgres — `EmployeeDocument.file_key` is an S3/MinIO object key (`{company_id}/employees/{employee_id}/documents/{document_type_id}/{uuid}_{filename}`), uploaded via `app/utils/storage.py` (boto3, region/endpoint from `Settings.s3_*`). Downloads go through a 5-minute presigned URL (`generate_download_url`), never proxied through the API process. Re-uploading a document for the same `(employee_id, document_type_id)` pair overwrites the row in place (`EmployeeDocumentRepository.upsert`) rather than accumulating versions — sufficient for Phase 2's single-reviewer-cycle workflow.

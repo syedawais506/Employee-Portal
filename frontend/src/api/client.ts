@@ -37,9 +37,18 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<ApiErrorBody>) => {
     const originalRequest = error.config as RetriableConfig | undefined;
-    const isAuthEndpoint = originalRequest?.url?.includes("/auth/login") || originalRequest?.url?.includes("/auth/refresh");
+    const url = originalRequest?.url ?? "";
+    // Unauthenticated-by-design endpoints: a 401 here means an invalid/expired
+    // resource token (e.g. a public onboarding link), not an expired session —
+    // don't try to refresh a session that was never established. Anchored to
+    // the start of the path so it doesn't also match the authenticated
+    // `/employees/{id}/onboarding/*` management endpoints.
+    const isUnauthenticatedEndpoint =
+      url.includes("/auth/login") ||
+      url.includes("/auth/refresh") ||
+      (url.startsWith("/onboarding/") && !url.startsWith("/onboarding/queue"));
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retried && !isAuthEndpoint) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retried && !isUnauthenticatedEndpoint) {
       originalRequest._retried = true;
       try {
         refreshPromise ??= refreshAccessToken().finally(() => {

@@ -26,3 +26,17 @@ def send_password_reset_email(to_email: str, token: str) -> None:
         ),
     )
 
+
+@celery_app.task(name="send_onboarding_invite_email")
+def send_onboarding_invite_email(to_email: str, token: str) -> None:
+    link = f"{settings.frontend_base_url}/onboarding/{token}"
+    send_email(
+        to=to_email,
+        subject="Welcome — complete your onboarding",
+        html_body=(
+            f'<p>Welcome aboard! Please complete your onboarding <a href="{link}">here</a>: '
+            "set your password and upload the requested documents. This link expires in "
+            "7 days.</p>"
+        ),
+    )
+

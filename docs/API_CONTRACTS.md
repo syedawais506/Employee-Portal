@@ -59,12 +59,42 @@ Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI)
 | Method & Path | Body | Response | Permission |
 |---|---|---|---|
 | `GET /employees` | `search, department_id, status, manager_id, page, page_size` | Page<EmployeeSummary> | employee.view |
-| `POST /employees` | `{email, first_name, last_name, department_id?, designation?, manager_id?, employment_type, joining_date, role_ids[]}` | Employee (201) — creates `user_account` + `employee` + sends verification email | employee.create |
-| `GET /employees/{id}` | — | EmployeeDetail | employee.view |
+| `POST /employees` | `{email, first_name, last_name, department_id?, designation?, manager_id?, employment_type, joining_date, role_ids[]}` | Employee (201) — creates `user_account` (deactivated) + `employee` (`onboarding_status="invited"`) + queues an onboarding invite email (see Onboarding below) | employee.create |
+| `GET /employees/{id}` | — | EmployeeDetail (incl. `onboarding_status`) | employee.view |
 | `PATCH /employees/{id}` | `{first_name?, last_name?, phone?, department_id?, designation?, manager_id?, employment_type?, status?}` | EmployeeDetail | employee.update |
 | `DELETE /employees/{id}` | — | `204` (soft delete + deactivate user) | employee.delete |
 | `GET /employees/me` | — | EmployeeDetail (caller's own) | self |
 | `PATCH /employees/me` | `{phone?, address?}` (self-editable subset only) | EmployeeDetail | self |
+| `GET /employees/{id}/offer-letter` | — | `application/pdf` binary (ReportLab-rendered) | employee.view |
+
+## Document Types — `/api/v1/document-types` *(Phase 2)*
+
+Per-company configurable onboarding checklist. A new hire must upload every `is_required=true` type before their onboarding auto-advances to `submitted`.
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `GET /document-types` | — | `[{id, name, is_required, sort_order}]` | onboarding.view |
+| `POST /document-types` | `{name, is_required, sort_order}` | DocumentType (201) | onboarding.configure |
+| `PATCH /document-types/{id}` | `{name?, is_required?, sort_order?}` | DocumentType | onboarding.configure |
+| `DELETE /document-types/{id}` | — | `204` | onboarding.configure |
+
+## Onboarding — `/api/v1/onboarding` *(Phase 2)*
+
+The `/onboarding/{token}` routes are **unauthenticated by design** — `{token}` is the secure, single-use-until-expiry credential emailed to the new hire (see [LLD.md](./LLD.md) for the token-hashing scheme). Every other route below requires a normal session plus the listed permission.
+
+| Method & Path | Body | Response | Auth |
+|---|---|---|---|
+| `GET /onboarding/queue` | `page` n/a — full list | `[{id, employee_code, first_name, last_name, onboarding_status}]` for employees in `invited`/`submitted`/`hr_approved` | onboarding.view |
+| `GET /onboarding/{token}` | — | `{employee, document_types[], uploaded_documents[], password_already_set, expires_at}` | public (token) |
+| `POST /onboarding/{token}/password` | `{password}` | `204` | public (token); only while `onboarding_status="invited"` |
+| `POST /onboarding/{token}/documents` | multipart: `document_type_id`, `file` | EmployeeDocument (201) | public (token); only while status is `invited`/`submitted` |
+| `GET /employees/{id}/documents` | — | `[EmployeeDocument]` | onboarding.view |
+| `POST /employees/{id}/documents/{doc_id}/review` | `{approve, notes?}` | EmployeeDocument (status set to approved/rejected) | onboarding.review |
+| `GET /employees/{id}/documents/{doc_id}/download` | — | `{url}` — presigned S3/MinIO GET URL, 5 min expiry | onboarding.view |
+| `POST /employees/{id}/onboarding/hr-approve` | — | `{onboarding_status:"hr_approved"}` — 422 if any required document isn't `approved` yet | onboarding.review |
+| `POST /employees/{id}/onboarding/approve` | — | `{onboarding_status:"completed"}` — activates the account; 422 if not yet `hr_approved` | onboarding.approve |
+
+File uploads are limited to PDF/PNG/JPEG, 10 MB max, validated server-side regardless of client-declared content type.
 
 ## Health
 

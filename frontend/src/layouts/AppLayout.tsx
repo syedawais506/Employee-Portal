@@ -24,6 +24,7 @@ import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import DomainIcon from "@mui/icons-material/Domain";
+import HowToRegIcon from "@mui/icons-material/HowToReg";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SecurityIcon from "@mui/icons-material/Security";
 
@@ -62,6 +63,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: <DomainIcon fontSize="small" />,
     match: (p) => p.startsWith("/departments"),
     visible: ({ hasPermission }) => hasPermission("department", "view"),
+  },
+  {
+    label: "Onboarding",
+    to: "/onboarding",
+    icon: <HowToRegIcon fontSize="small" />,
+    match: (p) => p.startsWith("/onboarding"),
+    visible: ({ hasPermission }) => hasPermission("onboarding", "view"),
   },
   {
     label: "Roles & Permissions",

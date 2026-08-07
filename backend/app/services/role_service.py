@@ -15,6 +15,7 @@ PERMISSION_CATALOG: dict[str, list[str]] = {
     "department": ["view", "create", "update", "delete"],
     "role": ["view", "create", "update", "delete"],
     "company": ["view", "create", "update", "delete"],
+    "onboarding": ["view", "review", "approve", "configure"],
     "project": ["view", "create", "update", "delete", "export"],
     "timesheet": ["view", "create", "update", "delete", "approve", "reject", "export"],
     "leave": ["view", "create", "update", "delete", "approve", "reject"],
@@ -29,6 +30,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "department.view", "department.create", "department.update", "department.delete",
         "role.view", "role.create", "role.update", "role.delete",
         "company.view",
+        "onboarding.view", "onboarding.review", "onboarding.approve", "onboarding.configure",
         "project.view", "project.create", "project.update", "project.delete",
         "timesheet.view", "timesheet.approve", "timesheet.reject",
         "leave.view", "leave.approve", "leave.reject",
@@ -38,6 +40,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "HR": [
         "employee.view", "employee.create", "employee.update", "employee.export",
         "department.view",
+        "onboarding.view", "onboarding.review",
         "leave.view", "leave.approve", "leave.reject",
         "report.view",
     ],
@@ -85,7 +88,7 @@ class RoleService:
         return role
 
     def list_roles(self, db: Session, company_id: uuid.UUID) -> list[Role]:
-        return self.role_repo.list(db, company_id)
+        return self.role_repo.list_roles(db, company_id)
 
     def get_role(self, db: Session, company_id: uuid.UUID, role_id: uuid.UUID) -> Role:
         role = self.role_repo.get(db, company_id, role_id)
@@ -94,7 +97,7 @@ class RoleService:
         return role
 
     def create_role(self, db: Session, company_id: uuid.UUID, name: str) -> Role:
-        existing = [r for r in self.role_repo.list(db, company_id) if r.name == name]
+        existing = [r for r in self.role_repo.list_roles(db, company_id) if r.name == name]
         if existing:
             raise ConflictError("A role with this name already exists")
         role = self.role_repo.create(db, company_id, name, is_system=False)

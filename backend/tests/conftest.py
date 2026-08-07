@@ -56,8 +56,6 @@ def _database():
     Base.metadata.create_all(engine)
 
     with engine.begin() as conn:
-        from app.models.role import Permission
-
         for module, actions in PERMISSION_CATALOG.items():
             for action in actions:
                 conn.execute(

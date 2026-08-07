@@ -73,7 +73,10 @@ class DepartmentService:
             if parent_department_id == department_id:
                 raise ValidationAppError("A department cannot be its own parent")
             self.get_department(db, company_id, parent_department_id)
-        before = {"name": department.name, "parent_department_id": str(department.parent_department_id) if department.parent_department_id else None}
+        before = {
+            "name": department.name,
+            "parent_department_id": str(department.parent_department_id) if department.parent_department_id else None,
+        }
         if name is not None:
             department.name = name
         if parent_department_id is not None:

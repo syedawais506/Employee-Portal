@@ -17,7 +17,7 @@ class RoleRepository:
         )
         return db.execute(stmt).unique().scalar_one_or_none()
 
-    def list(self, db: Session, company_id: uuid.UUID) -> list[Role]:
+    def list_roles(self, db: Session, company_id: uuid.UUID) -> list[Role]:
         stmt = (
             select(Role)
             .options(joinedload(Role.role_permissions).joinedload(RolePermission.permission))

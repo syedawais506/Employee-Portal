@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
@@ -10,16 +12,29 @@ from app.api.v1.endpoints import health
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
-from app.core.logging import RequestIdMiddleware, configure_logging
+from app.core.logging import RequestIdMiddleware, configure_logging, get_logger
 from app.core.rate_limit import limiter
+from app.utils.storage import ensure_bucket_exists
 
 configure_logging(settings.debug)
+logger = get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: ARG001
+    try:
+        ensure_bucket_exists()
+    except Exception:
+        logger.warning("s3_bucket_bootstrap_failed", bucket=settings.s3_bucket_name)
+    yield
+
 
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
     docs_url="/docs",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 app.state.limiter = limiter

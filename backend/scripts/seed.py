@@ -4,7 +4,7 @@ with departments, default roles, and one employee per role.
 Usage (from backend/):  python -m scripts.seed
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 from app.core.security import hash_password
 from app.db.rls import set_tenant_context
@@ -12,9 +12,13 @@ from app.db.session import SessionLocal
 from app.repositories.company_repository import CompanyRepository
 from app.repositories.department_repository import DepartmentRepository
 from app.repositories.employee_repository import EmployeeRepository
+from app.repositories.onboarding_repository import DocumentTypeRepository, OnboardingInviteRepository
 from app.repositories.role_repository import RoleRepository
 from app.repositories.user_repository import UserRepository
+from app.services.employee_service import employee_service
+from app.services.onboarding_service import onboarding_service
 from app.services.role_service import DEFAULT_ROLE_PERMISSIONS, role_service
+from app.utils.storage import ensure_bucket_exists, upload_document
 
 DEMO_PASSWORD = "Demo@12345"
 SUPER_ADMIN_PASSWORD = "SuperAdmin@12345"
@@ -24,6 +28,8 @@ department_repo = DepartmentRepository()
 role_repo = RoleRepository()
 user_repo = UserRepository()
 employee_repo = EmployeeRepository()
+document_type_repo = DocumentTypeRepository()
+invite_repo = OnboardingInviteRepository()
 
 credentials: list[tuple[str, str, str]] = []
 
@@ -51,12 +57,23 @@ def seed_company(db, *, name: str, slug: str) -> None:
     company = company_repo.create(db, name=name, slug=slug, status="active")
     set_tenant_context(db, str(company.id))
 
-    roles = {role_name: role_service.create_default_role(db, company.id, role_name) for role_name in DEFAULT_ROLE_PERMISSIONS}
+    roles = {
+        role_name: role_service.create_default_role(db, company.id, role_name)
+        for role_name in DEFAULT_ROLE_PERMISSIONS
+    }
 
-    engineering = department_repo.create(db, company.id, name="Engineering", parent_department_id=None, cost_center_code="ENG")
-    department_repo.create(db, company.id, name="Platform Team", parent_department_id=engineering.id, cost_center_code="ENG-PLT")
-    hr_dept = department_repo.create(db, company.id, name="Human Resources", parent_department_id=None, cost_center_code="HR")
-    finance_dept = department_repo.create(db, company.id, name="Finance", parent_department_id=None, cost_center_code="FIN")
+    engineering = department_repo.create(
+        db, company.id, name="Engineering", parent_department_id=None, cost_center_code="ENG"
+    )
+    department_repo.create(
+        db, company.id, name="Platform Team", parent_department_id=engineering.id, cost_center_code="ENG-PLT"
+    )
+    hr_dept = department_repo.create(
+        db, company.id, name="Human Resources", parent_department_id=None, cost_center_code="HR"
+    )
+    finance_dept = department_repo.create(
+        db, company.id, name="Finance", parent_department_id=None, cost_center_code="FIN"
+    )
     department_repo.create(db, company.id, name="Sales", parent_department_id=None, cost_center_code="SALES")
 
     def make_user_and_employee(
@@ -110,8 +127,68 @@ def seed_company(db, *, name: str, slug: str) -> None:
         first_name="Casey", last_name="Finance", manager_id=admin_employee.id,
     )
 
+    # Onboarding demo: a document checklist plus one new hire already
+    # sitting in the HR review queue, so the Onboarding screens aren't empty
+    # on first login.
+    document_types = [
+        document_type_repo.create(db, company.id, name="Resume", is_required=True, sort_order=1),
+        document_type_repo.create(db, company.id, name="Government ID", is_required=True, sort_order=2),
+        document_type_repo.create(db, company.id, name="PAN Card", is_required=False, sort_order=3),
+    ]
+    new_hire = employee_service.create_employee(
+        db,
+        company.id,
+        email=f"newhire@{slug}-demo.com",
+        first_name="Taylor",
+        last_name="NewHire",
+        phone=None,
+        department_id=engineering.id,
+        designation="Associate Engineer",
+        manager_id=manager_employee.id,
+        employment_type="full_time",
+        joining_date=date(2026, 3, 1),
+        role_ids=[roles["Employee"].id],
+        actor_user_id=admin_employee.user_id,
+    )
+    _advance_demo_onboarding_to_submitted(db, company_id=company.id, employee=new_hire, document_types=document_types)
+
+
+def _advance_demo_onboarding_to_submitted(db, *, company_id, employee, document_types) -> None:
+    """Simulates the new hire having set a password and uploaded every
+    required document, so HR/Admin demo accounts see a populated review
+    queue immediately. Pokes state directly rather than going through the
+    public token endpoints, since there's no real onboarding link to follow
+    in a non-interactive seed script.
+    """
+    invite = invite_repo.get_by_employee_id(db, employee.id)
+    if invite is None:
+        return
+
+    employee.user.password_hash = hash_password(DEMO_PASSWORD)
+    invite.used_at = datetime.now(timezone.utc)
+
+    for doc_type in document_types:
+        if not doc_type.is_required:
+            continue
+        key = f"seed/{company_id}/{employee.id}/{doc_type.id}.pdf"
+        upload_document(key=key, content=b"Demo document content for seeding.", content_type="application/pdf")
+        onboarding_service.employee_document_repo.upsert(
+            db,
+            company_id=company_id,
+            employee_id=employee.id,
+            document_type_id=doc_type.id,
+            file_key=key,
+            original_filename=f"{doc_type.name}.pdf",
+            content_type="application/pdf",
+            size_bytes=35,
+        )
+
+    employee.onboarding_status = "submitted"
+    db.flush()
+
 
 def main() -> None:
+    ensure_bucket_exists()
     db = SessionLocal()
     try:
         seed_super_admin(db)
@@ -129,6 +206,11 @@ def main() -> None:
     print("-" * 80)
     for role_label, email, password in credentials:
         print(f"{role_label:30} {email:30} {password}")
+    print(
+        "\nEach company also has a 'Taylor NewHire' employee sitting in the "
+        "onboarding review queue (documents submitted, awaiting HR review) — "
+        "log in as an HR or Admin demo user and open Onboarding to see it."
+    )
 
 
 if __name__ == "__main__":

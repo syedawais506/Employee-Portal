@@ -4,12 +4,19 @@ version = "0.1.0"
 requires-python = ">=3.13"
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N"]
-ignore = ["B008"]
+ignore = ["B008", "UP017"]
+
+[tool.ruff.lint.per-file-ignores]
+# Migration files follow Alembic's own generated boilerplate (script.py.mako
+# uses typing.Union/Sequence, single-block imports) rather than project
+# style, and column-per-line is the readable convention for schema DDL — so
+# these are exempted rather than hand-edited away from Alembic's own template.
+"alembic/versions/*.py" = ["E501", "I001", "UP007", "UP035"]
 
 [tool.mypy]
 python_version = "3.13"

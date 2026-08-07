@@ -17,12 +17,19 @@ SRS, HLD, LLD, ER diagram, API contracts, roadmap. No code.
 - Seed script: 2 demo companies, users per role, departments
 - Backend unit + integration tests incl. a dedicated cross-tenant-isolation test suite
 
-## Phase 2 — Onboarding & Documents
-- `employee_document`, `onboarding_task`, `onboarding_template` tables
-- Configurable per-company document checklist; secure onboarding link (signed, expiring token) for new hires
-- Document upload to S3/MinIO with virus-scan hook (stub) and file-type/size validation
-- HR review queue → Admin approval → account activation state machine
-- Offer letter generation (template + PDF render)
+## Phase 2 — Onboarding & Documents *(shipped)*
+- `document_type` (per-company configurable checklist), `employee_document`, `onboarding_invite` tables; `employee.onboarding_status` (`invited → submitted → hr_approved → completed`)
+- Admin-configurable document checklist (required/optional, ordered) — no code changes needed to add a document type
+- Secure onboarding link: opaque token (SHA-256 hashed at rest, 7-day expiry), emailed to the new hire, resolves to a public (unauthenticated) onboarding portal
+- New hire sets their password and uploads each required document via the public link; account stays deactivated (`is_active=False`) until Admin approval — the employee cannot log in through the normal flow before then
+- Auto-advance to "submitted" once a password is set and every required document has been uploaded (no separate submit button/endpoint)
+- HR review queue: per-document approve/reject with notes, then a `hr-approve` gate requiring every required document be approved
+- Admin final approval activates the account (`is_active=True`, `is_verified=True`)
+- Offer letter generation: real PDF (ReportLab), pulling live employee/company/department data — not a stub
+- Document storage: MinIO/S3 via boto3, presigned download URLs, content-type/size validation
+- Dedicated `onboarding` permission module (`view`/`review`/`approve`/`configure`) wired into the same dynamic RBAC engine from Phase 1, including retroactive grants to companies seeded before this phase shipped
+
+**Simplified from the original scope** (deferred, not blocking): no separate "onboarding template" or per-employee task checklist beyond the document list itself; no virus-scan integration (hook point not yet added); offer letter template is fixed (not yet per-company customizable).
 
 ## Phase 3 — Projects & Employee Mapping
 - `project`, `project_member`, `client` tables
@@ -63,5 +70,5 @@ SRS, HLD, LLD, ER diagram, API contracts, roadmap. No code.
 
 ---
 
-## Explicit Non-Goals for Phase 1
-To keep Phase 1 a real, working slice rather than a wide shallow scaffold, the following are **not** built yet even though their tables/fields are reserved in the schema: onboarding workflow, document upload, projects, timesheets, leave, assets, reports, notifications beyond transactional email, biometric/GPS attendance, OAuth social login, MFA enforcement, AI features. Each has a clear landing phase above and none require breaking schema changes to the Phase 1 foundation.
+## Explicit Non-Goals for Phase 1 (superseded where later phases have shipped)
+To keep Phase 1 a real, working slice rather than a wide shallow scaffold, the following were **not** built yet even though their tables/fields were reserved in the schema: onboarding workflow, document upload, projects, timesheets, leave, assets, reports, notifications beyond transactional email, biometric/GPS attendance, OAuth social login, MFA enforcement, AI features. Each has a clear landing phase above and none required breaking schema changes to the Phase 1 foundation. Onboarding workflow and document upload shipped in Phase 2 (above); the rest remain open per their listed phase.
