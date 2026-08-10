@@ -27,6 +27,7 @@ import DomainIcon from "@mui/icons-material/Domain";
 import HowToRegIcon from "@mui/icons-material/HowToReg";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SecurityIcon from "@mui/icons-material/Security";
+import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
 
 import { logout as logoutRequest } from "@/api/auth";
 import { useAuthStore } from "@/store/authStore";
@@ -63,6 +64,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: <DomainIcon fontSize="small" />,
     match: (p) => p.startsWith("/departments"),
     visible: ({ hasPermission }) => hasPermission("department", "view"),
+  },
+  {
+    label: "Projects",
+    to: "/projects",
+    icon: <WorkOutlineIcon fontSize="small" />,
+    match: (p) => p.startsWith("/projects"),
+    visible: ({ isSuperAdmin }) => !isSuperAdmin,
   },
   {
     label: "Onboarding",

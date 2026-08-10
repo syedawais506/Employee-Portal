@@ -96,6 +96,32 @@ The `/onboarding/{token}` routes are **unauthenticated by design** — `{token}`
 
 File uploads are limited to PDF/PNG/JPEG, 10 MB max, validated server-side regardless of client-declared content type.
 
+## Clients — `/api/v1/clients` *(Phase 3)*
+
+Lightweight assignment target for projects — reuses the `project.*` permissions rather than a separate module.
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `GET /clients` | — | `[{id, name, contact_name, contact_email, contact_phone}]` | project.view |
+| `POST /clients` | `{name, contact_name?, contact_email?, contact_phone?}` | Client (201) | project.create |
+| `PATCH /clients/{id}` | `{name?, contact_name?, contact_email?, contact_phone?}` | Client | project.update |
+| `DELETE /clients/{id}` | — | `204` (projects referencing it keep their other data; `client_id` becomes null) | project.delete |
+
+## Projects — `/api/v1/projects` *(Phase 3)*
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `GET /projects` | `status?, page, page_size` | Page<ProjectSummary> | project.view |
+| `POST /projects` | `{name, client_id?, budget?, is_billable, start_date?, end_date?, member_ids?: [{employee_id, role_on_project}]}` | ProjectDetail (201) | project.create |
+| `GET /projects/mine` | — | `[{id, name, status, role_on_project, start_date, end_date}]` — projects the caller is a member of | authenticated (self, no `project.view` needed) |
+| `GET /projects/{id}` | — | ProjectDetail (incl. `members[]`, `client`) | project.view |
+| `PATCH /projects/{id}` | `{name?, client_id?, budget?, is_billable?, start_date?, end_date?, status?}` | ProjectDetail | project.update |
+| `DELETE /projects/{id}` | — | `204` (hard delete; membership rows cascade) | project.delete |
+| `POST /projects/{id}/members` | `{employee_id, role_on_project}` | ProjectDetail with updated `members[]` | project.update |
+| `DELETE /projects/{id}/members/{employee_id}` | — | ProjectDetail with updated `members[]` | project.update |
+
+`client_id` and every `employee_id` in `member_ids` are validated server-side to belong to the caller's company — cross-tenant references return `422`, not a silent no-op.
+
 ## Health
 
 Unversioned and mounted at the application root (not under `/api/v1`), so infra healthchecks (Docker `HEALTHCHECK`, load balancer probes) don't break across API version bumps.

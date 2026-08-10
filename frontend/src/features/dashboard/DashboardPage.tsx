@@ -5,6 +5,7 @@ import { Box, Card, CardContent, Chip, Grid, Stack, Typography } from "@mui/mate
 import { listCompanies } from "@/api/companies";
 import { listDepartments } from "@/api/departments";
 import { listEmployees } from "@/api/employees";
+import { listProjects } from "@/api/projects";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuthStore } from "@/store/authStore";
 
@@ -91,6 +92,12 @@ function TenantDashboard() {
     enabled: hasPermission("department", "view"),
   });
 
+  const { data: allProjects } = useQuery({
+    queryKey: ["dashboard", "projects"],
+    queryFn: () => listProjects(1, 100),
+    enabled: hasPermission("project", "view"),
+  });
+
   const { data: departmentCounts } = useQuery({
     queryKey: ["dashboard", "department-counts", departments?.items.map((d) => d.id)],
     queryFn: async () => {
@@ -129,6 +136,15 @@ function TenantDashboard() {
         <Grid item xs={12} sm={4}>
           <KpiCard label="Departments" value={departments?.total ?? "—"} />
         </Grid>
+        {hasPermission("project", "view") && (
+          <Grid item xs={12} sm={4}>
+            <KpiCard
+              label="Active Projects"
+              value={allProjects?.items.filter((p) => p.status === "active").length ?? "—"}
+              helper={allProjects ? `${allProjects.total} total` : undefined}
+            />
+          </Grid>
+        )}
       </Grid>
 
       <Grid container spacing={2}>

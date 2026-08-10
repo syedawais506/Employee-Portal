@@ -2,7 +2,7 @@
 
 A commercial-grade, multi-tenant Employee Management Portal (Zoho People–style), built to eventually serve multiple independent customer companies from a single deployment with fully isolated data.
 
-**Phases 1 & 2 are shipped**: multi-tenant data model, authentication, dynamic RBAC/permission engine, Company/Department/Employee management, and a full employee onboarding workflow (configurable document checklist, secure onboarding links, HR review, Admin activation, offer letters) — fully wired end-to-end (React UI → FastAPI → PostgreSQL) rather than shallow-stubbed across every module. See [docs/ROADMAP.md](docs/ROADMAP.md) for what ships in later phases (projects, timesheets, leave, assets, reports, notifications, attendance, billing, AI features).
+**Phases 1, 2 & 3 are shipped**: multi-tenant data model, authentication, dynamic RBAC/permission engine, Company/Department/Employee management, a full employee onboarding workflow (configurable document checklist, secure onboarding links, HR review, Admin activation, offer letters), and Projects & Employee Mapping (clients, project CRUD, team assignment, self-service "my projects" view) — fully wired end-to-end (React UI → FastAPI → PostgreSQL) rather than shallow-stubbed across every module. See [docs/ROADMAP.md](docs/ROADMAP.md) for what ships in later phases (timesheets, leave, assets, reports, notifications, attendance, billing, AI features).
 
 ## Documentation
 
@@ -77,6 +77,10 @@ To try the new-hire side of the flow yourself:
 3. Open that link in an incognito/private window (it's an unauthenticated page) to set a password and upload the required documents as the new hire would.
 4. Back in the main app, go to **Onboarding** to review the documents, mark them HR-reviewed, then activate the account — the new hire can then log in with the password they set.
 
+### Try Projects
+
+Each demo company already has a client ("Northwind Trading Co") and two projects — a billable client project and an internal one, both with team members assigned. Log in as `admin@acme-demo.com` and open **Projects** in the sidebar to see the full management view (create/edit projects, manage clients from the "Clients" tab, add/remove team members). Log in as `employee@acme-demo.com` instead to see the same nav item resolve to a read-only "My Projects" view showing only what that employee is assigned to — no budget or client info, matching what a plain Employee role can see.
+
 ### Sending real email (instead of MailHog)
 
 By default every email (onboarding invites, password resets) is captured locally by MailHog at http://localhost:8025 and never reaches a real inbox — that's intentional for local dev. To send real email:
@@ -149,7 +153,7 @@ Frontend runs at `http://localhost:5173` and proxies `/api` to `http://localhost
 cd frontend && npm run typecheck && npm run lint && npm run test && npm run build
 ```
 
-The backend test suite includes a dedicated cross-tenant-isolation suite (`backend/tests/integration/test_tenant_isolation.py`) that asserts, through the real HTTP API, that one company's Admin cannot read, list, update, or delete another company's data, plus a full onboarding-workflow suite (`test_onboarding.py`) covering invite → password → document upload → HR review → Admin activation.
+The backend test suite includes a dedicated cross-tenant-isolation suite (`backend/tests/integration/test_tenant_isolation.py`) that asserts, through the real HTTP API, that one company's Admin cannot read, list, update, or delete another company's data, a full onboarding-workflow suite (`test_onboarding.py`) covering invite → password → document upload → HR review → Admin activation, and a projects suite (`test_projects.py`) covering CRUD, member assignment, cross-tenant rejection, and the self-service "my projects" view.
 
 ## Security Notes for Deployment
 

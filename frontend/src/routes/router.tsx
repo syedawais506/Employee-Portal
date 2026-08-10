@@ -14,6 +14,8 @@ import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { OnboardingReviewPage } from "@/features/onboarding/OnboardingReviewPage";
 import { PublicOnboardingPage } from "@/features/onboarding/PublicOnboardingPage";
 import { MyProfilePage } from "@/features/profile/MyProfilePage";
+import { ProjectDetailPage } from "@/features/projects/ProjectDetailPage";
+import { ProjectsEntryPage } from "@/features/projects/ProjectsEntryPage";
 import { RoleListPage } from "@/features/roles/RoleListPage";
 import { ProtectedRoute, RequirePermission, RequireSuperAdmin } from "@/routes/ProtectedRoute";
 
@@ -56,6 +58,11 @@ export const router = createBrowserRouter([
               { path: "/onboarding", element: <OnboardingPage /> },
               { path: "/onboarding/review/:employeeId", element: <OnboardingReviewPage /> },
             ],
+          },
+          { path: "/projects", element: <ProjectsEntryPage /> },
+          {
+            element: <RequirePermission module="project" action="view" />,
+            children: [{ path: "/projects/:id", element: <ProjectDetailPage /> }],
           },
           {
             element: <RequireSuperAdmin />,

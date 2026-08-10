@@ -5,6 +5,7 @@ Usage (from backend/):  python -m scripts.seed
 """
 
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from app.core.security import hash_password
 from app.db.rls import set_tenant_context
@@ -13,6 +14,7 @@ from app.repositories.company_repository import CompanyRepository
 from app.repositories.department_repository import DepartmentRepository
 from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.onboarding_repository import DocumentTypeRepository, OnboardingInviteRepository
+from app.repositories.project_repository import ClientRepository, ProjectMemberRepository, ProjectRepository
 from app.repositories.role_repository import RoleRepository
 from app.repositories.user_repository import UserRepository
 from app.services.employee_service import employee_service
@@ -30,6 +32,9 @@ user_repo = UserRepository()
 employee_repo = EmployeeRepository()
 document_type_repo = DocumentTypeRepository()
 invite_repo = OnboardingInviteRepository()
+client_repo = ClientRepository()
+project_repo = ProjectRepository()
+project_member_repo = ProjectMemberRepository()
 
 credentials: list[tuple[str, str, str]] = []
 
@@ -114,7 +119,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
         role_name="Manager", department_id=engineering.id, designation="Engineering Manager",
         first_name="Morgan", last_name="Manager", manager_id=admin_employee.id,
     )
-    make_user_and_employee(
+    engineer_employee = make_user_and_employee(
         role_name="Employee", department_id=engineering.id, designation="Software Engineer",
         first_name="Riley", last_name="Employee", manager_id=manager_employee.id,
     )
@@ -151,6 +156,44 @@ def seed_company(db, *, name: str, slug: str) -> None:
         actor_user_id=admin_employee.user_id,
     )
     _advance_demo_onboarding_to_submitted(db, company_id=company.id, employee=new_hire, document_types=document_types)
+
+    # Projects demo: one billable client project and one internal
+    # non-billable project, so the Projects screen isn't empty on first login.
+    client = client_repo.create(
+        db,
+        company.id,
+        name="Northwind Trading Co",
+        contact_name="Jamie Lee",
+        contact_email="jamie.lee@northwind-demo.com",
+        contact_phone="+1-555-0100",
+    )
+    client_project = project_repo.create(
+        db,
+        company.id,
+        client_id=client.id,
+        name="Website Revamp",
+        budget=Decimal("50000.00"),
+        is_billable=True,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 6, 30),
+        status="active",
+    )
+    project_member_repo.add(db, client_project.id, manager_employee.id, "manager")
+    project_member_repo.add(db, client_project.id, engineer_employee.id, "member")
+
+    internal_project = project_repo.create(
+        db,
+        company.id,
+        client_id=None,
+        name="Internal Tooling",
+        budget=None,
+        is_billable=False,
+        start_date=date(2026, 2, 1),
+        end_date=None,
+        status="active",
+    )
+    project_member_repo.add(db, internal_project.id, admin_employee.id, "manager")
+    project_member_repo.add(db, internal_project.id, engineer_employee.id, "member")
 
 
 def _advance_demo_onboarding_to_submitted(db, *, company_id, employee, document_types) -> None:

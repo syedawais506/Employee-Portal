@@ -140,3 +140,53 @@ export interface OnboardingQueueEntry {
   last_name: string;
   onboarding_status: OnboardingStatus;
 }
+
+export interface Client {
+  id: string;
+  name: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+}
+
+export type ProjectStatus = "active" | "on_hold" | "completed" | "cancelled";
+export type ProjectRole = "manager" | "member";
+
+export interface ProjectMember {
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  role_on_project: ProjectRole;
+}
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  is_billable: boolean;
+  start_date: string | null;
+  end_date: string | null;
+  member_count: number;
+  client: Client | null;
+}
+
+export interface ProjectDetail {
+  id: string;
+  name: string;
+  client: Client | null;
+  budget: string | null;
+  is_billable: boolean;
+  start_date: string | null;
+  end_date: string | null;
+  status: ProjectStatus;
+  members: ProjectMember[];
+}
+
+export interface MyProject {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  role_on_project: ProjectRole;
+  start_date: string | null;
+  end_date: string | null;
+}

@@ -1,4 +1,4 @@
-# Database Schema — Phase 1 & 2
+# Database Schema — Phase 1, 2 & 3
 
 PostgreSQL 16. All tenant-owned tables carry `company_id`. UUID primary keys are generated in the application (Python `uuid.uuid4()`), not by a Postgres extension. All tables have `created_at`, `updated_at`; soft-deletable tables also have `deleted_at`.
 
@@ -29,6 +29,39 @@ erDiagram
     EMPLOYEE ||--o{ EMPLOYEE_DOCUMENT : uploads
     EMPLOYEE ||--|| ONBOARDING_INVITE : "invited via"
     DOCUMENT_TYPE ||--o{ EMPLOYEE_DOCUMENT : "instance of"
+
+    COMPANY ||--o{ CLIENT : has
+    COMPANY ||--o{ PROJECT : has
+    CLIENT ||--o{ PROJECT : "billed to"
+    PROJECT ||--o{ PROJECT_MEMBER : staffs
+    EMPLOYEE ||--o{ PROJECT_MEMBER : "assigned to"
+
+    CLIENT {
+        uuid id PK
+        uuid company_id FK
+        string name
+        string contact_name
+        string contact_email
+        string contact_phone
+    }
+
+    PROJECT {
+        uuid id PK
+        uuid company_id FK
+        uuid client_id FK "nullable"
+        string name
+        numeric budget "nullable"
+        bool is_billable
+        date start_date
+        date end_date
+        string status "active|on_hold|completed|cancelled"
+    }
+
+    PROJECT_MEMBER {
+        uuid project_id FK
+        uuid employee_id FK
+        string role_on_project "manager|member"
+    }
 
     DOCUMENT_TYPE {
         uuid id PK
@@ -151,7 +184,7 @@ erDiagram
     }
 ```
 
-> Further future-phase tables (`project`, `timesheet`, `leave_request`, `leave_balance`, `asset`, `notification`) are specified in [ROADMAP.md](./ROADMAP.md) with their own migrations when their phase begins, so this schema doesn't carry speculative, unused tables ahead of need. Foreign keys they will need (`employee.id`, `department.id`, `company.id`) already exist.
+> Further future-phase tables (`timesheet_entry`, `leave_request`, `leave_balance`, `asset`, `notification`) are specified in [ROADMAP.md](./ROADMAP.md) with their own migrations when their phase begins, so this schema doesn't carry speculative, unused tables ahead of need. Foreign keys they will need (`employee.id`, `project.id`, `department.id`, `company.id`) already exist.
 
 ---
 
@@ -251,6 +284,39 @@ erDiagram
 | used_at | timestamptz NULL | set when the new hire sets their password — doubles as the "password already set" flag |
 | created_at | timestamptz | |
 
+### `client` *(Phase 3)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| name | varchar(255) NOT NULL | `UNIQUE(company_id, name)` |
+| contact_name | varchar(150) NULL | |
+| contact_email | varchar(255) NULL | |
+| contact_phone | varchar(30) NULL | |
+| created_at, updated_at | timestamptz | |
+
+### `project` *(Phase 3)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| client_id | uuid FK → client.id NULL, `ON DELETE SET NULL` | |
+| name | varchar(255) NOT NULL | `UNIQUE(company_id, name)` |
+| budget | numeric(12,2) NULL | |
+| is_billable | boolean NOT NULL DEFAULT true | |
+| start_date, end_date | date NULL | |
+| status | varchar(20) NOT NULL DEFAULT 'active' | active / on_hold / completed / cancelled |
+| created_at, updated_at | timestamptz | |
+
+### `project_member` *(Phase 3)*
+| Column | Type | Notes |
+|---|---|---|
+| project_id | uuid FK → project.id, `ON DELETE CASCADE` | composite PK with employee_id |
+| employee_id | uuid FK → employee.id, `ON DELETE CASCADE` | composite PK with project_id |
+| role_on_project | varchar(20) NOT NULL DEFAULT 'member' | manager / member |
+
+A pure join table — no `company_id` of its own, same pattern as `role_permission`/`user_role`. Tenant isolation comes from always resolving the `project` row (company-scoped) before touching membership rows, not from RLS on this table.
+
 ### `role`, `permission`, `role_permission`, `user_role`
 Standard RBAC join tables as diagrammed above. `permission.module + permission.action` is `UNIQUE`. `role_permission(role_id, permission_id)` composite PK. `user_role(user_id, role_id)` composite PK.
 
@@ -269,6 +335,7 @@ Append-only; no `updated_at`/`deleted_at`. Indexed on `(company_id, entity_type,
 - `audit_log(company_id, created_at DESC)`
 - `employee_document(employee_id)`, `employee_document(company_id)` *(Phase 2)*
 - `onboarding_invite(token_hash)` unique — the hot lookup path for every public onboarding request *(Phase 2)*
+- `project(company_id, status)` — implicit via the `UNIQUE(company_id, name)` constraint plus status filtering in list queries *(Phase 3)*
 
 ## Row-Level Security
 
@@ -277,7 +344,9 @@ ALTER TABLE employee ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON employee
   USING (company_id = current_setting('app.current_company_id', true)::uuid);
 -- mirrored on department, role (where company_id is not null), audit_log,
--- and (Phase 2) document_type, employee_document, onboarding_invite
+-- (Phase 2) document_type, employee_document, onboarding_invite,
+-- and (Phase 3) client, project — NOT project_member, which is a pure join
+-- table without its own company_id (see above)
 ```
 
 Applied to every tenant-scoped table as defense-in-depth behind the repository-layer enforcement described in [LLD.md §4](./LLD.md#4-multi-tenant-enforcement--tenantscopedrepository). See [HLD.md §4](./HLD.md#4-multi-tenancy-strategy) for the caveat that this is currently inert in the local Docker Compose setup (superuser Postgres role) and needs a dedicated non-superuser app role to act as a real second layer in production.

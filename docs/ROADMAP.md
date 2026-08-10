@@ -31,11 +31,15 @@ SRS, HLD, LLD, ER diagram, API contracts, roadmap. No code.
 
 **Simplified from the original scope** (deferred, not blocking): no separate "onboarding template" or per-employee task checklist beyond the document list itself; no virus-scan integration (hook point not yet added); offer letter template is fixed (not yet per-company customizable).
 
-## Phase 3 — Projects & Employee Mapping
-- `project`, `project_member`, `client` tables
-- Project CRUD, budget, billable flag, employee/manager/client assignment
-- Project dashboard (hours, cost, status)
-- Employee mapping: multiple projects, one manager, one HR, one department, one cost center (schema already supports; this phase builds the UI/reporting)
+## Phase 3 — Projects & Employee Mapping *(shipped)*
+- `project` (name, client_id, budget, billable flag, start/end date, status) — **no** `department_id`: cross-functional projects aren't pinned to a single department
+- `project_member` (project_id, employee_id, role_on_project: `manager`/`member`) — a project can have more than one manager, so this is a join table rather than a single `project.manager_id` column; a pure join table like `role_permission`/`user_role` from Phase 1, no `company_id` or RLS of its own — tenant isolation comes from always resolving the project (company-scoped) first
+- `client` — lightweight (name, contact name/email/phone), managed from a "Clients" tab on the Projects screen (same tabbed pattern as Onboarding's Review Queue / Document Checklist), reusing the existing `project.*` permissions rather than a separate module — it's an assignment target for projects, not a CRM
+- Full CRUD + member add/remove, tenant isolation, and RBAC tests, same rigor as Phase 1/2
+- `GET /projects/mine` — self-service, any authenticated employee sees only projects they're a member of (with their role on each), independent of the `project.view` permission — matches the original spec's "View Assigned Projects" for the Employee role, and keeps budget/client data out of a plain employee's view. The frontend routes `/projects` to the full management screen or this read-only view automatically based on permission.
+- Dashboard: an "Active Projects" KPI added to the existing tenant dashboard — **not** hours or cost-incurred, since neither has a real data source until Phase 4 ships; those widgets land there instead of being built against fake numbers now
+
+**Adjusted from the original scope** (see the scope-review discussion before this phase started): the original draft asked for an "hours, cost, status" dashboard and a single `manager_id`/employee-mapping model. Both were cut back — hours/cost data doesn't exist without Timesheets (Phase 4), and a join-table `project_member` with a role flag is more correct than a single manager column since a project can have multiple managers. Employee mapping itself (multiple projects, one manager/HR/department/cost-center) was already schema-supported since Phase 1; this phase is where it got a UI.
 
 ## Phase 4 — Timesheets
 - `timesheet_period_config` (per-company period rules), `timesheet_entry`, `timesheet_approval_step`
