@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from_email: str = "no-reply@employee-portal.local"
+    smtp_from_name: str = ""
     smtp_use_tls: bool = False
 
     s3_endpoint_url: str = "http://localhost:9000"

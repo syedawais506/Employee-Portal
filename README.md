@@ -77,6 +77,37 @@ To try the new-hire side of the flow yourself:
 3. Open that link in an incognito/private window (it's an unauthenticated page) to set a password and upload the required documents as the new hire would.
 4. Back in the main app, go to **Onboarding** to review the documents, mark them HR-reviewed, then activate the account — the new hire can then log in with the password they set.
 
+### Sending real email (instead of MailHog)
+
+By default every email (onboarding invites, password resets) is captured locally by MailHog at http://localhost:8025 and never reaches a real inbox — that's intentional for local dev. To send real email:
+
+1. Get SMTP credentials from a provider. Any of these work since the app just uses standard SMTP with optional STARTTLS:
+   - **SendGrid**: host `smtp.sendgrid.net`, port `587`, user `apikey`, password = your SendGrid API key.
+   - **Mailgun**: host `smtp.mailgun.org`, port `587`, user/password from your Mailgun domain's SMTP credentials.
+   - **AWS SES**: host `email-smtp.<region>.amazonaws.com`, port `587`, user/password = SES SMTP credentials (not your AWS IAM keys — generate these separately in the SES console).
+   - **Gmail** (fine for quick testing, not for production volume): host `smtp.gmail.com`, port `587`, user = your Gmail address, password = a 16-character [App Password](https://myaccount.google.com/apppasswords) (requires 2FA enabled — your normal Gmail password won't work).
+2. Edit `docker/.env` and fill in (AWS SES example — swap host/user/password for your provider):
+   ```
+   SMTP_HOST=email-smtp.us-east-1.amazonaws.com
+   SMTP_PORT=587
+   SMTP_USER=your-ses-smtp-username
+   SMTP_PASSWORD=your-ses-smtp-password
+   SMTP_USE_TLS=true
+   SMTP_FROM_EMAIL=onboarding@yourcompany.com
+   SMTP_FROM_NAME=Employee Portal
+   ```
+   `SMTP_FROM_NAME` is optional — it sets the display name recipients see (e.g. "Employee Portal <onboarding@yourcompany.com>") instead of just the bare address.
+
+   Most providers (SendGrid, Mailgun, SES) require `SMTP_FROM_EMAIL` to be a verified sender/domain, or the send will be rejected even with correct credentials. For SES specifically: the SMTP username/password are **not** your AWS access key/secret — generate them separately under SES → "SMTP settings" → "Create SMTP credentials", and the sending address/domain must be verified in that same SES account/region.
+3. Recreate the backend and worker so they pick up the new env vars (a `restart` alone won't do it — the values are baked in at container creation):
+   ```bash
+   docker compose -f docker/docker-compose.yml up -d --force-recreate backend celery-worker
+   ```
+4. Trigger a real send (e.g. create a new employee, or use **Forgot password**) and check the **celery-worker** logs if it doesn't arrive — failed sends are logged there, not surfaced to the UI, since email delivery is fire-and-forget by design:
+   ```bash
+   docker compose -f docker/docker-compose.yml logs -f celery-worker
+   ```
+
 ### Stopping / resetting
 
 ```bash
