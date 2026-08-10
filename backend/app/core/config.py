@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = False
 
     s3_endpoint_url: str = "http://localhost:9000"
+    # Browser-reachable base URL for presigned download links. In Docker
+    # Compose, s3_endpoint_url is the internal "http://minio:9000" hostname —
+    # fine for the backend to reach MinIO, useless for a browser presigned
+    # URL, which is signed against (and must be fetched from) this host
+    # instead. Left blank, it falls back to s3_endpoint_url, which is
+    # correct for local (non-Docker) dev where both are already the same
+    # localhost address.
+    s3_public_endpoint_url: str = ""
     s3_access_key: str = "minioadmin"
     s3_secret_key: str = "minioadmin"
     s3_bucket_name: str = "employee-portal"
@@ -44,6 +52,10 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def s3_public_endpoint_url_effective(self) -> str:
+        return self.s3_public_endpoint_url or self.s3_endpoint_url
 
 
 @lru_cache
