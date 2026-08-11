@@ -92,6 +92,10 @@ Log in as `manager@acme-demo.com` to see an **Approvals** tab as well, with the 
 
 Employee location (e.g. "United States" / "India") is set from **Employees → New Employee** (or the edit form) — it exists specifically so the timesheet export can be filtered by it for a multi-country workforce.
 
+### Try exporting data
+
+Timesheets isn't the only module with an export — as Admin, **Employees**, **Departments**, **Projects**, and the **Clients** tab (inside Projects) each have an **Export CSV** button that opens a small dialog of filters (dates plus whatever's relevant to that module: department/status/location/manager for Employees, client/billable/start-date for Projects, and so on) before downloading. All four share the same CSV-building code Timesheets' export uses.
+
 ### Sending real email (instead of MailHog)
 
 By default every email (onboarding invites, password resets) is captured locally by MailHog at http://localhost:8025 and never reaches a real inbox — that's intentional for local dev. To send real email:
@@ -164,7 +168,7 @@ Frontend runs at `http://localhost:5173` and proxies `/api` to `http://localhost
 cd frontend && npm run typecheck && npm run lint && npm run test && npm run build
 ```
 
-The backend test suite includes a dedicated cross-tenant-isolation suite (`backend/tests/integration/test_tenant_isolation.py`) that asserts, through the real HTTP API, that one company's Admin cannot read, list, update, or delete another company's data, a full onboarding-workflow suite (`test_onboarding.py`) covering invite → password → document upload → HR review → Admin activation, a projects suite (`test_projects.py`) covering CRUD, member assignment, cross-tenant rejection, and the self-service "my projects" view, and a timesheets suite (`test_timesheets.py`) covering entry/submission/approval lifecycle, the rule engine (duplicate prevention, max-hours-per-day, project-membership), reject-then-resubmit across a different free-form range, independently-submittable overlapping ranges, the optional Finance approval step, bulk approve, admin-only reopen, bucket-filtered submission history, location-filtered export, and dashboard/export permission gating.
+The backend test suite includes a dedicated cross-tenant-isolation suite (`backend/tests/integration/test_tenant_isolation.py`) that asserts, through the real HTTP API, that one company's Admin cannot read, list, update, or delete another company's data, a full onboarding-workflow suite (`test_onboarding.py`) covering invite → password → document upload → HR review → Admin activation, a projects suite (`test_projects.py`) covering CRUD, member assignment, cross-tenant rejection, and the self-service "my projects" view, and a timesheets suite (`test_timesheets.py`) covering entry/submission/approval lifecycle, the rule engine (duplicate prevention, max-hours-per-day, project-membership), reject-then-resubmit across a different free-form range, independently-submittable overlapping ranges, the optional Finance approval step, bulk approve, admin-only reopen, bucket-filtered submission history, location-filtered export, and dashboard/export permission gating; and an exports suite (`test_exports.py`) covering permission gating and filter correctness for the Employees, Departments, Projects, and Clients CSV exports.
 
 ## Security Notes for Deployment
 

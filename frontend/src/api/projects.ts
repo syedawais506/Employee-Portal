@@ -1,5 +1,6 @@
 import { apiClient } from "@/api/client";
 import type { MyProject, Page, ProjectDetail, ProjectRole, ProjectSummary } from "@/types";
+import { triggerCsvDownload } from "@/utils/downloadCsv";
 
 export interface ProjectMemberInput {
   employee_id: string;
@@ -57,4 +58,26 @@ export async function removeProjectMember(projectId: string, employeeId: string)
 export async function listMyProjects(): Promise<MyProject[]> {
   const response = await apiClient.get<MyProject[]>("/projects/mine");
   return response.data;
+}
+
+export interface ProjectExportFilters {
+  status?: string;
+  clientId?: string;
+  isBillable?: boolean;
+  startDateFrom?: string;
+  startDateTo?: string;
+}
+
+export async function downloadProjectsExportCsv(filters: ProjectExportFilters = {}): Promise<void> {
+  const response = await apiClient.get<Blob>("/projects/export", {
+    params: {
+      status: filters.status,
+      client_id: filters.clientId,
+      is_billable: filters.isBillable,
+      start_date_from: filters.startDateFrom,
+      start_date_to: filters.startDateTo,
+    },
+    responseType: "blob",
+  });
+  triggerCsvDownload(response.data, "projects-export.csv");
 }

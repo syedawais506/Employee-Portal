@@ -7,6 +7,7 @@ import type {
   TimesheetSubmission,
   TimesheetWorkType,
 } from "@/types";
+import { triggerCsvDownload } from "@/utils/downloadCsv";
 
 export interface TimesheetEntryInput {
   project_id: string;
@@ -136,12 +137,5 @@ export async function downloadTimesheetExportCsv(filters: TimesheetExportFilters
     },
     responseType: "blob",
   });
-  const url = window.URL.createObjectURL(response.data);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "timesheet-export.csv";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
+  triggerCsvDownload(response.data, "timesheet-export.csv");
 }

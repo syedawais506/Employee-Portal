@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import csv
-import io
 import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -19,6 +17,7 @@ from app.repositories.timesheet_repository import (
 from app.schemas.common import Page
 from app.schemas.timesheet import VALID_PERIOD_TYPES, VALID_WORK_TYPES
 from app.services.audit_service import audit_service
+from app.utils.csv_export import build_csv
 
 OPEN_SUBMISSION_STATUSES = {"submitted", "manager_approved"}
 
@@ -487,26 +486,22 @@ class TimesheetService:
             project_id=project_id,
             location=location,
         )
-        buffer = io.StringIO()
-        writer = csv.writer(buffer)
-        writer.writerow(
-            ["Employee", "Location", "Project", "Date", "Hours", "Billable", "Work Type", "Status", "Description"]
-        )
-        for entry in entries:
-            writer.writerow(
-                [
-                    entry.employee.full_name,
-                    entry.employee.location or "",
-                    entry.project.name,
-                    entry.entry_date.isoformat(),
-                    str(entry.hours),
-                    "Yes" if entry.is_billable else "No",
-                    entry.work_type,
-                    entry.status,
-                    entry.description or "",
-                ]
-            )
-        return buffer.getvalue()
+        header = ["Employee", "Location", "Project", "Date", "Hours", "Billable", "Work Type", "Status", "Description"]
+        rows = [
+            [
+                entry.employee.full_name,
+                entry.employee.location or "",
+                entry.project.name,
+                entry.entry_date.isoformat(),
+                str(entry.hours),
+                "Yes" if entry.is_billable else "No",
+                entry.work_type,
+                entry.status,
+                entry.description or "",
+            ]
+            for entry in entries
+        ]
+        return build_csv(header, rows)
 
 
 timesheet_service = TimesheetService()

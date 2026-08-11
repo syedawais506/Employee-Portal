@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DownloadIcon from "@mui/icons-material/Download";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import {
   Alert,
   Button,
   IconButton,
   Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -17,11 +19,18 @@ import {
   TableRow,
 } from "@mui/material";
 
-import { createDepartment, deleteDepartment, listDepartments, updateDepartment } from "@/api/departments";
+import {
+  createDepartment,
+  deleteDepartment,
+  downloadDepartmentsExportCsv,
+  listDepartments,
+  updateDepartment,
+} from "@/api/departments";
 import { extractApiErrorMessage } from "@/api/client";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { PermissionGate } from "@/components/PermissionGate";
+import { DepartmentExportDialog } from "@/features/departments/DepartmentExportDialog";
 import { DepartmentFormDialog } from "@/features/departments/DepartmentFormDialog";
 import type { Department } from "@/types";
 
@@ -35,10 +44,16 @@ export function DepartmentListPage() {
   });
   const [pendingDelete, setPendingDelete] = useState<Department | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["departments", page, pageSize],
     queryFn: () => listDepartments(page + 1, pageSize),
+  });
+  const { data: allDepartments } = useQuery({
+    queryKey: ["departments", "all"],
+    queryFn: () => listDepartments(1, 100),
   });
 
   const createMutation = useMutation({
@@ -86,17 +101,44 @@ export function DepartmentListPage() {
     }
   }
 
+  async function handleExport(filters: {
+    search: string;
+    parentDepartmentId: string;
+    createdFrom: string;
+    createdTo: string;
+  }) {
+    setExporting(true);
+    try {
+      await downloadDepartmentsExportCsv({
+        search: filters.search || undefined,
+        parentDepartmentId: filters.parentDepartmentId || undefined,
+        createdFrom: filters.createdFrom || undefined,
+        createdTo: filters.createdTo || undefined,
+      });
+      setExportOpen(false);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
         title="Departments"
         subtitle="Organize your company into departments and cost centers."
         actions={
-          <PermissionGate module="department" action="create">
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-              New Department
-            </Button>
-          </PermissionGate>
+          <Stack direction="row" spacing={1.5}>
+            <PermissionGate module="department" action="export">
+              <Button variant="outlined" startIcon={<DownloadIcon />} onClick={() => setExportOpen(true)}>
+                Export CSV
+              </Button>
+            </PermissionGate>
+            <PermissionGate module="department" action="create">
+              <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+                New Department
+              </Button>
+            </PermissionGate>
+          </Stack>
         }
       />
 
@@ -158,6 +200,14 @@ export function DepartmentListPage() {
         submitting={createMutation.isPending || updateMutation.isPending}
         onClose={() => setFormState({ open: false, editing: null })}
         onSubmit={handleSubmit}
+      />
+
+      <DepartmentExportDialog
+        open={exportOpen}
+        departments={allDepartments?.items ?? []}
+        exporting={exporting}
+        onClose={() => setExportOpen(false)}
+        onExport={handleExport}
       />
 
       <ConfirmDialog

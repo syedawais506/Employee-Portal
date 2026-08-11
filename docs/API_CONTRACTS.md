@@ -42,6 +42,7 @@ Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI)
 | `GET /departments/{id}` | — | Department | department.view |
 | `PATCH /departments/{id}` | `{name?, parent_department_id?}` | Department | department.update |
 | `DELETE /departments/{id}` | — | `204` | department.delete |
+| `GET /departments/export` | `search?, parent_department_id?, created_from?, created_to?` | `text/csv` attachment | department.export |
 
 ## Roles & Permissions — `/api/v1/roles`
 
@@ -66,6 +67,7 @@ Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI)
 | `GET /employees/me` | — | EmployeeDetail (caller's own) | self |
 | `PATCH /employees/me` | `{phone?, address?}` (self-editable subset only) | EmployeeDetail | self |
 | `GET /employees/{id}/offer-letter` | — | `application/pdf` binary (ReportLab-rendered) | employee.view |
+| `GET /employees/export` | `search?, department_id?, status?, manager_id?, employment_type?, location?, joining_date_from?, joining_date_to?` | `text/csv` attachment | employee.export |
 
 ## Document Types — `/api/v1/document-types` *(Phase 2)*
 
@@ -106,6 +108,7 @@ Lightweight assignment target for projects — reuses the `project.*` permission
 | `POST /clients` | `{name, contact_name?, contact_email?, contact_phone?}` | Client (201) | project.create |
 | `PATCH /clients/{id}` | `{name?, contact_name?, contact_email?, contact_phone?}` | Client | project.update |
 | `DELETE /clients/{id}` | — | `204` (projects referencing it keep their other data; `client_id` becomes null) | project.delete |
+| `GET /clients/export` | `search?, created_from?, created_to?` | `text/csv` attachment | project.export |
 
 ## Projects — `/api/v1/projects` *(Phase 3)*
 
@@ -119,6 +122,7 @@ Lightweight assignment target for projects — reuses the `project.*` permission
 | `DELETE /projects/{id}` | — | `204` (hard delete; membership rows cascade) | project.delete |
 | `POST /projects/{id}/members` | `{employee_id, role_on_project}` | ProjectDetail with updated `members[]` | project.update |
 | `DELETE /projects/{id}/members/{employee_id}` | — | ProjectDetail with updated `members[]` | project.update |
+| `GET /projects/export` | `status?, client_id?, is_billable?, start_date_from?, start_date_to?` | `text/csv` attachment | project.export |
 
 `client_id` and every `employee_id` in `member_ids` are validated server-side to belong to the caller's company — cross-tenant references return `422`, not a silent no-op.
 

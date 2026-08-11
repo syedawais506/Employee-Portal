@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
@@ -14,6 +15,25 @@ class ClientRepository(TenantScopedRepository[Client]):
 
     def list_all(self, db: Session, company_id: uuid.UUID) -> list[Client]:
         stmt = select(Client).where(Client.company_id == company_id).order_by(Client.name)
+        return list(db.execute(stmt).scalars().all())
+
+    def list_for_export(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        search: str | None,
+        created_from: datetime | None,
+        created_to: datetime | None,
+    ) -> list[Client]:
+        conditions = [Client.company_id == company_id]
+        if search:
+            conditions.append(Client.name.ilike(f"%{search}%"))
+        if created_from:
+            conditions.append(Client.created_at >= created_from)
+        if created_to:
+            conditions.append(Client.created_at <= created_to)
+        stmt = select(Client).where(*conditions).order_by(Client.name)
         return list(db.execute(stmt).scalars().all())
 
 
@@ -55,6 +75,37 @@ class ProjectRepository(TenantScopedRepository[Project]):
         )
         items = list(db.execute(stmt).unique().scalars().all())
         return items, total
+
+    def list_for_export(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        status: str | None,
+        client_id: uuid.UUID | None,
+        is_billable: bool | None,
+        start_date_from: date | None,
+        start_date_to: date | None,
+    ) -> list[Project]:
+        conditions = [Project.company_id == company_id]
+        if status:
+            conditions.append(Project.status == status)
+        if client_id:
+            conditions.append(Project.client_id == client_id)
+        if is_billable is not None:
+            conditions.append(Project.is_billable == is_billable)
+        if start_date_from:
+            conditions.append(Project.start_date >= start_date_from)
+        if start_date_to:
+            conditions.append(Project.start_date <= start_date_to)
+
+        stmt = (
+            select(Project)
+            .options(joinedload(Project.client), joinedload(Project.members))
+            .where(*conditions)
+            .order_by(Project.name)
+        )
+        return list(db.execute(stmt).unique().scalars().all())
 
 
 class ProjectMemberRepository:

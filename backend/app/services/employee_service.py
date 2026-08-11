@@ -16,6 +16,7 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.common import Page
 from app.services.audit_service import audit_service
 from app.services.onboarding_service import onboarding_service
+from app.utils.csv_export import build_csv
 
 
 class EmployeeService:
@@ -201,6 +202,55 @@ class EmployeeService:
             action="delete",
         )
         db.commit()
+
+    def export_csv(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        search: str | None,
+        department_id: uuid.UUID | None,
+        status: str | None,
+        manager_id: uuid.UUID | None,
+        employment_type: str | None,
+        location: str | None,
+        joining_date_from: date | None,
+        joining_date_to: date | None,
+    ) -> str:
+        employees = self.employee_repo.list_for_export(
+            db,
+            company_id,
+            search=search,
+            department_id=department_id,
+            status=status,
+            manager_id=manager_id,
+            employment_type=employment_type,
+            location=location,
+            joining_date_from=joining_date_from,
+            joining_date_to=joining_date_to,
+        )
+        header = [
+            "Employee Code", "First Name", "Last Name", "Email", "Department", "Designation",
+            "Manager", "Employment Type", "Location", "Joining Date", "Status", "Onboarding Status",
+        ]
+        rows = [
+            [
+                e.employee_code,
+                e.first_name,
+                e.last_name,
+                e.email,
+                e.department.name if e.department else "",
+                e.designation or "",
+                e.manager.full_name if e.manager else "",
+                e.employment_type,
+                e.location or "",
+                e.joining_date.isoformat() if e.joining_date else "",
+                e.status,
+                e.onboarding_status,
+            ]
+            for e in employees
+        ]
+        return build_csv(header, rows)
 
 
 employee_service = EmployeeService()

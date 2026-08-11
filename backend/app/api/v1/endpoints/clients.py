@@ -1,6 +1,8 @@
 import uuid
+from datetime import datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_company_id, get_db, require_permission
@@ -9,6 +11,25 @@ from app.schemas.project import ClientCreateRequest, ClientResponse, ClientUpdat
 from app.services.client_service import client_service
 
 router = APIRouter(prefix="/clients", tags=["projects"])
+
+
+@router.get("/export")
+def export_clients(
+    search: str | None = Query(default=None),
+    created_from: datetime | None = Query(default=None),
+    created_to: datetime | None = Query(default=None),
+    company_id: uuid.UUID = Depends(get_current_company_id),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("project", "export")),
+):
+    csv_text = client_service.export_csv(
+        db, company_id, search=search, created_from=created_from, created_to=created_to
+    )
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="clients-export.csv"'},
+    )
 
 
 @router.get("", response_model=list[ClientResponse])

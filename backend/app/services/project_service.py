@@ -14,6 +14,7 @@ from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.project_repository import ClientRepository, ProjectMemberRepository, ProjectRepository
 from app.schemas.common import Page
 from app.services.audit_service import audit_service
+from app.utils.csv_export import build_csv
 
 VALID_PROJECT_ROLES = {"manager", "member"}
 
@@ -207,6 +208,42 @@ class ProjectService:
             }
             for m in memberships
         ]
+
+    def export_csv(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        status: str | None,
+        client_id: uuid.UUID | None,
+        is_billable: bool | None,
+        start_date_from: date | None,
+        start_date_to: date | None,
+    ) -> str:
+        projects = self.repo.list_for_export(
+            db,
+            company_id,
+            status=status,
+            client_id=client_id,
+            is_billable=is_billable,
+            start_date_from=start_date_from,
+            start_date_to=start_date_to,
+        )
+        header = ["Name", "Client", "Budget", "Billable", "Start Date", "End Date", "Status", "Member Count"]
+        rows = [
+            [
+                p.name,
+                p.client.name if p.client else "",
+                str(p.budget) if p.budget is not None else "",
+                "Yes" if p.is_billable else "No",
+                p.start_date.isoformat() if p.start_date else "",
+                p.end_date.isoformat() if p.end_date else "",
+                p.status,
+                len(p.members),
+            ]
+            for p in projects
+        ]
+        return build_csv(header, rows)
 
 
 project_service = ProjectService()

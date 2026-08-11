@@ -12,7 +12,7 @@ from app.services import permission_cache
 # but declared now so the permission-matrix UI and seed data don't need later migrations.
 PERMISSION_CATALOG: dict[str, list[str]] = {
     "employee": ["view", "create", "update", "delete", "export", "import"],
-    "department": ["view", "create", "update", "delete"],
+    "department": ["view", "create", "update", "delete", "export"],
     "role": ["view", "create", "update", "delete"],
     "company": ["view", "create", "update", "delete"],
     "onboarding": ["view", "review", "approve", "configure"],
@@ -27,11 +27,11 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
     "Admin": [
         "employee.view", "employee.create", "employee.update", "employee.delete",
         "employee.export", "employee.import",
-        "department.view", "department.create", "department.update", "department.delete",
+        "department.view", "department.create", "department.update", "department.delete", "department.export",
         "role.view", "role.create", "role.update", "role.delete",
         "company.view",
         "onboarding.view", "onboarding.review", "onboarding.approve", "onboarding.configure",
-        "project.view", "project.create", "project.update", "project.delete",
+        "project.view", "project.create", "project.update", "project.delete", "project.export",
         "timesheet.view", "timesheet.create", "timesheet.update", "timesheet.delete",
         "timesheet.approve", "timesheet.reject", "timesheet.export", "timesheet.configure",
         "leave.view", "leave.approve", "leave.reject",

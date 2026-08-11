@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,7 @@ from app.models.department import Department
 from app.repositories.department_repository import DepartmentRepository
 from app.schemas.common import Page
 from app.services.audit_service import audit_service
+from app.utils.csv_export import build_csv
 
 
 class DepartmentService:
@@ -112,6 +114,36 @@ class DepartmentService:
             before={"name": department.name},
         )
         db.commit()
+
+    def export_csv(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        search: str | None,
+        parent_department_id: uuid.UUID | None,
+        created_from: datetime | None,
+        created_to: datetime | None,
+    ) -> str:
+        departments = self.repo.list_for_export(
+            db,
+            company_id,
+            search=search,
+            parent_department_id=parent_department_id,
+            created_from=created_from,
+            created_to=created_to,
+        )
+        header = ["Name", "Parent Department", "Cost Center Code", "Created At"]
+        rows = [
+            [
+                dept.name,
+                dept.parent.name if dept.parent else "",
+                dept.cost_center_code or "",
+                dept.created_at.isoformat(),
+            ]
+            for dept in departments
+        ]
+        return build_csv(header, rows)
 
 
 department_service = DepartmentService()

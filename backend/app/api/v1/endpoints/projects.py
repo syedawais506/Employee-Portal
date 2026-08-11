@@ -1,6 +1,8 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_company_id, get_current_user, get_db, require_permission
@@ -76,6 +78,33 @@ def create_project(
 def list_my_projects(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     employee = employee_service.get_employee_by_user_id(db, current_user.id)
     return project_service.get_my_projects(db, employee.id)
+
+
+@router.get("/export")
+def export_projects(
+    status: str | None = Query(default=None),
+    client_id: uuid.UUID | None = Query(default=None),
+    is_billable: bool | None = Query(default=None),
+    start_date_from: date | None = Query(default=None),
+    start_date_to: date | None = Query(default=None),
+    company_id: uuid.UUID = Depends(get_current_company_id),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("project", "export")),
+):
+    csv_text = project_service.export_csv(
+        db,
+        company_id,
+        status=status,
+        client_id=client_id,
+        is_billable=is_billable,
+        start_date_from=start_date_from,
+        start_date_to=start_date_to,
+    )
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="projects-export.csv"'},
+    )
 
 
 @router.get("/{project_id}", response_model=ProjectDetailResponse)

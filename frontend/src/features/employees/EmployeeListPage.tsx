@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DownloadIcon from "@mui/icons-material/Download";
 import {
   Alert,
   Button,
@@ -25,11 +26,12 @@ import SearchIcon from "@mui/icons-material/Search";
 
 import { extractApiErrorMessage } from "@/api/client";
 import { listDepartments } from "@/api/departments";
-import { createEmployee, deleteEmployee, listEmployees } from "@/api/employees";
+import { createEmployee, deleteEmployee, downloadEmployeesExportCsv, listEmployees } from "@/api/employees";
 import { listRoles } from "@/api/roles";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { PermissionGate } from "@/components/PermissionGate";
+import { EmployeeExportDialog } from "@/features/employees/EmployeeExportDialog";
 import { EmployeeFormDialog, type EmployeeFormValues } from "@/features/employees/EmployeeFormDialog";
 import type { EmployeeSummary } from "@/types";
 
@@ -48,6 +50,8 @@ export function EmployeeListPage() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [formOpen, setFormOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<EmployeeSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -100,24 +104,59 @@ export function EmployeeListPage() {
     },
   });
 
+  async function handleExport(filters: {
+    search: string;
+    departmentId: string;
+    status: string;
+    managerId: string;
+    employmentType: string;
+    location: string;
+    joiningDateFrom: string;
+    joiningDateTo: string;
+  }) {
+    setExporting(true);
+    try {
+      await downloadEmployeesExportCsv({
+        search: filters.search || undefined,
+        departmentId: filters.departmentId || undefined,
+        status: filters.status || undefined,
+        managerId: filters.managerId || undefined,
+        employmentType: filters.employmentType || undefined,
+        location: filters.location || undefined,
+        joiningDateFrom: filters.joiningDateFrom || undefined,
+        joiningDateTo: filters.joiningDateTo || undefined,
+      });
+      setExportOpen(false);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
         title="Employees"
         subtitle="Manage your company's employee directory."
         actions={
-          <PermissionGate module="employee" action="create">
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => {
-                setErrorMessage(null);
-                setFormOpen(true);
-              }}
-            >
-              New Employee
-            </Button>
-          </PermissionGate>
+          <Stack direction="row" spacing={1.5}>
+            <PermissionGate module="employee" action="export">
+              <Button variant="outlined" startIcon={<DownloadIcon />} onClick={() => setExportOpen(true)}>
+                Export CSV
+              </Button>
+            </PermissionGate>
+            <PermissionGate module="employee" action="create">
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  setErrorMessage(null);
+                  setFormOpen(true);
+                }}
+              >
+                New Employee
+              </Button>
+            </PermissionGate>
+          </Stack>
         }
       />
 
@@ -240,6 +279,15 @@ export function EmployeeListPage() {
         submitting={createMutation.isPending}
         onClose={() => setFormOpen(false)}
         onSubmit={(values) => createMutation.mutate(values)}
+      />
+
+      <EmployeeExportDialog
+        open={exportOpen}
+        departments={departments?.items ?? []}
+        managers={managers?.items ?? []}
+        exporting={exporting}
+        onClose={() => setExportOpen(false)}
+        onExport={handleExport}
       />
 
       <ConfirmDialog

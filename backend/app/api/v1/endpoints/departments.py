@@ -1,6 +1,8 @@
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_company_id, get_db, require_permission
@@ -10,6 +12,31 @@ from app.schemas.department import DepartmentCreateRequest, DepartmentResponse, 
 from app.services.department_service import department_service
 
 router = APIRouter(prefix="/departments", tags=["departments"])
+
+
+@router.get("/export")
+def export_departments(
+    search: str | None = Query(default=None),
+    parent_department_id: uuid.UUID | None = Query(default=None),
+    created_from: datetime | None = Query(default=None),
+    created_to: datetime | None = Query(default=None),
+    company_id: uuid.UUID = Depends(get_current_company_id),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("department", "export")),
+):
+    csv_text = department_service.export_csv(
+        db,
+        company_id,
+        search=search,
+        parent_department_id=parent_department_id,
+        created_from=created_from,
+        created_to=created_to,
+    )
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="departments-export.csv"'},
+    )
 
 
 @router.get("", response_model=Page[DepartmentResponse])

@@ -1,5 +1,6 @@
 import { apiClient } from "@/api/client";
 import type { Department, Page } from "@/types";
+import { triggerCsvDownload } from "@/utils/downloadCsv";
 
 export interface DepartmentInput {
   name: string;
@@ -26,4 +27,24 @@ export async function updateDepartment(id: string, payload: Partial<DepartmentIn
 
 export async function deleteDepartment(id: string): Promise<void> {
   await apiClient.delete(`/departments/${id}`);
+}
+
+export interface DepartmentExportFilters {
+  search?: string;
+  parentDepartmentId?: string;
+  createdFrom?: string;
+  createdTo?: string;
+}
+
+export async function downloadDepartmentsExportCsv(filters: DepartmentExportFilters = {}): Promise<void> {
+  const response = await apiClient.get<Blob>("/departments/export", {
+    params: {
+      search: filters.search,
+      parent_department_id: filters.parentDepartmentId,
+      created_from: filters.createdFrom,
+      created_to: filters.createdTo,
+    },
+    responseType: "blob",
+  });
+  triggerCsvDownload(response.data, "departments-export.csv");
 }

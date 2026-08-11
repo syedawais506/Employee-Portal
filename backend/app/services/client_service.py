@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -8,6 +9,7 @@ from app.core.exceptions import ConflictError, NotFoundError
 from app.models.project import Client
 from app.repositories.project_repository import ClientRepository
 from app.services.audit_service import audit_service
+from app.utils.csv_export import build_csv
 
 
 class ClientService:
@@ -107,6 +109,25 @@ class ClientService:
             before={"name": client.name},
         )
         db.commit()
+
+    def export_csv(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        search: str | None,
+        created_from: datetime | None,
+        created_to: datetime | None,
+    ) -> str:
+        clients = self.repo.list_for_export(
+            db, company_id, search=search, created_from=created_from, created_to=created_to
+        )
+        header = ["Name", "Contact Name", "Contact Email", "Contact Phone", "Created At"]
+        rows = [
+            [c.name, c.contact_name or "", c.contact_email or "", c.contact_phone or "", c.created_at.isoformat()]
+            for c in clients
+        ]
+        return build_csv(header, rows)
 
 
 client_service = ClientService()

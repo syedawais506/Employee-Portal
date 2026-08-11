@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AddIcon from "@mui/icons-material/Add";
+import DownloadIcon from "@mui/icons-material/Download";
 import {
   Button,
   Chip,
@@ -21,8 +22,9 @@ import {
 import { listClients } from "@/api/clients";
 import { extractApiErrorMessage } from "@/api/client";
 import { listEmployees } from "@/api/employees";
-import { createProject, listProjects, type ProjectInput } from "@/api/projects";
+import { createProject, downloadProjectsExportCsv, listProjects, type ProjectInput } from "@/api/projects";
 import { PermissionGate } from "@/components/PermissionGate";
+import { ProjectExportDialog } from "@/features/projects/ProjectExportDialog";
 import { ProjectFormDialog } from "@/features/projects/ProjectFormDialog";
 
 const STATUS_COLOR: Record<string, "success" | "warning" | "default" | "error"> = {
@@ -39,6 +41,8 @@ export function ProjectListPage() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [formOpen, setFormOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -61,9 +65,36 @@ export function ProjectListPage() {
     onError: (error) => setErrorMessage(extractApiErrorMessage(error)),
   });
 
+  async function handleExport(filters: {
+    status: string;
+    clientId: string;
+    isBillable: string;
+    startDateFrom: string;
+    startDateTo: string;
+  }) {
+    setExporting(true);
+    try {
+      await downloadProjectsExportCsv({
+        status: filters.status || undefined,
+        clientId: filters.clientId || undefined,
+        isBillable: filters.isBillable ? filters.isBillable === "true" : undefined,
+        startDateFrom: filters.startDateFrom || undefined,
+        startDateTo: filters.startDateTo || undefined,
+      });
+      setExportOpen(false);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <>
-      <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+      <Stack direction="row" justifyContent="flex-end" spacing={1.5} sx={{ mb: 2 }}>
+        <PermissionGate module="project" action="export">
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={() => setExportOpen(true)}>
+            Export CSV
+          </Button>
+        </PermissionGate>
         <PermissionGate module="project" action="create">
           <Button
             variant="contained"
@@ -151,6 +182,14 @@ export function ProjectListPage() {
         submitting={createMutation.isPending}
         onClose={() => setFormOpen(false)}
         onSubmit={(values) => createMutation.mutate(values)}
+      />
+
+      <ProjectExportDialog
+        open={exportOpen}
+        clients={clients ?? []}
+        exporting={exporting}
+        onClose={() => setExportOpen(false)}
+        onExport={handleExport}
       />
     </>
   );

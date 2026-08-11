@@ -1,6 +1,8 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_company_id, get_current_user, get_db, require_permission
@@ -80,6 +82,39 @@ def update_my_profile(
 ):
     employee = employee_service.get_employee_by_user_id(db, current_user.id)
     return employee_service.update_self(db, employee.company_id, employee.id, phone=payload.phone)
+
+
+@router.get("/export")
+def export_employees(
+    search: str | None = Query(default=None),
+    department_id: uuid.UUID | None = Query(default=None),
+    status: str | None = Query(default=None),
+    manager_id: uuid.UUID | None = Query(default=None),
+    employment_type: str | None = Query(default=None),
+    location: str | None = Query(default=None),
+    joining_date_from: date | None = Query(default=None),
+    joining_date_to: date | None = Query(default=None),
+    company_id: uuid.UUID = Depends(get_current_company_id),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("employee", "export")),
+):
+    csv_text = employee_service.export_csv(
+        db,
+        company_id,
+        search=search,
+        department_id=department_id,
+        status=status,
+        manager_id=manager_id,
+        employment_type=employment_type,
+        location=location,
+        joining_date_from=joining_date_from,
+        joining_date_to=joining_date_to,
+    )
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="employees-export.csv"'},
+    )
 
 
 @router.get("/{employee_id}", response_model=EmployeeDetailResponse)

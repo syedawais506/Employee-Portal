@@ -61,6 +61,15 @@ SRS, HLD, LLD, ER diagram, API contracts, roadmap. No code.
 
 **Adjusted after first use, round 2** (feedback after trying to log time into an already-submitted period and getting blocked): submission moved from "one fixed period per company config" to a free-form date range chosen at submit time, since the entry-level `submission_id` tracking already made overlapping ranges safe — the fixed-period model was adding a restriction the underlying data model didn't actually need. Self-service submission history (My Submissions) and the bucket-based Approvals restructuring shipped in the same pass since both came from the same request.
 
+## Cross-Phase — CSV Export (Employees, Departments, Projects, Clients)
+Requested directly by the user after Timesheets shipped its export panel ("admin should have export in every module, with dates and multiple filters"). Rather than a new phase, this extends the export pattern already proven in Phase 4 to the other list-bearing modules:
+- **Employees**: filters on search, department, status, employment type, location, manager, and a `joining_date` range. Gated by `employee.export` — already reserved in the Phase 1 catalog and already granted to Admin/HR, so no permission changes needed there.
+- **Departments**: filters on search, parent department, and a `created_at` range (no better date field exists on the model). Required adding `department.export` to the catalog (it didn't exist before) and granting it to Admin.
+- **Projects**: filters on status, client, billable flag, and a `start_date` range. `project.export` was already reserved in the Phase 1 catalog but — a real gap found while building this — **never actually granted to Admin**, so Admin couldn't have exported projects even after this ships without the fix. Migration 0007 grants it retroactively.
+- **Clients**: reuses `project.export` (same permission-sharing pattern as the rest of the Clients module since Phase 3), filtered by search and a `created_at` range.
+
+All four share the CSV-building helper (`app/utils/csv_export.py`) that Timesheets' export was refactored to use too, rather than four more copies of the same `csv.writer` boilerplate. Scope was deliberately kept to CSV with server-side filters (no `.xlsx`/PDF, no saved filter presets) — same reasoning as Timesheets' export: ship the real, useful version now, formatted reports are a fast-follow if asked for.
+
 ## Phase 5 — Leave Management
 - `leave_type`, `leave_policy`, `leave_balance`, `leave_request`, `holiday_calendar`
 - Configurable leave types incl. custom, half-day/hourly leave, carry-forward rules, encashment-ready ledger

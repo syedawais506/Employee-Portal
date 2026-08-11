@@ -3,6 +3,7 @@ import { Controller, useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DownloadIcon from "@mui/icons-material/Download";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import {
   Alert,
@@ -11,6 +12,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Grid,
   IconButton,
   Paper,
   Stack,
@@ -24,7 +26,14 @@ import {
 } from "@mui/material";
 
 import { extractApiErrorMessage } from "@/api/client";
-import { type ClientInput, createClient, deleteClient, listClients, updateClient } from "@/api/clients";
+import {
+  type ClientInput,
+  createClient,
+  deleteClient,
+  downloadClientsExportCsv,
+  listClients,
+  updateClient,
+} from "@/api/clients";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PermissionGate } from "@/components/PermissionGate";
 import type { Client } from "@/types";
@@ -37,8 +46,25 @@ export function ClientsTab() {
   });
   const [pendingDelete, setPendingDelete] = useState<Client | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportFilters, setExportFilters] = useState({ search: "", createdFrom: "", createdTo: "" });
 
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: listClients });
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await downloadClientsExportCsv({
+        search: exportFilters.search || undefined,
+        createdFrom: exportFilters.createdFrom || undefined,
+        createdTo: exportFilters.createdTo || undefined,
+      });
+      setExportOpen(false);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const { control, handleSubmit, reset } = useForm<ClientInput>({
     defaultValues: { name: "", contact_name: "", contact_email: "", contact_phone: "" },
@@ -99,11 +125,18 @@ export function ClientsTab() {
     <Paper variant="outlined" sx={{ p: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Typography variant="h3">Clients</Typography>
-        <PermissionGate module="project" action="create">
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-            New Client
-          </Button>
-        </PermissionGate>
+        <Stack direction="row" spacing={1.5}>
+          <PermissionGate module="project" action="export">
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={() => setExportOpen(true)}>
+              Export CSV
+            </Button>
+          </PermissionGate>
+          <PermissionGate module="project" action="create">
+            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+              New Client
+            </Button>
+          </PermissionGate>
+        </Stack>
       </Stack>
 
       <Table size="small">
@@ -207,6 +240,51 @@ export function ClientsTab() {
         onClose={() => setPendingDelete(null)}
         onConfirm={() => pendingDelete && deleteMutation.mutate(pendingDelete.id)}
       />
+
+      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Export Clients</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12}>
+              <TextField
+                label="Search by name"
+                fullWidth
+                size="small"
+                value={exportFilters.search}
+                onChange={(e) => setExportFilters((f) => ({ ...f, search: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                type="date"
+                label="Created from"
+                fullWidth
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                value={exportFilters.createdFrom}
+                onChange={(e) => setExportFilters((f) => ({ ...f, createdFrom: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                type="date"
+                label="Created to"
+                fullWidth
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                value={exportFilters.createdTo}
+                onChange={(e) => setExportFilters((f) => ({ ...f, createdTo: e.target.value }))}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setExportOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={exporting} onClick={handleExport}>
+            Export CSV
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }
