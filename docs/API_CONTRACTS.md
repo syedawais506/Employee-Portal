@@ -126,6 +126,8 @@ Lightweight assignment target for projects — reuses the `project.*` permission
 
 Entries and submissions are always scoped to the caller's own employee record — there is no "edit someone else's timesheet" endpoint. Approval/dashboard/export routes act company-wide for whoever holds the relevant permission (same model as every other module — not restricted to "my direct reports").
 
+Submission ranges are free-form: the caller picks the exact `period_start`/`period_end` to submit each time (not derived from `timesheet_period_config`), so a second submission for newly-logged entries never collides with one already pending for an overlapping range — `timesheet_period_config` still drives the rule engine (min/max hours per day) and the dashboard's "late" calculation, just not what a submission covers.
+
 | Method & Path | Body | Response | Permission |
 |---|---|---|---|
 | `GET /timesheets/config` | — | TimesheetPeriodConfig (auto-created with defaults on first access) | timesheet.view |
@@ -134,9 +136,9 @@ Entries and submissions are always scoped to the caller's own employee record �
 | `POST /timesheets/entries` | `{project_id, entry_date, hours, is_billable, work_type, description?}` | TimesheetEntry (201) | timesheet.create (self) |
 | `PATCH /timesheets/entries/{id}` | `{hours?, is_billable?, work_type?, description?, project_id?}` | TimesheetEntry | timesheet.update (self; 404 if not the caller's own) |
 | `DELETE /timesheets/entries/{id}` | — | `204` | timesheet.update (self) |
-| `POST /timesheets/submissions` | `{ref_date}` | TimesheetSubmission (201) — submits every draft entry in the period containing `ref_date` (period bounds computed server-side from config) | timesheet.update (self) |
-| `GET /timesheets/submissions/mine` | — | `[TimesheetSubmission]` — caller's own submission history | authenticated (self) |
-| `GET /timesheets/submissions` | `status?, page, page_size` | Page\<TimesheetSubmission\> — approval queue | timesheet.approve |
+| `POST /timesheets/submissions` | `{period_start, period_end}` | TimesheetSubmission (201) — submits every draft/rejected entry inside the given free-form date range (not snapped to `timesheet_period_config`; the caller chooses the exact range each time) | timesheet.update (self) |
+| `GET /timesheets/submissions/mine` | `bucket?: pending\|approved\|rejected` | `[TimesheetSubmission]` — caller's own submission history, optionally filtered to one bucket (`pending` = submitted + manager_approved) | authenticated (self) |
+| `GET /timesheets/submissions` | `bucket?: pending\|approved\|rejected, page, page_size` | Page\<TimesheetSubmission\> — approval queue | timesheet.approve |
 | `POST /timesheets/submissions/{id}/approve` | — | TimesheetSubmission — advances one step (Manager, then Finance only if `require_finance_approval`) | timesheet.approve |
 | `POST /timesheets/submissions/{id}/reject` | `{reason}` | TimesheetSubmission (`status:"rejected"`) | timesheet.reject |
 | `POST /timesheets/submissions/bulk-approve` | `{submission_ids: [...]}` | `{approved: [...], failed: [{id, reason}]}` — partial failures don't abort the batch | timesheet.approve |

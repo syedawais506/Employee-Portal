@@ -119,29 +119,32 @@ def submit_period(
     db: Session = Depends(get_db),
 ):
     employee_id = _current_employee_id(current_user, db)
-    return timesheet_service.submit_period(db, company_id, employee_id, payload.ref_date, actor_user_id=current_user.id)
+    return timesheet_service.submit_period(
+        db, company_id, employee_id, payload.period_start, payload.period_end, actor_user_id=current_user.id
+    )
 
 
 @router.get("/submissions/mine", response_model=list[TimesheetSubmissionResponse])
 def list_my_submissions(
+    bucket: str | None = Query(default=None),
     company_id: uuid.UUID = Depends(get_current_company_id),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     employee_id = _current_employee_id(current_user, db)
-    return timesheet_service.list_my_submissions(db, company_id, employee_id)
+    return timesheet_service.list_my_submissions(db, company_id, employee_id, bucket=bucket)
 
 
 @router.get("/submissions", response_model=Page[TimesheetSubmissionResponse])
 def list_submissions(
-    status: str | None = Query(default=None),
+    bucket: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=100),
     company_id: uuid.UUID = Depends(get_current_company_id),
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("timesheet", "approve")),
 ):
-    return timesheet_service.list_submissions(db, company_id, status=status, page=page, page_size=page_size)
+    return timesheet_service.list_submissions(db, company_id, bucket=bucket, page=page, page_size=page_size)
 
 
 @router.post("/submissions/bulk-approve", response_model=TimesheetBulkApproveResponse)

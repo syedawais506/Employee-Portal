@@ -5,9 +5,9 @@ import {
   Button,
   Checkbox,
   Chip,
-  MenuItem,
   Paper,
   Stack,
+  Tab,
   Table,
   TableBody,
   TableCell,
@@ -15,7 +15,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
-  TextField,
+  Tabs,
   Typography,
 } from "@mui/material";
 
@@ -25,8 +25,11 @@ import {
   bulkApproveTimesheetSubmissions,
   listTimesheetSubmissions,
   rejectTimesheetSubmission,
+  reopenTimesheetSubmission,
+  type TimesheetBucket,
 } from "@/api/timesheets";
 import { RejectSubmissionDialog } from "@/features/timesheets/RejectSubmissionDialog";
+import { useAuthStore } from "@/store/authStore";
 import type { TimesheetSubmission } from "@/types";
 
 const STATUS_COLOR: Record<string, "success" | "warning" | "default" | "error" | "info"> = {
@@ -38,7 +41,8 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "default" | "error" |
 
 export function ApprovalsTab() {
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState("submitted");
+  const canReopen = useAuthStore((state) => state.hasPermission("timesheet", "delete"));
+  const [bucket, setBucket] = useState<TimesheetBucket>("pending");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [selected, setSelected] = useState<string[]>([]);
@@ -46,8 +50,8 @@ export function ApprovalsTab() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["timesheets", "submissions", "queue", statusFilter, page, pageSize],
-    queryFn: () => listTimesheetSubmissions(page + 1, pageSize, statusFilter || undefined),
+    queryKey: ["timesheets", "submissions", "queue", bucket, page, pageSize],
+    queryFn: () => listTimesheetSubmissions(page + 1, pageSize, bucket),
   });
 
   const invalidate = () => {
@@ -71,6 +75,12 @@ export function ApprovalsTab() {
     onError: (error) => setErrorMessage(extractApiErrorMessage(error)),
   });
 
+  const reopenMutation = useMutation({
+    mutationFn: reopenTimesheetSubmission,
+    onSuccess: invalidate,
+    onError: (error) => setErrorMessage(extractApiErrorMessage(error)),
+  });
+
   const bulkApproveMutation = useMutation({
     mutationFn: bulkApproveTimesheetSubmissions,
     onSuccess: (result) => {
@@ -86,32 +96,28 @@ export function ApprovalsTab() {
 
   return (
     <>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <TextField
-          select
-          size="small"
-          label="Status"
-          value={statusFilter}
-          onChange={(event) => {
-            setStatusFilter(event.target.value);
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }} flexWrap="wrap" gap={1}>
+        <Tabs
+          value={bucket}
+          onChange={(_, value) => {
+            setBucket(value);
             setPage(0);
             setSelected([]);
           }}
-          sx={{ minWidth: 220 }}
         >
-          <MenuItem value="">All statuses</MenuItem>
-          <MenuItem value="submitted">Submitted</MenuItem>
-          <MenuItem value="manager_approved">Manager approved</MenuItem>
-          <MenuItem value="approved">Approved</MenuItem>
-          <MenuItem value="rejected">Rejected</MenuItem>
-        </TextField>
-        <Button
-          variant="contained"
-          disabled={selected.length === 0 || bulkApproveMutation.isPending}
-          onClick={() => bulkApproveMutation.mutate(selected)}
-        >
-          Approve Selected ({selected.length})
-        </Button>
+          <Tab value="pending" label="Pending" />
+          <Tab value="approved" label="Approved" />
+          <Tab value="rejected" label="Rejected" />
+        </Tabs>
+        {bucket === "pending" && (
+          <Button
+            variant="contained"
+            disabled={selected.length === 0 || bulkApproveMutation.isPending}
+            onClick={() => bulkApproveMutation.mutate(selected)}
+          >
+            Approve Selected ({selected.length})
+          </Button>
+        )}
       </Stack>
 
       {errorMessage && (
@@ -124,36 +130,40 @@ export function ApprovalsTab() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
-                  checked={allSelected}
-                  indeterminate={selected.length > 0 && !allSelected}
-                  onChange={(event) => setSelected(event.target.checked ? items.map((s) => s.id) : [])}
-                />
-              </TableCell>
+              {bucket === "pending" && (
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={allSelected}
+                    indeterminate={selected.length > 0 && !allSelected}
+                    onChange={(event) => setSelected(event.target.checked ? items.map((s) => s.id) : [])}
+                  />
+                </TableCell>
+              )}
               <TableCell>Employee</TableCell>
               <TableCell>Period</TableCell>
               <TableCell>Total hours</TableCell>
               <TableCell>Status</TableCell>
+              {bucket === "rejected" && <TableCell>Reason</TableCell>}
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {items.map((submission) => (
               <TableRow key={submission.id} hover>
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    checked={selected.includes(submission.id)}
-                    onChange={(event) =>
-                      setSelected(
-                        event.target.checked
-                          ? [...selected, submission.id]
-                          : selected.filter((id) => id !== submission.id),
-                      )
-                    }
-                    disabled={submission.status === "approved" || submission.status === "rejected"}
-                  />
-                </TableCell>
+                {bucket === "pending" && (
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={selected.includes(submission.id)}
+                      onChange={(event) =>
+                        setSelected(
+                          event.target.checked
+                            ? [...selected, submission.id]
+                            : selected.filter((id) => id !== submission.id),
+                        )
+                      }
+                    />
+                  </TableCell>
+                )}
                 <TableCell>{submission.employee_name}</TableCell>
                 <TableCell>
                   {submission.period_start} – {submission.period_end}
@@ -162,8 +172,9 @@ export function ApprovalsTab() {
                 <TableCell>
                   <Chip label={submission.status.replace("_", " ")} size="small" color={STATUS_COLOR[submission.status]} />
                 </TableCell>
+                {bucket === "rejected" && <TableCell>{submission.rejection_reason ?? "—"}</TableCell>}
                 <TableCell align="right">
-                  {(submission.status === "submitted" || submission.status === "manager_approved") && (
+                  {bucket === "pending" && (
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                       <Button size="small" onClick={() => approveMutation.mutate(submission.id)}>
                         Approve
@@ -172,6 +183,11 @@ export function ApprovalsTab() {
                         Reject
                       </Button>
                     </Stack>
+                  )}
+                  {bucket === "approved" && canReopen && (
+                    <Button size="small" onClick={() => reopenMutation.mutate(submission.id)}>
+                      Reopen
+                    </Button>
                   )}
                 </TableCell>
               </TableRow>

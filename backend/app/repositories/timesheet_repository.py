@@ -90,21 +90,21 @@ class TimesheetEntryRepository(TenantScopedRepository[TimesheetEntry]):
         employee_id: uuid.UUID,
         date_from: date,
         date_to: date,
-        *,
-        reusable_submission_id: uuid.UUID | None,
     ) -> list[TimesheetEntry]:
-        if reusable_submission_id is not None:
-            submission_condition = or_(
-                TimesheetEntry.submission_id.is_(None), TimesheetEntry.submission_id == reusable_submission_id
+        # Eligible for a (re)submission if never submitted, or if the submission
+        # it's currently attached to was rejected — regardless of that rejected
+        # submission's own date range, so a free-form resubmit range always
+        # picks up rejected entries alongside fresh drafts in the same window.
+        stmt = (
+            select(TimesheetEntry)
+            .outerjoin(TimesheetSubmission, TimesheetSubmission.id == TimesheetEntry.submission_id)
+            .where(
+                TimesheetEntry.company_id == company_id,
+                TimesheetEntry.employee_id == employee_id,
+                TimesheetEntry.entry_date >= date_from,
+                TimesheetEntry.entry_date <= date_to,
+                or_(TimesheetEntry.submission_id.is_(None), TimesheetSubmission.status == "rejected"),
             )
-        else:
-            submission_condition = TimesheetEntry.submission_id.is_(None)
-        stmt = select(TimesheetEntry).where(
-            TimesheetEntry.company_id == company_id,
-            TimesheetEntry.employee_id == employee_id,
-            TimesheetEntry.entry_date >= date_from,
-            TimesheetEntry.entry_date <= date_to,
-            submission_condition,
         )
         return list(db.execute(stmt).scalars().all())
 
@@ -221,22 +221,25 @@ class TimesheetSubmissionRepository(TenantScopedRepository[TimesheetSubmission])
         return db.execute(stmt).scalar_one_or_none()
 
     def list_for_employee(
-        self, db: Session, company_id: uuid.UUID, employee_id: uuid.UUID
+        self, db: Session, company_id: uuid.UUID, employee_id: uuid.UUID, *, statuses: list[str] | None = None
     ) -> list[TimesheetSubmission]:
+        conditions = [TimesheetSubmission.company_id == company_id, TimesheetSubmission.employee_id == employee_id]
+        if statuses:
+            conditions.append(TimesheetSubmission.status.in_(statuses))
         stmt = (
             select(TimesheetSubmission)
             .options(joinedload(TimesheetSubmission.entries))
-            .where(TimesheetSubmission.company_id == company_id, TimesheetSubmission.employee_id == employee_id)
+            .where(*conditions)
             .order_by(TimesheetSubmission.period_start.desc())
         )
         return list(db.execute(stmt).unique().scalars().all())
 
     def search(
-        self, db: Session, company_id: uuid.UUID, *, status: str | None, skip: int, limit: int
+        self, db: Session, company_id: uuid.UUID, *, statuses: list[str] | None, skip: int, limit: int
     ) -> tuple[list[TimesheetSubmission], int]:
         conditions = [TimesheetSubmission.company_id == company_id]
-        if status:
-            conditions.append(TimesheetSubmission.status == status)
+        if statuses:
+            conditions.append(TimesheetSubmission.status.in_(statuses))
 
         count_stmt = select(func.count()).select_from(TimesheetSubmission).where(*conditions)
         total = db.execute(count_stmt).scalar_one()

@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -22,22 +22,14 @@ from app.services.audit_service import audit_service
 
 OPEN_SUBMISSION_STATUSES = {"submitted", "manager_approved"}
 
-
-def compute_period_bounds(period_type: str, week_start_day: int, ref_date: date) -> tuple[date, date]:
-    if period_type == "daily":
-        return ref_date, ref_date
-    if period_type == "weekly":
-        offset = (ref_date.weekday() - week_start_day) % 7
-        start = ref_date - timedelta(days=offset)
-        return start, start + timedelta(days=6)
-    if period_type == "monthly":
-        start = ref_date.replace(day=1)
-        if start.month == 12:
-            next_month = start.replace(year=start.year + 1, month=1)
-        else:
-            next_month = start.replace(month=start.month + 1)
-        return start, next_month - timedelta(days=1)
-    raise ValidationAppError(f"Unsupported period type: {period_type}")
+# Submission date ranges are free-form (chosen by the employee at submit time,
+# not snapped to timesheet_period_config) — config's period_type/week_start_day
+# only drive the rule engine and dashboard now, not what a submission covers.
+BUCKET_STATUSES: dict[str, list[str]] = {
+    "pending": ["submitted", "manager_approved"],
+    "approved": ["approved"],
+    "rejected": ["rejected"],
+}
 
 
 class TimesheetService:
@@ -251,21 +243,26 @@ class TimesheetService:
     # -- Submission / approval workflow ------------------------------------
 
     def submit_period(
-        self, db: Session, company_id: uuid.UUID, employee_id: uuid.UUID, ref_date: date, *, actor_user_id: uuid.UUID
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        employee_id: uuid.UUID,
+        period_start: date,
+        period_end: date,
+        *,
+        actor_user_id: uuid.UUID,
     ) -> TimesheetSubmission:
+        if period_end < period_start:
+            raise ValidationAppError("period_end must be on or after period_start")
         config = self.get_config(db, company_id)
-        period_start, period_end = compute_period_bounds(config.period_type, config.week_start_day, ref_date)
 
         existing = self.submission_repo.get_by_employee_period(db, company_id, employee_id, period_start, period_end)
         if existing is not None and existing.status in OPEN_SUBMISSION_STATUSES | {"approved"}:
-            raise ConflictError("This period has already been submitted")
+            raise ConflictError("This exact date range has already been submitted")
 
-        entries = self.entry_repo.list_unsubmitted_in_range(
-            db, company_id, employee_id, period_start, period_end,
-            reusable_submission_id=existing.id if existing else None,
-        )
+        entries = self.entry_repo.list_unsubmitted_in_range(db, company_id, employee_id, period_start, period_end)
         if not entries:
-            raise ValidationAppError("There are no timesheet entries to submit for this period")
+            raise ValidationAppError("There are no draft or rejected entries to submit for this date range")
 
         if config.min_hours_per_day is not None:
             totals: dict[date, Decimal] = {}
@@ -322,15 +319,17 @@ class TimesheetService:
         return submission
 
     def list_my_submissions(
-        self, db: Session, company_id: uuid.UUID, employee_id: uuid.UUID
+        self, db: Session, company_id: uuid.UUID, employee_id: uuid.UUID, *, bucket: str | None = None
     ) -> list[TimesheetSubmission]:
-        return self.submission_repo.list_for_employee(db, company_id, employee_id)
+        statuses = BUCKET_STATUSES.get(bucket) if bucket else None
+        return self.submission_repo.list_for_employee(db, company_id, employee_id, statuses=statuses)
 
     def list_submissions(
-        self, db: Session, company_id: uuid.UUID, *, status: str | None, page: int, page_size: int
+        self, db: Session, company_id: uuid.UUID, *, bucket: str | None, page: int, page_size: int
     ) -> Page[TimesheetSubmission]:
+        statuses = BUCKET_STATUSES.get(bucket) if bucket else None
         skip = (page - 1) * page_size
-        items, total = self.submission_repo.search(db, company_id, status=status, skip=skip, limit=page_size)
+        items, total = self.submission_repo.search(db, company_id, statuses=statuses, skip=skip, limit=page_size)
         return Page(items=items, total=total, page=page, page_size=page_size)
 
     def approve_submission(

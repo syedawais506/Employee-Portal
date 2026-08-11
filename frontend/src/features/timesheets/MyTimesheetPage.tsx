@@ -82,7 +82,7 @@ export function MyTimesheetPage() {
 
   const { data: submissions } = useQuery({
     queryKey: ["timesheets", "submissions", "mine"],
-    queryFn: listMyTimesheetSubmissions,
+    queryFn: () => listMyTimesheetSubmissions(),
   });
   const currentSubmission = submissions?.find(
     (s) => s.period_start === periodStartIso && s.period_end === periodEndIso,

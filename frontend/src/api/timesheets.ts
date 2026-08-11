@@ -60,23 +60,30 @@ export async function deleteTimesheetEntry(id: string): Promise<void> {
   await apiClient.delete(`/timesheets/entries/${id}`);
 }
 
-export async function submitTimesheetPeriod(refDate: string): Promise<TimesheetSubmission> {
-  const response = await apiClient.post<TimesheetSubmission>("/timesheets/submissions", { ref_date: refDate });
+export type TimesheetBucket = "pending" | "approved" | "rejected";
+
+export async function submitTimesheetPeriod(periodStart: string, periodEnd: string): Promise<TimesheetSubmission> {
+  const response = await apiClient.post<TimesheetSubmission>("/timesheets/submissions", {
+    period_start: periodStart,
+    period_end: periodEnd,
+  });
   return response.data;
 }
 
-export async function listMyTimesheetSubmissions(): Promise<TimesheetSubmission[]> {
-  const response = await apiClient.get<TimesheetSubmission[]>("/timesheets/submissions/mine");
+export async function listMyTimesheetSubmissions(bucket?: TimesheetBucket): Promise<TimesheetSubmission[]> {
+  const response = await apiClient.get<TimesheetSubmission[]>("/timesheets/submissions/mine", {
+    params: { bucket },
+  });
   return response.data;
 }
 
 export async function listTimesheetSubmissions(
   page: number,
   pageSize: number,
-  status?: string,
+  bucket?: TimesheetBucket,
 ): Promise<Page<TimesheetSubmission>> {
   const response = await apiClient.get<Page<TimesheetSubmission>>("/timesheets/submissions", {
-    params: { page, page_size: pageSize, status },
+    params: { page, page_size: pageSize, bucket },
   });
   return response.data;
 }

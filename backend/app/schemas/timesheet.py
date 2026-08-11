@@ -63,7 +63,8 @@ class TimesheetEntryResponse(ORMModel):
 
 
 class TimesheetSubmitRequest(BaseModel):
-    ref_date: date
+    period_start: date
+    period_end: date
 
 
 class TimesheetRejectRequest(BaseModel):

@@ -3,9 +3,10 @@ Manager(+optional Finance) approval chain, the rule engine, locking/reopen,
 bulk approve, dashboard/export gating, and tenant isolation. See docs/ROADMAP.md.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 MONDAY = date(2026, 6, 1)  # a fixed Monday so week-boundary math is deterministic in tests
+WEEK_END = MONDAY + timedelta(days=6)
 
 
 def _member(employee, role="member"):
@@ -30,8 +31,12 @@ def _create_entry(client, headers, *, project_id, entry_date, hours, description
     )
 
 
-def _submit(client, headers, ref_date=MONDAY):
-    return client.post("/api/v1/timesheets/submissions", headers=headers, json={"ref_date": str(ref_date)})
+def _submit(client, headers, period_start=MONDAY, period_end=WEEK_END):
+    return client.post(
+        "/api/v1/timesheets/submissions",
+        headers=headers,
+        json={"period_start": str(period_start), "period_end": str(period_end)},
+    )
 
 
 def test_full_lifecycle_entry_submit_approve_locks_entries(client, tenant_a):
@@ -278,3 +283,76 @@ def test_export_can_be_filtered_by_employee_location(client, tenant_a):
     us_export = client.get("/api/v1/timesheets/export", headers=headers_admin, params={"location": "United States"})
     assert "Manager User" in us_export.text
     assert "Employee User" not in us_export.text
+
+
+def test_free_form_ranges_can_be_submitted_independently(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _, engineer, _ = tenant_a.users["Employee"]
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    project_id = _create_project(client, headers_admin, member_ids=[_member(engineer)])
+
+    later_day = MONDAY + timedelta(days=2)
+    _create_entry(client, headers_employee, project_id=project_id, entry_date=MONDAY, hours="4.00")
+    _create_entry(client, headers_employee, project_id=project_id, entry_date=later_day, hours="5.00")
+
+    first_submit = _submit(client, headers_employee, period_start=MONDAY, period_end=MONDAY)
+    assert first_submit.status_code == 201, first_submit.text
+    assert len(first_submit.json()["entries"]) == 1
+
+    second_submit = _submit(client, headers_employee, period_start=later_day, period_end=later_day)
+    assert second_submit.status_code == 201, second_submit.text
+    assert len(second_submit.json()["entries"]) == 1
+    assert second_submit.json()["id"] != first_submit.json()["id"]
+
+
+def test_rejected_entry_is_picked_up_by_a_different_resubmit_range(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _, engineer, _ = tenant_a.users["Employee"]
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    headers_manager = tenant_a.auth_headers(client, "Manager")
+    project_id = _create_project(client, headers_admin, member_ids=[_member(engineer)])
+
+    _create_entry(client, headers_employee, project_id=project_id, entry_date=MONDAY, hours="4.00")
+    submission = _submit(client, headers_employee, period_start=MONDAY, period_end=MONDAY).json()
+    client.post(
+        f"/api/v1/timesheets/submissions/{submission['id']}/reject",
+        headers=headers_manager,
+        json={"reason": "Needs detail"},
+    )
+
+    # A brand new, wider range (not the exact rejected tuple) should still sweep up the rejected entry.
+    resubmit = _submit(client, headers_employee, period_start=MONDAY, period_end=WEEK_END)
+    assert resubmit.status_code == 201, resubmit.text
+    assert resubmit.json()["id"] != submission["id"]
+    assert len(resubmit.json()["entries"]) == 1
+    assert resubmit.json()["entries"][0]["status"] == "submitted"
+
+
+def test_my_submissions_bucket_filtering(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _, engineer, _ = tenant_a.users["Employee"]
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    headers_manager = tenant_a.auth_headers(client, "Manager")
+    project_id = _create_project(client, headers_admin, member_ids=[_member(engineer)])
+
+    _create_entry(client, headers_employee, project_id=project_id, entry_date=MONDAY, hours="4.00")
+    submission = _submit(client, headers_employee, period_start=MONDAY, period_end=MONDAY).json()
+    client.post(f"/api/v1/timesheets/submissions/{submission['id']}/approve", headers=headers_manager)
+
+    mine_url = "/api/v1/timesheets/submissions/mine"
+    pending = client.get(mine_url, headers=headers_employee, params={"bucket": "pending"})
+    approved = client.get(mine_url, headers=headers_employee, params={"bucket": "approved"})
+    rejected = client.get(mine_url, headers=headers_employee, params={"bucket": "rejected"})
+
+    assert pending.json() == []
+    assert len(approved.json()) == 1
+    assert rejected.json() == []
+
+    queue_approved = client.get(
+        "/api/v1/timesheets/submissions", headers=headers_manager, params={"bucket": "approved"}
+    )
+    assert queue_approved.json()["total"] == 1
+    queue_pending = client.get(
+        "/api/v1/timesheets/submissions", headers=headers_manager, params={"bucket": "pending"}
+    )
+    assert queue_pending.json()["total"] == 0

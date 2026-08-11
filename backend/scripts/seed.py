@@ -220,7 +220,8 @@ def seed_company(db, *, name: str, slug: str) -> None:
             description="Feature implementation", actor_user_id=engineer_employee.user_id,
         )
     timesheet_service.submit_period(
-        db, company.id, engineer_employee.id, monday, actor_user_id=engineer_employee.user_id
+        db, company.id, engineer_employee.id, monday, monday + timedelta(days=1),
+        actor_user_id=engineer_employee.user_id,
     )
 
     for day_offset, hours in ((0, Decimal("3.00")), (1, Decimal("5.00"))):
@@ -231,7 +232,8 @@ def seed_company(db, *, name: str, slug: str) -> None:
             description="Client coordination", actor_user_id=manager_employee.user_id,
         )
     manager_submission = timesheet_service.submit_period(
-        db, company.id, manager_employee.id, monday, actor_user_id=manager_employee.user_id
+        db, company.id, manager_employee.id, monday, monday + timedelta(days=1),
+        actor_user_id=manager_employee.user_id,
     )
     timesheet_service.approve_submission(db, company.id, manager_submission.id, actor_user_id=admin_employee.user_id)
 
@@ -242,7 +244,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
         description="Cost tracking setup", actor_user_id=finance_employee.user_id,
     )
     finance_submission = timesheet_service.submit_period(
-        db, company.id, finance_employee.id, monday, actor_user_id=finance_employee.user_id
+        db, company.id, finance_employee.id, monday, monday, actor_user_id=finance_employee.user_id
     )
     timesheet_service.reject_submission(
         db, company.id, finance_submission.id,
