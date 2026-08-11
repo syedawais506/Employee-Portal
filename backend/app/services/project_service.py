@@ -4,10 +4,12 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationAppError
 from app.models.project import Project
+from app.models.timesheet import TimesheetEntry
 from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.project_repository import ClientRepository, ProjectMemberRepository, ProjectRepository
 from app.schemas.common import Page
@@ -126,6 +128,11 @@ class ProjectService:
         self, db: Session, company_id: uuid.UUID, project_id: uuid.UUID, *, actor_user_id: uuid.UUID
     ) -> None:
         project = self.get_project(db, company_id, project_id)
+        has_timesheet_entries = db.execute(
+            select(TimesheetEntry.id).where(TimesheetEntry.project_id == project_id).limit(1)
+        ).first()
+        if has_timesheet_entries is not None:
+            raise ConflictError("Cannot delete a project with logged timesheet hours")
         before = {"name": project.name}
         self.repo.delete(db, company_id, project_id)
         audit_service.record(

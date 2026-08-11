@@ -1,4 +1,4 @@
-# Database Schema — Phase 1, 2 & 3
+# Database Schema — Phase 1, 2, 3 & 4
 
 PostgreSQL 16. All tenant-owned tables carry `company_id`. UUID primary keys are generated in the application (Python `uuid.uuid4()`), not by a Postgres extension. All tables have `created_at`, `updated_at`; soft-deletable tables also have `deleted_at`.
 
@@ -35,6 +35,56 @@ erDiagram
     CLIENT ||--o{ PROJECT : "billed to"
     PROJECT ||--o{ PROJECT_MEMBER : staffs
     EMPLOYEE ||--o{ PROJECT_MEMBER : "assigned to"
+
+    COMPANY ||--o| TIMESHEET_PERIOD_CONFIG : configures
+    COMPANY ||--o{ TIMESHEET_SUBMISSION : scopes
+    COMPANY ||--o{ TIMESHEET_ENTRY : scopes
+    EMPLOYEE ||--o{ TIMESHEET_ENTRY : logs
+    PROJECT ||--o{ TIMESHEET_ENTRY : "hours against"
+    EMPLOYEE ||--o{ TIMESHEET_SUBMISSION : submits
+    TIMESHEET_SUBMISSION ||--o{ TIMESHEET_ENTRY : groups
+
+    TIMESHEET_PERIOD_CONFIG {
+        uuid id PK
+        uuid company_id FK UK "one config per company"
+        string period_type "daily|weekly|monthly"
+        int week_start_day "0=Monday..6=Sunday, weekly only"
+        numeric min_hours_per_day "nullable"
+        numeric max_hours_per_day "nullable, default 24"
+        bool require_project_and_description
+        bool warn_on_weekend
+        bool require_finance_approval
+    }
+
+    TIMESHEET_SUBMISSION {
+        uuid id PK
+        uuid company_id FK
+        uuid employee_id FK
+        date period_start
+        date period_end
+        string status "submitted|manager_approved|approved|rejected"
+        timestamptz submitted_at
+        uuid manager_approved_by FK "nullable"
+        timestamptz manager_approved_at "nullable"
+        uuid finance_approved_by FK "nullable"
+        timestamptz finance_approved_at "nullable"
+        uuid rejected_by FK "nullable"
+        timestamptz rejected_at "nullable"
+        string rejection_reason "nullable"
+    }
+
+    TIMESHEET_ENTRY {
+        uuid id PK
+        uuid company_id FK
+        uuid employee_id FK
+        uuid project_id FK "ON DELETE RESTRICT"
+        uuid submission_id FK "nullable — null while still a draft"
+        date entry_date
+        numeric hours
+        bool is_billable
+        string work_type "office|remote|client_site"
+        string description "nullable"
+    }
 
     CLIENT {
         uuid id PK
@@ -184,7 +234,7 @@ erDiagram
     }
 ```
 
-> Further future-phase tables (`timesheet_entry`, `leave_request`, `leave_balance`, `asset`, `notification`) are specified in [ROADMAP.md](./ROADMAP.md) with their own migrations when their phase begins, so this schema doesn't carry speculative, unused tables ahead of need. Foreign keys they will need (`employee.id`, `project.id`, `department.id`, `company.id`) already exist.
+> Further future-phase tables (`leave_request`, `leave_balance`, `holiday_calendar`, `asset`, `notification`) are specified in [ROADMAP.md](./ROADMAP.md) with their own migrations when their phase begins, so this schema doesn't carry speculative, unused tables ahead of need. Foreign keys they will need (`employee.id`, `project.id`, `department.id`, `company.id`) already exist.
 
 ---
 
@@ -317,6 +367,51 @@ erDiagram
 
 A pure join table — no `company_id` of its own, same pattern as `role_permission`/`user_role`. Tenant isolation comes from always resolving the `project` row (company-scoped) before touching membership rows, not from RLS on this table.
 
+### `timesheet_period_config` *(Phase 4)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | one row per company, lazily created on first access |
+| period_type | varchar(20) NOT NULL DEFAULT 'weekly' | daily / weekly / monthly — bi-weekly and fully custom periods are deferred (see ROADMAP.md) |
+| week_start_day | int NOT NULL DEFAULT 0 | 0=Monday..6=Sunday; only meaningful when period_type='weekly' |
+| min_hours_per_day | numeric(4,2) NULL | enforced per-day at submission time, only for days that already have an entry |
+| max_hours_per_day | numeric(4,2) NULL DEFAULT 24 | enforced per-day at entry create/update time, across all of that employee's projects |
+| require_project_and_description | boolean NOT NULL DEFAULT true | |
+| warn_on_weekend | boolean NOT NULL DEFAULT true | UI-only flag (`TimesheetEntry.is_weekend`), not a hard block |
+| require_finance_approval | boolean NOT NULL DEFAULT false | adds the optional second approval step |
+| created_at, updated_at | timestamptz | |
+
+### `timesheet_submission` *(Phase 4)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| employee_id | uuid FK → employee.id NOT NULL | |
+| period_start, period_end | date NOT NULL | `UNIQUE(employee_id, period_start, period_end)` — one submission per employee per period; rejected submissions are reused (status reset) rather than duplicated on resubmit |
+| status | varchar(20) NOT NULL DEFAULT 'submitted' | submitted → (manager_approved, only if `require_finance_approval`) → approved; or → rejected at either step |
+| submitted_at | timestamptz NOT NULL | |
+| manager_approved_by, manager_approved_at | uuid FK → user_account.id / timestamptz, NULL | |
+| finance_approved_by, finance_approved_at | uuid FK → user_account.id / timestamptz, NULL | only set when `require_finance_approval` |
+| rejected_by, rejected_at, rejection_reason | uuid FK / timestamptz / varchar(500), NULL | |
+| created_at, updated_at | timestamptz | |
+
+### `timesheet_entry` *(Phase 4)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| employee_id | uuid FK → employee.id NOT NULL | |
+| project_id | uuid FK → project.id NOT NULL, `ON DELETE RESTRICT` | must be a project the employee is a `project_member` of (service-layer check); `RESTRICT` because Project's hard delete would otherwise silently destroy logged-hours history — `project_service.delete_project` checks for existing entries first and returns 409 |
+| submission_id | uuid FK → timesheet_submission.id NULL, `ON DELETE SET NULL` | null while still a draft; set when the period is submitted |
+| entry_date | date NOT NULL | `UNIQUE(employee_id, entry_date, project_id)` — duplicate-entry prevention |
+| hours | numeric(4,2) NOT NULL | |
+| is_billable | boolean NOT NULL DEFAULT true | |
+| work_type | varchar(20) NOT NULL DEFAULT 'office' | office / remote / client_site |
+| description | varchar(500) NULL | required when `require_project_and_description` is set |
+| created_at, updated_at | timestamptz | |
+
+Entry status (`draft`/`submitted`/`manager_approved`/`approved`/`rejected`) is not its own column — it's a computed property that reads the linked submission's status (or `"draft"` if `submission_id` is null), so the two can never drift out of sync.
+
 ### `role`, `permission`, `role_permission`, `user_role`
 Standard RBAC join tables as diagrammed above. `permission.module + permission.action` is `UNIQUE`. `role_permission(role_id, permission_id)` composite PK. `user_role(user_id, role_id)` composite PK.
 
@@ -336,6 +431,8 @@ Append-only; no `updated_at`/`deleted_at`. Indexed on `(company_id, entity_type,
 - `employee_document(employee_id)`, `employee_document(company_id)` *(Phase 2)*
 - `onboarding_invite(token_hash)` unique — the hot lookup path for every public onboarding request *(Phase 2)*
 - `project(company_id, status)` — implicit via the `UNIQUE(company_id, name)` constraint plus status filtering in list queries *(Phase 3)*
+- `timesheet_entry(employee_id)`, `timesheet_entry(project_id)`, `timesheet_entry(submission_id)`, `timesheet_entry(entry_date)` *(Phase 4)*
+- `timesheet_submission(employee_id)` — the hot lookup path for "my submissions" and the manager approval queue *(Phase 4)*
 
 ## Row-Level Security
 
@@ -345,8 +442,9 @@ CREATE POLICY tenant_isolation ON employee
   USING (company_id = current_setting('app.current_company_id', true)::uuid);
 -- mirrored on department, role (where company_id is not null), audit_log,
 -- (Phase 2) document_type, employee_document, onboarding_invite,
--- and (Phase 3) client, project — NOT project_member, which is a pure join
--- table without its own company_id (see above)
+-- (Phase 3) client, project — NOT project_member, which is a pure join
+-- table without its own company_id (see above) — and
+-- (Phase 4) timesheet_period_config, timesheet_submission, timesheet_entry
 ```
 
 Applied to every tenant-scoped table as defense-in-depth behind the repository-layer enforcement described in [LLD.md §4](./LLD.md#4-multi-tenant-enforcement--tenantscopedrepository). See [HLD.md §4](./HLD.md#4-multi-tenancy-strategy) for the caveat that this is currently inert in the local Docker Compose setup (superuser Postgres role) and needs a dedicated non-superuser app role to act as a real second layer in production.

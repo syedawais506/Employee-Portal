@@ -18,6 +18,7 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import BadgeIcon from "@mui/icons-material/Badge";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
@@ -71,6 +72,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: <WorkOutlineIcon fontSize="small" />,
     match: (p) => p.startsWith("/projects"),
     visible: ({ isSuperAdmin }) => !isSuperAdmin,
+  },
+  {
+    label: "Timesheets",
+    to: "/timesheets",
+    icon: <AccessTimeIcon fontSize="small" />,
+    match: (p) => p.startsWith("/timesheets"),
+    visible: ({ hasPermission }) => hasPermission("timesheet", "view"),
   },
   {
     label: "Onboarding",

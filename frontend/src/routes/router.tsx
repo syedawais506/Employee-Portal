@@ -17,6 +17,7 @@ import { MyProfilePage } from "@/features/profile/MyProfilePage";
 import { ProjectDetailPage } from "@/features/projects/ProjectDetailPage";
 import { ProjectsEntryPage } from "@/features/projects/ProjectsEntryPage";
 import { RoleListPage } from "@/features/roles/RoleListPage";
+import { TimesheetsPage } from "@/features/timesheets/TimesheetsPage";
 import { ProtectedRoute, RequirePermission, RequireSuperAdmin } from "@/routes/ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -63,6 +64,10 @@ export const router = createBrowserRouter([
           {
             element: <RequirePermission module="project" action="view" />,
             children: [{ path: "/projects/:id", element: <ProjectDetailPage /> }],
+          },
+          {
+            element: <RequirePermission module="timesheet" action="view" />,
+            children: [{ path: "/timesheets", element: <TimesheetsPage /> }],
           },
           {
             element: <RequireSuperAdmin />,

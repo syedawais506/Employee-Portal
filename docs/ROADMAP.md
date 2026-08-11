@@ -42,11 +42,16 @@ SRS, HLD, LLD, ER diagram, API contracts, roadmap. No code.
 **Adjusted from the original scope** (see the scope-review discussion before this phase started): the original draft asked for an "hours, cost, status" dashboard and a single `manager_id`/employee-mapping model. Both were cut back — hours/cost data doesn't exist without Timesheets (Phase 4), and a join-table `project_member` with a role flag is more correct than a single manager column since a project can have multiple managers. Employee mapping itself (multiple projects, one manager/HR/department/cost-center) was already schema-supported since Phase 1; this phase is where it got a UI.
 
 ## Phase 4 — Timesheets
-- `timesheet_period_config` (per-company period rules), `timesheet_entry`, `timesheet_approval_step`
-- Configurable approval chain (Employee → Manager → PM → Finance, each step optional per company)
-- Rule engine: min/max hours, mandatory fields, duplicate prevention, weekend/holiday rules, lock/reopen, bulk approve
-- Reminders via Celery beat (late submission, pending approval) — email first, in-app next
-- Timesheet dashboard: pending, rejected, late, hours by project/employee, billable %, Excel/PDF export
+- `timesheet_period_config` (per-company period type: daily/weekly/monthly, plus week-start-day for weekly) — bi-weekly and fully custom periods are deferred, not enough real-world demand to justify the extra date-math complexity now
+- `timesheet_entry` (employee, date, `project_id` validated against that employee's `project_member` rows from Phase 3, hours, billable flag, work type, description) — one row per day/project
+- `timesheet_submission` — groups an employee's entries for one period and carries the actual workflow state (`draft → submitted → approved/rejected`); approval happens per period, not per entry row
+- Approval chain: Manager approval always required (every employee already has one); a per-company toggle adds an optional final Finance sign-off. "Project Manager" as a distinct configurable step is deferred — Phase 3's `project_member.role_on_project` makes it possible to add later without a schema change, but a fully generic N-step engine isn't worth the complexity for the first version
+- Rule engine: min/max hours per day, mandatory project + description (per-company toggle), duplicate prevention (unique employee+date+project), weekend-logging warning (day-of-week only, no calendar dependency — holiday-aware rules wait for Phase 5's `holiday_calendar`), lock on approved periods with Admin-only reopen, bulk-approve
+- Permission fixes carried over from the Phase 1 catalog: Admin gains `timesheet.create`/`timesheet.export` (was missing), Finance gains `timesheet.approve` (needed for the optional Finance sign-off step) — no new permission module, reuses the `timesheet.*` catalog already seeded in migration 0001
+- Timesheet dashboard: pending, rejected, late, hours by project/employee, billable %; CSV export (opens in Excel, no new dependency) — a formatted `.xlsx`/PDF report is a fast-follow, not blocking this phase
+- Reminders (late submission, pending approval) are deferred to a fast-follow once the core flow ships — no scheduler (`celery-beat`) service exists yet, and standing one up before the thing it reminds about is proven isn't worth the added infra now
+
+**Adjusted from the original scope** (see the scope-review discussion before this phase started): the original draft specified a fully configurable Employee→Manager→PM→Finance chain and holiday-aware rules with no holiday table to back them. Both were narrowed — a 2-tier Manager+optional-Finance chain covers the vast majority of real approval flows without a generic workflow engine, and weekend/holiday rules were split so the calendar-dependent half waits for Phase 5. Submission was modeled as period-level (not per-entry) since that's how the rest of the draft's language ("period rules", "late submission") already assumes it works.
 
 ## Phase 5 — Leave Management
 - `leave_type`, `leave_policy`, `leave_balance`, `leave_request`, `holiday_calendar`

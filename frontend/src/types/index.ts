@@ -190,3 +190,63 @@ export interface MyProject {
   start_date: string | null;
   end_date: string | null;
 }
+
+export type TimesheetPeriodType = "daily" | "weekly" | "monthly";
+export type TimesheetWorkType = "office" | "remote" | "client_site";
+export type TimesheetEntryStatus = "draft" | "submitted" | "manager_approved" | "approved" | "rejected";
+
+export interface TimesheetPeriodConfig {
+  id: string;
+  period_type: TimesheetPeriodType;
+  week_start_day: number;
+  min_hours_per_day: string | null;
+  max_hours_per_day: string | null;
+  require_project_and_description: boolean;
+  warn_on_weekend: boolean;
+  require_finance_approval: boolean;
+}
+
+export interface TimesheetEntry {
+  id: string;
+  project_id: string;
+  project_name: string;
+  entry_date: string;
+  hours: string;
+  is_billable: boolean;
+  work_type: TimesheetWorkType;
+  description: string | null;
+  status: TimesheetEntryStatus;
+  is_weekend: boolean;
+  submission_id: string | null;
+}
+
+export interface TimesheetSubmission {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  period_start: string;
+  period_end: string;
+  status: TimesheetEntryStatus;
+  submitted_at: string;
+  manager_approved_at: string | null;
+  finance_approved_at: string | null;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+  total_hours: string;
+  entries: TimesheetEntry[];
+}
+
+export interface HoursByBucket {
+  id: string;
+  name: string;
+  hours: string;
+}
+
+export interface TimesheetDashboard {
+  pending_count: number;
+  rejected_count: number;
+  late_count: number;
+  billable_percentage: number;
+  hours_by_project: HoursByBucket[];
+  hours_by_employee: HoursByBucket[];
+}

@@ -122,6 +122,30 @@ Lightweight assignment target for projects — reuses the `project.*` permission
 
 `client_id` and every `employee_id` in `member_ids` are validated server-side to belong to the caller's company — cross-tenant references return `422`, not a silent no-op.
 
+## Timesheets — `/api/v1/timesheets` *(Phase 4)*
+
+Entries and submissions are always scoped to the caller's own employee record — there is no "edit someone else's timesheet" endpoint. Approval/dashboard/export routes act company-wide for whoever holds the relevant permission (same model as every other module — not restricted to "my direct reports").
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `GET /timesheets/config` | — | TimesheetPeriodConfig (auto-created with defaults on first access) | timesheet.view |
+| `PATCH /timesheets/config` | `{period_type?, week_start_day?, min_hours_per_day?, max_hours_per_day?, require_project_and_description?, warn_on_weekend?, require_finance_approval?}` | TimesheetPeriodConfig | timesheet.configure |
+| `GET /timesheets/entries` | `date_from, date_to` | `[TimesheetEntry]` — caller's own | timesheet.view (self) |
+| `POST /timesheets/entries` | `{project_id, entry_date, hours, is_billable, work_type, description?}` | TimesheetEntry (201) | timesheet.create (self) |
+| `PATCH /timesheets/entries/{id}` | `{hours?, is_billable?, work_type?, description?, project_id?}` | TimesheetEntry | timesheet.update (self; 404 if not the caller's own) |
+| `DELETE /timesheets/entries/{id}` | — | `204` | timesheet.update (self) |
+| `POST /timesheets/submissions` | `{ref_date}` | TimesheetSubmission (201) — submits every draft entry in the period containing `ref_date` (period bounds computed server-side from config) | timesheet.update (self) |
+| `GET /timesheets/submissions/mine` | — | `[TimesheetSubmission]` — caller's own submission history | authenticated (self) |
+| `GET /timesheets/submissions` | `status?, page, page_size` | Page\<TimesheetSubmission\> — approval queue | timesheet.approve |
+| `POST /timesheets/submissions/{id}/approve` | — | TimesheetSubmission — advances one step (Manager, then Finance only if `require_finance_approval`) | timesheet.approve |
+| `POST /timesheets/submissions/{id}/reject` | `{reason}` | TimesheetSubmission (`status:"rejected"`) | timesheet.reject |
+| `POST /timesheets/submissions/bulk-approve` | `{submission_ids: [...]}` | `{approved: [...], failed: [{id, reason}]}` — partial failures don't abort the batch | timesheet.approve |
+| `POST /timesheets/submissions/{id}/reopen` | — | TimesheetSubmission (`status:"submitted"`) — only approved submissions can be reopened | timesheet.delete (Admin-only by default — see ROADMAP.md) |
+| `GET /timesheets/dashboard` | `date_from?, date_to?` | `{pending_count, rejected_count, late_count, billable_percentage, hours_by_project[], hours_by_employee[]}` | timesheet.approve OR timesheet.export |
+| `GET /timesheets/export` | `date_from?, date_to?, employee_id?, project_id?` | `text/csv` attachment | timesheet.export |
+
+`project_id` on entry creation is validated against the caller's own `project_member` rows — logging time against a project you're not assigned to returns `422`. A duplicate `(employee, date, project)` entry returns `409`, as does creating/editing an entry inside an already-approved (locked) period.
+
 ## Health
 
 Unversioned and mounted at the application root (not under `/api/v1`), so infra healthchecks (Docker `HEALTHCHECK`, load balancer probes) don't break across API version bumps.

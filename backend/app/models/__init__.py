@@ -5,6 +5,7 @@ from app.models.employee import Employee
 from app.models.onboarding import DocumentType, EmployeeDocument, OnboardingInvite
 from app.models.project import Client, Project, ProjectMember
 from app.models.role import Permission, Role, RolePermission, UserRole
+from app.models.timesheet import TimesheetEntry, TimesheetPeriodConfig, TimesheetSubmission
 from app.models.user import User
 
 __all__ = [
@@ -21,6 +22,9 @@ __all__ = [
     "ProjectMember",
     "Role",
     "RolePermission",
+    "TimesheetEntry",
+    "TimesheetPeriodConfig",
+    "TimesheetSubmission",
     "User",
     "UserRole",
 ]

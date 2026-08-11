@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     onboarding,
     projects,
     roles,
+    timesheets,
 )
 
 api_router = APIRouter()
@@ -23,3 +24,4 @@ api_router.include_router(employees.router)
 api_router.include_router(onboarding.management_router)
 api_router.include_router(clients.router)
 api_router.include_router(projects.router)
+api_router.include_router(timesheets.router)

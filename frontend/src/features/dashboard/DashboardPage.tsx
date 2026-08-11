@@ -6,8 +6,10 @@ import { listCompanies } from "@/api/companies";
 import { listDepartments } from "@/api/departments";
 import { listEmployees } from "@/api/employees";
 import { listProjects } from "@/api/projects";
+import { getTimesheetDashboard, listMyTimesheetEntries } from "@/api/timesheets";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuthStore } from "@/store/authStore";
+import { computePeriodBounds, toISODate } from "@/utils/timesheetPeriod";
 
 function KpiCard({ label, value, helper }: { label: string; value: string | number; helper?: string }) {
   return (
@@ -112,13 +114,27 @@ function TenantDashboard() {
     enabled: Boolean(departments?.items.length),
   });
 
-  const comingSoonCard = hasPermission("timesheet", "approve") || hasPermission("leave", "approve")
-    ? { title: "Pending Approvals", phase: "Phase 4–5" }
-    : hasPermission("employee", "import")
-      ? { title: "Onboarding Queue", phase: "Phase 2" }
-      : hasPermission("timesheet", "export")
-        ? { title: "Billing & Utilization", phase: "Phase 7" }
-        : { title: "My Timesheet & Leave", phase: "Phase 4–5" };
+  const canApproveTimesheets = hasPermission("timesheet", "approve");
+  const canViewTimesheetDashboard = canApproveTimesheets || hasPermission("timesheet", "export");
+  const canLogTimesheets = hasPermission("timesheet", "view") && !canViewTimesheetDashboard;
+
+  const { data: timesheetDashboard } = useQuery({
+    queryKey: ["dashboard", "timesheet"],
+    queryFn: () => getTimesheetDashboard(),
+    enabled: canViewTimesheetDashboard,
+  });
+
+  const [weekStart, weekEnd] = computePeriodBounds("weekly", 0, new Date());
+  const { data: myWeekEntries } = useQuery({
+    queryKey: ["dashboard", "my-timesheet-week"],
+    queryFn: () => listMyTimesheetEntries(toISODate(weekStart), toISODate(weekEnd)),
+    enabled: canLogTimesheets,
+  });
+  const myWeekHours = (myWeekEntries ?? []).reduce((sum, e) => sum + Number(e.hours), 0);
+
+  const comingSoonCard = hasPermission("employee", "import")
+    ? { title: "Onboarding Queue", phase: "Phase 2" }
+    : { title: "Leave", phase: "Phase 5" };
 
   return (
     <Stack spacing={3}>
@@ -143,6 +159,24 @@ function TenantDashboard() {
               value={allProjects?.items.filter((p) => p.status === "active").length ?? "—"}
               helper={allProjects ? `${allProjects.total} total` : undefined}
             />
+          </Grid>
+        )}
+        {canViewTimesheetDashboard && (
+          <Grid item xs={12} sm={4}>
+            <KpiCard
+              label="Pending Timesheet Approvals"
+              value={timesheetDashboard?.pending_count ?? "—"}
+              helper={
+                timesheetDashboard
+                  ? `${timesheetDashboard.rejected_count} rejected, ${timesheetDashboard.late_count} late`
+                  : undefined
+              }
+            />
+          </Grid>
+        )}
+        {canLogTimesheets && (
+          <Grid item xs={12} sm={4}>
+            <KpiCard label="My Hours This Week" value={myWeekHours.toFixed(2)} helper="Log time in Timesheets" />
           </Grid>
         )}
       </Grid>

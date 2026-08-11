@@ -2,7 +2,7 @@
 
 A commercial-grade, multi-tenant Employee Management Portal (Zoho People–style), built to eventually serve multiple independent customer companies from a single deployment with fully isolated data.
 
-**Phases 1, 2 & 3 are shipped**: multi-tenant data model, authentication, dynamic RBAC/permission engine, Company/Department/Employee management, a full employee onboarding workflow (configurable document checklist, secure onboarding links, HR review, Admin activation, offer letters), and Projects & Employee Mapping (clients, project CRUD, team assignment, self-service "my projects" view) — fully wired end-to-end (React UI → FastAPI → PostgreSQL) rather than shallow-stubbed across every module. See [docs/ROADMAP.md](docs/ROADMAP.md) for what ships in later phases (timesheets, leave, assets, reports, notifications, attendance, billing, AI features).
+**Phases 1–4 are shipped**: multi-tenant data model, authentication, dynamic RBAC/permission engine, Company/Department/Employee management, a full employee onboarding workflow (configurable document checklist, secure onboarding links, HR review, Admin activation, offer letters), Projects & Employee Mapping (clients, project CRUD, team assignment, self-service "my projects" view), and Timesheets (time entry against assigned projects, configurable period rules, Manager + optional Finance approval chain, bulk approve, dashboard, CSV export) — fully wired end-to-end (React UI → FastAPI → PostgreSQL) rather than shallow-stubbed across every module. See [docs/ROADMAP.md](docs/ROADMAP.md) for what ships in later phases (leave, assets, reports, notifications, attendance, billing, AI features).
 
 ## Documentation
 
@@ -81,6 +81,10 @@ To try the new-hire side of the flow yourself:
 
 Each demo company already has a client ("Northwind Trading Co") and two projects — a billable client project and an internal one, both with team members assigned. Log in as `admin@acme-demo.com` and open **Projects** in the sidebar to see the full management view (create/edit projects, manage clients from the "Clients" tab, add/remove team members). Log in as `employee@acme-demo.com` instead to see the same nav item resolve to a read-only "My Projects" view showing only what that employee is assigned to — no budget or client info, matching what a plain Employee role can see.
 
+### Try Timesheets
+
+Each demo company already has a submitted timesheet awaiting approval, an approved one, and a rejected one, so every tab has real data on first login. Log in as `employee@acme-demo.com` and open **Timesheets** to see **My Timesheet** — log time against your assigned projects, then **Submit Period**. Log in as `manager@acme-demo.com` to see an **Approvals** tab as well, where you can approve/reject/bulk-approve pending submissions. Log in as `admin@acme-demo.com` to additionally see a **Dashboard** tab (pending/rejected/late counts, hours by project/employee, billable %, CSV export) and a **Settings** tab (period type, min/max hours per day, whether Finance sign-off is required — the only role that can change these company-wide rules).
+
 ### Sending real email (instead of MailHog)
 
 By default every email (onboarding invites, password resets) is captured locally by MailHog at http://localhost:8025 and never reaches a real inbox — that's intentional for local dev. To send real email:
@@ -153,7 +157,7 @@ Frontend runs at `http://localhost:5173` and proxies `/api` to `http://localhost
 cd frontend && npm run typecheck && npm run lint && npm run test && npm run build
 ```
 
-The backend test suite includes a dedicated cross-tenant-isolation suite (`backend/tests/integration/test_tenant_isolation.py`) that asserts, through the real HTTP API, that one company's Admin cannot read, list, update, or delete another company's data, a full onboarding-workflow suite (`test_onboarding.py`) covering invite → password → document upload → HR review → Admin activation, and a projects suite (`test_projects.py`) covering CRUD, member assignment, cross-tenant rejection, and the self-service "my projects" view.
+The backend test suite includes a dedicated cross-tenant-isolation suite (`backend/tests/integration/test_tenant_isolation.py`) that asserts, through the real HTTP API, that one company's Admin cannot read, list, update, or delete another company's data, a full onboarding-workflow suite (`test_onboarding.py`) covering invite → password → document upload → HR review → Admin activation, a projects suite (`test_projects.py`) covering CRUD, member assignment, cross-tenant rejection, and the self-service "my projects" view, and a timesheets suite (`test_timesheets.py`) covering entry/submission/approval lifecycle, the rule engine (duplicate prevention, max-hours-per-day, project-membership), reject-then-resubmit, the optional Finance approval step, bulk approve, admin-only reopen, and dashboard/export permission gating.
 
 ## Security Notes for Deployment
 

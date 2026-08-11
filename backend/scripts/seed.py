@@ -4,7 +4,7 @@ with departments, default roles, and one employee per role.
 Usage (from backend/):  python -m scripts.seed
 """
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from app.core.security import hash_password
@@ -20,6 +20,7 @@ from app.repositories.user_repository import UserRepository
 from app.services.employee_service import employee_service
 from app.services.onboarding_service import onboarding_service
 from app.services.role_service import DEFAULT_ROLE_PERMISSIONS, role_service
+from app.services.timesheet_service import timesheet_service
 from app.utils.storage import ensure_bucket_exists, upload_document
 
 DEMO_PASSWORD = "Demo@12345"
@@ -127,7 +128,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
         role_name="HR", department_id=hr_dept.id, designation="HR Generalist",
         first_name="Jordan", last_name="HR", manager_id=admin_employee.id,
     )
-    make_user_and_employee(
+    finance_employee = make_user_and_employee(
         role_name="Finance", department_id=finance_dept.id, designation="Finance Analyst",
         first_name="Casey", last_name="Finance", manager_id=admin_employee.id,
     )
@@ -194,6 +195,51 @@ def seed_company(db, *, name: str, slug: str) -> None:
     )
     project_member_repo.add(db, internal_project.id, admin_employee.id, "manager")
     project_member_repo.add(db, internal_project.id, engineer_employee.id, "member")
+    project_member_repo.add(db, internal_project.id, finance_employee.id, "member")
+
+    # Timesheets demo: a submitted (pending), an approved, and a rejected
+    # period so the My Timesheet / Approvals / Dashboard screens all have
+    # real data on first login rather than empty states.
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+
+    for day_offset, hours in ((0, Decimal("4.00")), (1, Decimal("4.50"))):
+        timesheet_service.create_entry(
+            db, company.id, engineer_employee.id,
+            project_id=client_project.id, entry_date=monday + timedelta(days=day_offset),
+            hours=hours, is_billable=True, work_type="office",
+            description="Feature implementation", actor_user_id=engineer_employee.user_id,
+        )
+    timesheet_service.submit_period(
+        db, company.id, engineer_employee.id, monday, actor_user_id=engineer_employee.user_id
+    )
+
+    for day_offset, hours in ((0, Decimal("3.00")), (1, Decimal("5.00"))):
+        timesheet_service.create_entry(
+            db, company.id, manager_employee.id,
+            project_id=client_project.id, entry_date=monday + timedelta(days=day_offset),
+            hours=hours, is_billable=True, work_type="remote",
+            description="Client coordination", actor_user_id=manager_employee.user_id,
+        )
+    manager_submission = timesheet_service.submit_period(
+        db, company.id, manager_employee.id, monday, actor_user_id=manager_employee.user_id
+    )
+    timesheet_service.approve_submission(db, company.id, manager_submission.id, actor_user_id=admin_employee.user_id)
+
+    timesheet_service.create_entry(
+        db, company.id, finance_employee.id,
+        project_id=internal_project.id, entry_date=monday,
+        hours=Decimal("6.00"), is_billable=False, work_type="office",
+        description="Cost tracking setup", actor_user_id=finance_employee.user_id,
+    )
+    finance_submission = timesheet_service.submit_period(
+        db, company.id, finance_employee.id, monday, actor_user_id=finance_employee.user_id
+    )
+    timesheet_service.reject_submission(
+        db, company.id, finance_submission.id,
+        reason="Please split hours by task and add more detail to the description.",
+        actor_user_id=manager_employee.user_id,
+    )
 
 
 def _advance_demo_onboarding_to_submitted(db, *, company_id, employee, document_types) -> None:

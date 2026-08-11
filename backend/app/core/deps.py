@@ -74,3 +74,19 @@ def require_permission(module: str, action: str):
         return current_user
 
     return dependency
+
+
+def require_any_permission(*module_actions: tuple[str, str]):
+    def dependency(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        if current_user.is_super_admin:
+            return current_user
+        permissions = auth_service.get_effective_permissions(db, current_user.id)
+        if not any(f"{module}.{action}" in permissions for module, action in module_actions):
+            wanted = ", ".join(f"{module}.{action}" for module, action in module_actions)
+            raise PermissionDeniedError(f"Missing permission: one of [{wanted}]")
+        return current_user
+
+    return dependency
