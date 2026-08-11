@@ -129,7 +129,7 @@ Entries and submissions are always scoped to the caller's own employee record �
 | Method & Path | Body | Response | Permission |
 |---|---|---|---|
 | `GET /timesheets/config` | — | TimesheetPeriodConfig (auto-created with defaults on first access) | timesheet.view |
-| `PATCH /timesheets/config` | `{period_type?, week_start_day?, min_hours_per_day?, max_hours_per_day?, require_project_and_description?, warn_on_weekend?, require_finance_approval?}` | TimesheetPeriodConfig | timesheet.configure |
+| `PATCH /timesheets/config` | `{period_type?, week_start_day?, min_hours_per_day?, max_hours_per_day?, require_description?, warn_on_weekend?, require_finance_approval?}` | TimesheetPeriodConfig | timesheet.configure |
 | `GET /timesheets/entries` | `date_from, date_to` | `[TimesheetEntry]` — caller's own | timesheet.view (self) |
 | `POST /timesheets/entries` | `{project_id, entry_date, hours, is_billable, work_type, description?}` | TimesheetEntry (201) | timesheet.create (self) |
 | `PATCH /timesheets/entries/{id}` | `{hours?, is_billable?, work_type?, description?, project_id?}` | TimesheetEntry | timesheet.update (self; 404 if not the caller's own) |

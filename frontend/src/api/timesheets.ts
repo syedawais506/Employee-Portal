@@ -24,7 +24,7 @@ export interface TimesheetConfigUpdateInput {
   week_start_day?: number;
   min_hours_per_day?: string | null;
   max_hours_per_day?: string | null;
-  require_project_and_description?: boolean;
+  require_description?: boolean;
   warn_on_weekend?: boolean;
   require_finance_approval?: boolean;
 }

@@ -31,7 +31,7 @@ interface FormValues {
   week_start_day: number;
   min_hours_per_day: string;
   max_hours_per_day: string;
-  require_project_and_description: boolean;
+  require_description: boolean;
   warn_on_weekend: boolean;
   require_finance_approval: boolean;
 }
@@ -48,7 +48,7 @@ export function TimesheetSettingsTab() {
       week_start_day: 0,
       min_hours_per_day: "",
       max_hours_per_day: "",
-      require_project_and_description: true,
+      require_description: false,
       warn_on_weekend: true,
       require_finance_approval: false,
     },
@@ -61,7 +61,7 @@ export function TimesheetSettingsTab() {
       week_start_day: config.week_start_day,
       min_hours_per_day: config.min_hours_per_day ?? "",
       max_hours_per_day: config.max_hours_per_day ?? "",
-      require_project_and_description: config.require_project_and_description,
+      require_description: config.require_description,
       warn_on_weekend: config.warn_on_weekend,
       require_finance_approval: config.require_finance_approval,
     });
@@ -84,7 +84,7 @@ export function TimesheetSettingsTab() {
       week_start_day: Number(values.week_start_day),
       min_hours_per_day: values.min_hours_per_day || null,
       max_hours_per_day: values.max_hours_per_day || null,
-      require_project_and_description: values.require_project_and_description,
+      require_description: values.require_description,
       warn_on_weekend: values.warn_on_weekend,
       require_finance_approval: values.require_finance_approval,
     });
@@ -154,7 +154,7 @@ export function TimesheetSettingsTab() {
         </Grid>
         <Grid item xs={12}>
           <Controller
-            name="require_project_and_description"
+            name="require_description"
             control={control}
             render={({ field }) => (
               <FormControlLabel

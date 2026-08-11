@@ -16,7 +16,7 @@ class TimesheetPeriodConfigResponse(ORMModel):
     week_start_day: int
     min_hours_per_day: Decimal | None
     max_hours_per_day: Decimal | None
-    require_project_and_description: bool
+    require_description: bool
     warn_on_weekend: bool
     require_finance_approval: bool
 
@@ -26,7 +26,7 @@ class TimesheetPeriodConfigUpdateRequest(BaseModel):
     week_start_day: int | None = Field(default=None, ge=0, le=6)
     min_hours_per_day: Decimal | None = None
     max_hours_per_day: Decimal | None = None
-    require_project_and_description: bool | None = None
+    require_description: bool | None = None
     warn_on_weekend: bool | None = None
     require_finance_approval: bool | None = None
 

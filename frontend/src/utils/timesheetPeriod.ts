@@ -50,3 +50,35 @@ export function formatPeriodLabel(start: Date, end: Date): string {
   const endLabel = end.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   return `${startLabel} – ${endLabel}`;
 }
+
+export function startOfWeek(date: Date, weekStartDay: number): Date {
+  const pyWeekday = (date.getDay() + 6) % 7;
+  const offset = ((pyWeekday - weekStartDay) % 7 + 7) % 7;
+  const start = new Date(date);
+  start.setDate(start.getDate() - offset);
+  return start;
+}
+
+/** Always a full calendar-month grid (padded to whole weeks), regardless of
+ * the company's configured period type — the active submission period is
+ * highlighted inside it, but the surrounding month stays visible for context. */
+export function getMonthGridDates(refDate: Date, weekStartDay: number): Date[] {
+  const firstOfMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
+  const lastOfMonth = new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0);
+  const gridStart = startOfWeek(firstOfMonth, weekStartDay);
+  const gridEnd = startOfWeek(lastOfMonth, weekStartDay);
+  gridEnd.setDate(gridEnd.getDate() + 6);
+
+  const dates: Date[] = [];
+  const cursor = new Date(gridStart);
+  while (cursor <= gridEnd) {
+    dates.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
+export function weekdayLabels(weekStartDay: number): string[] {
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  return [...labels.slice(weekStartDay), ...labels.slice(0, weekStartDay)];
+}

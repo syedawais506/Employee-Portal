@@ -51,7 +51,7 @@ erDiagram
         int week_start_day "0=Monday..6=Sunday, weekly only"
         numeric min_hours_per_day "nullable"
         numeric max_hours_per_day "nullable, default 24"
-        bool require_project_and_description
+        bool require_description
         bool warn_on_weekend
         bool require_finance_approval
     }
@@ -376,7 +376,7 @@ A pure join table — no `company_id` of its own, same pattern as `role_permissi
 | week_start_day | int NOT NULL DEFAULT 0 | 0=Monday..6=Sunday; only meaningful when period_type='weekly' |
 | min_hours_per_day | numeric(4,2) NULL | enforced per-day at submission time, only for days that already have an entry |
 | max_hours_per_day | numeric(4,2) NULL DEFAULT 24 | enforced per-day at entry create/update time, across all of that employee's projects |
-| require_project_and_description | boolean NOT NULL DEFAULT true | |
+| require_description | boolean NOT NULL DEFAULT false | project is always required structurally; this only gates description *(renamed + default flipped in migration 0005 — employees log time and submit later, so a mandatory description up front didn't fit that flow)* |
 | warn_on_weekend | boolean NOT NULL DEFAULT true | UI-only flag (`TimesheetEntry.is_weekend`), not a hard block |
 | require_finance_approval | boolean NOT NULL DEFAULT false | adds the optional second approval step |
 | created_at, updated_at | timestamptz | |
@@ -407,7 +407,7 @@ A pure join table — no `company_id` of its own, same pattern as `role_permissi
 | hours | numeric(4,2) NOT NULL | |
 | is_billable | boolean NOT NULL DEFAULT true | |
 | work_type | varchar(20) NOT NULL DEFAULT 'office' | office / remote / client_site |
-| description | varchar(500) NULL | required when `require_project_and_description` is set |
+| description | varchar(500) NULL | required when `require_description` is set |
 | created_at, updated_at | timestamptz | |
 
 Entry status (`draft`/`submitted`/`manager_approved`/`approved`/`rejected`) is not its own column — it's a computed property that reads the linked submission's status (or `"draft"` if `submission_id` is null), so the two can never drift out of sync.

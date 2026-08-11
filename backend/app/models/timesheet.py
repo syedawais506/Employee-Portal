@@ -23,7 +23,7 @@ class TimesheetPeriodConfig(UUIDPkMixin, TimestampMixin, Base):
     week_start_day: Mapped[int] = mapped_column(default=0, nullable=False)  # 0=Monday .. 6=Sunday
     min_hours_per_day: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)
     max_hours_per_day: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), default=Decimal("24"), nullable=True)
-    require_project_and_description: Mapped[bool] = mapped_column(default=True, nullable=False)
+    require_description: Mapped[bool] = mapped_column(default=False, nullable=False)
     warn_on_weekend: Mapped[bool] = mapped_column(default=True, nullable=False)
     require_finance_approval: Mapped[bool] = mapped_column(default=False, nullable=False)
 

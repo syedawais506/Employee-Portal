@@ -24,8 +24,10 @@ interface TimesheetEntryFormDialogProps {
   defaultDate: string;
   errorMessage?: string | null;
   submitting?: boolean;
+  deleting?: boolean;
   onClose: () => void;
   onSubmit: (values: TimesheetEntryInput) => void;
+  onDelete?: () => void;
 }
 
 export function TimesheetEntryFormDialog({
@@ -35,8 +37,10 @@ export function TimesheetEntryFormDialog({
   defaultDate,
   errorMessage,
   submitting,
+  deleting,
   onClose,
   onSubmit,
+  onDelete,
 }: TimesheetEntryFormDialogProps) {
   const { control, handleSubmit, reset } = useForm<TimesheetEntryInput>({
     defaultValues: {
@@ -159,7 +163,14 @@ export function TimesheetEntryFormDialog({
               name="description"
               control={control}
               render={({ field }) => (
-                <TextField {...field} value={field.value ?? ""} label="Description" fullWidth multiline minRows={2} />
+                <TextField
+                  {...field}
+                  value={field.value ?? ""}
+                  label="Description (optional)"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                />
               )}
             />
           </Grid>
@@ -175,9 +186,14 @@ export function TimesheetEntryFormDialog({
         </Grid>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
+        {editing && onDelete && (
+          <Button color="error" onClick={onDelete} disabled={deleting} sx={{ mr: "auto" }}>
+            Delete
+          </Button>
+        )}
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={submitting}>
-          {editing ? "Save changes" : "Add entry"}
+          {editing ? "Save changes" : "Save as Draft"}
         </Button>
       </DialogActions>
     </Dialog>

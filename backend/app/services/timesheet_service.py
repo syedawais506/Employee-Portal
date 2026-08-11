@@ -133,7 +133,7 @@ class TimesheetService:
         config = self.get_config(db, company_id)
         self._validate_project_membership(db, company_id, employee_id, project_id)
 
-        if config.require_project_and_description and not description:
+        if config.require_description and not description:
             raise ValidationAppError("A description is required for timesheet entries")
         if self.entry_repo.get_by_natural_key(db, company_id, employee_id, entry_date, project_id) is not None:
             raise ConflictError("An entry for this project and date already exists")
