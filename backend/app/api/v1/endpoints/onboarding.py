@@ -1,15 +1,12 @@
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
-from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_company_id, get_db, require_permission
-from app.core.exceptions import NotFoundError
 from app.models.employee import Employee
 from app.models.user import User
-from app.repositories.employee_repository import EmployeeRepository
 from app.schemas.onboarding import (
     DocumentReviewRequest,
     EmployeeDocumentResponse,
@@ -17,13 +14,10 @@ from app.schemas.onboarding import (
     OnboardingContextResponse,
     OnboardingQueueEntry,
 )
-from app.services.offer_letter_service import render_offer_letter_pdf
 from app.services.onboarding_service import onboarding_service
 
 onboarding_router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 management_router = APIRouter(prefix="/employees", tags=["onboarding"])
-
-employee_repo = EmployeeRepository()
 
 
 @onboarding_router.get("/queue", response_model=list[OnboardingQueueEntry])
@@ -170,21 +164,3 @@ def admin_approve_onboarding(
 ):
     employee = onboarding_service.admin_approve(db, company_id, employee_id, actor_user_id=current_user.id)
     return {"onboarding_status": employee.onboarding_status}
-
-
-@management_router.get("/{employee_id}/offer-letter")
-def download_offer_letter(
-    employee_id: uuid.UUID,
-    company_id: uuid.UUID = Depends(get_current_company_id),
-    db: Session = Depends(get_db),
-    _: User = Depends(require_permission("employee", "view")),
-):
-    employee = employee_repo.get(db, company_id, employee_id)
-    if employee is None:
-        raise NotFoundError("Employee not found")
-    pdf_bytes = render_offer_letter_pdf(employee)
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="offer-letter-{employee.employee_code}.pdf"'},
-    )

@@ -3,13 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import DownloadIcon from "@mui/icons-material/Download";
 import { Box, Button, Card, CardContent, Chip, CircularProgress, Grid, IconButton, Stack, Typography } from "@mui/material";
 
 import { extractApiErrorMessage } from "@/api/client";
 import { listDepartments } from "@/api/departments";
 import { getEmployee, listEmployees, updateEmployee } from "@/api/employees";
-import { downloadOfferLetter } from "@/api/onboarding";
 import { PageHeader } from "@/components/PageHeader";
 import { PermissionGate } from "@/components/PermissionGate";
 import { EmployeeFormDialog, type EmployeeFormValues } from "@/features/employees/EmployeeFormDialog";
@@ -91,13 +89,6 @@ export function EmployeeDetailPage() {
         subtitle={employee.employee_code}
         actions={
           <Stack direction="row" spacing={1}>
-            <Button
-              size="small"
-              startIcon={<DownloadIcon />}
-              onClick={() => downloadOfferLetter(employee.id, employee.employee_code)}
-            >
-              Offer Letter
-            </Button>
             {employee.onboarding_status !== "completed" && (
               <PermissionGate module="onboarding" action="view">
                 <Button size="small" variant="outlined" onClick={() => navigate(`/onboarding/review/${employee.id}`)}>

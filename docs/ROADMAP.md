@@ -25,11 +25,12 @@ SRS, HLD, LLD, ER diagram, API contracts, roadmap. No code.
 - Auto-advance to "submitted" once a password is set and every required document has been uploaded (no separate submit button/endpoint)
 - HR review queue: per-document approve/reject with notes, then a `hr-approve` gate requiring every required document be approved
 - Admin final approval activates the account (`is_active=True`, `is_verified=True`)
-- Offer letter generation: real PDF (ReportLab), pulling live employee/company/department data — not a stub
 - Document storage: MinIO/S3 via boto3, presigned download URLs, content-type/size validation
 - Dedicated `onboarding` permission module (`view`/`review`/`approve`/`configure`) wired into the same dynamic RBAC engine from Phase 1, including retroactive grants to companies seeded before this phase shipped
 
-**Simplified from the original scope** (deferred, not blocking): no separate "onboarding template" or per-employee task checklist beyond the document list itself; no virus-scan integration (hook point not yet added); offer letter template is fixed (not yet per-company customizable).
+**Simplified from the original scope** (deferred, not blocking): no separate "onboarding template" or per-employee task checklist beyond the document list itself; no virus-scan integration (hook point not yet added).
+
+**Removed after shipping** (direct user request): offer letter PDF generation/download shipped in this phase gated on `employee.view`, but that permission is company-wide by design (like every other `.view` permission in this app — see Phase 1), so any Employee-role user could browse the directory and download *any* other employee's offer letter, not just their own. Rather than bolt on one-off "self only" scoping for this single endpoint, the feature was removed outright (route, PDF service, ReportLab dependency, frontend button all deleted) rather than kept behind a narrower fix — it wasn't load-bearing for anything else and the simplest correct fix was to not have it.
 
 ## Phase 3 — Projects & Employee Mapping *(shipped)*
 - `project` (name, client_id, budget, billable flag, start/end date, status) — **no** `department_id`: cross-functional projects aren't pinned to a single department

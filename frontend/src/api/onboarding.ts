@@ -61,17 +61,3 @@ export async function adminApproveOnboarding(employeeId: string): Promise<{ onbo
   const response = await apiClient.post(`/employees/${employeeId}/onboarding/approve`);
   return response.data;
 }
-
-export async function downloadOfferLetter(employeeId: string, employeeCode: string): Promise<void> {
-  // Auth is a Bearer token attached by the axios interceptor, so a plain
-  // <a href> navigation can't carry it — fetch as a blob and save manually.
-  const response = await apiClient.get(`/employees/${employeeId}/offer-letter`, { responseType: "blob" });
-  const url = URL.createObjectURL(response.data as Blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `offer-letter-${employeeCode}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}

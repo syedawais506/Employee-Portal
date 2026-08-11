@@ -2,7 +2,7 @@
 
 A commercial-grade, multi-tenant Employee Management Portal (Zoho People–style), built to eventually serve multiple independent customer companies from a single deployment with fully isolated data.
 
-**Phases 1–4 are shipped**: multi-tenant data model, authentication, dynamic RBAC/permission engine, Company/Department/Employee management, a full employee onboarding workflow (configurable document checklist, secure onboarding links, HR review, Admin activation, offer letters), Projects & Employee Mapping (clients, project CRUD, team assignment, self-service "my projects" view), and Timesheets (time entry against assigned projects, configurable period rules, Manager + optional Finance approval chain, bulk approve, dashboard, CSV export) — fully wired end-to-end (React UI → FastAPI → PostgreSQL) rather than shallow-stubbed across every module. See [docs/ROADMAP.md](docs/ROADMAP.md) for what ships in later phases (leave, assets, reports, notifications, attendance, billing, AI features).
+**Phases 1–4 are shipped**: multi-tenant data model, authentication, dynamic RBAC/permission engine, Company/Department/Employee management, a full employee onboarding workflow (configurable document checklist, secure onboarding links, HR review, Admin activation), Projects & Employee Mapping (clients, project CRUD, team assignment, self-service "my projects" view), and Timesheets (time entry against assigned projects, configurable period rules, Manager + optional Finance approval chain, bulk approve, dashboard, CSV export) — fully wired end-to-end (React UI → FastAPI → PostgreSQL) rather than shallow-stubbed across every module. See [docs/ROADMAP.md](docs/ROADMAP.md) for what ships in later phases (leave, assets, reports, notifications, attendance, billing, AI features).
 
 ## Documentation
 
@@ -17,7 +17,7 @@ A commercial-grade, multi-tenant Employee Management Portal (Zoho People–style
 
 ## Tech Stack
 
-**Backend:** Python 3.13, FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2, JWT auth, Celery + Redis, PostgreSQL 16 (with Row-Level Security as defense-in-depth), boto3 (S3/MinIO document storage), ReportLab (offer letter PDFs)
+**Backend:** Python 3.13, FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2, JWT auth, Celery + Redis, PostgreSQL 16 (with Row-Level Security as defense-in-depth), boto3 (S3/MinIO document storage)
 **Frontend:** React 19, TypeScript, Vite, MUI, TanStack Query, React Hook Form, React Router, Zustand, Recharts
 **Infra:** Docker, Docker Compose, Nginx, GitHub Actions CI, MinIO (S3-compatible, dev), MailHog (SMTP capture, dev)
 

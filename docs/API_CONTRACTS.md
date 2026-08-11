@@ -66,7 +66,6 @@ Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI)
 | `DELETE /employees/{id}` | — | `204` (soft delete + deactivate user) | employee.delete |
 | `GET /employees/me` | — | EmployeeDetail (caller's own) | self |
 | `PATCH /employees/me` | `{phone?, address?}` (self-editable subset only) | EmployeeDetail | self |
-| `GET /employees/{id}/offer-letter` | — | `application/pdf` binary (ReportLab-rendered) | employee.view |
 | `GET /employees/export` | `search?, department_id?, status?, manager_id?, employment_type?, location?, joining_date_from?, joining_date_to?` | `text/csv` attachment | employee.export |
 
 ## Document Types — `/api/v1/document-types` *(Phase 2)*

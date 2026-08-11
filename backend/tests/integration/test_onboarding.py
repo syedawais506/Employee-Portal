@@ -142,13 +142,3 @@ def test_onboarding_queue_isolated_per_company(client, tenant_a, tenant_b, monke
     headers_b = tenant_b.auth_headers(client, "Admin")
     queue_b = client.get("/api/v1/onboarding/queue", headers=headers_b)
     assert all(item["id"] != employee["id"] for item in queue_b.json())
-
-
-def test_offer_letter_download_returns_a_pdf(client, tenant_a):
-    headers_admin = tenant_a.auth_headers(client, "Admin")
-    _, employee, _ = tenant_a.users["Employee"]
-
-    response = client.get(f"/api/v1/employees/{employee.id}/offer-letter", headers=headers_admin)
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "application/pdf"
-    assert response.content.startswith(b"%PDF")
