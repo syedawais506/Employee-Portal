@@ -92,14 +92,6 @@ class TimesheetService:
         if not self.member_repo.is_member(db, project_id, employee_id):
             raise ValidationAppError("You are not assigned to this project")
 
-    def _locked_submission_for_date(
-        self, db: Session, company_id: uuid.UUID, employee_id: uuid.UUID, entry_date: date
-    ) -> TimesheetSubmission | None:
-        for submission in self.submission_repo.list_for_employee(db, company_id, employee_id):
-            if submission.status == "approved" and submission.period_start <= entry_date <= submission.period_end:
-                return submission
-        return None
-
     def list_my_entries(
         self, db: Session, company_id: uuid.UUID, employee_id: uuid.UUID, date_from: date, date_to: date
     ) -> list[TimesheetEntry]:
@@ -128,8 +120,6 @@ class TimesheetService:
             raise ValidationAppError("A description is required for timesheet entries")
         if self.entry_repo.get_by_natural_key(db, company_id, employee_id, entry_date, project_id) is not None:
             raise ConflictError("An entry for this project and date already exists")
-        if self._locked_submission_for_date(db, company_id, employee_id, entry_date) is not None:
-            raise ConflictError("This period has already been approved and is locked")
 
         day_total = self.entry_repo.sum_hours_for_day(db, company_id, employee_id, entry_date)
         if config.max_hours_per_day is not None and day_total + hours > config.max_hours_per_day:

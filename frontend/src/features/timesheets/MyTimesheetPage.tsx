@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AddIcon from "@mui/icons-material/Add";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import { Alert, Button, Chip, IconButton, Stack, Typography } from "@mui/material";
+import { Alert, Button, IconButton, Stack, Typography } from "@mui/material";
 
 import { extractApiErrorMessage } from "@/api/client";
 import { listMyProjects } from "@/api/projects";
@@ -12,7 +12,6 @@ import {
   deleteTimesheetEntry,
   getTimesheetConfig,
   listMyTimesheetEntries,
-  listMyTimesheetSubmissions,
   updateTimesheetEntry,
   type TimesheetEntryInput,
 } from "@/api/timesheets";
@@ -22,22 +21,6 @@ import { TimesheetCalendar } from "@/features/timesheets/TimesheetCalendar";
 import { TimesheetEntryFormDialog } from "@/features/timesheets/TimesheetEntryFormDialog";
 import type { TimesheetEntry } from "@/types";
 import { computePeriodBounds, formatPeriodLabel, getMonthGridDates, shiftPeriod, toISODate } from "@/utils/timesheetPeriod";
-
-const STATUS_COLOR: Record<string, "success" | "warning" | "default" | "error" | "info"> = {
-  draft: "default",
-  submitted: "info",
-  manager_approved: "info",
-  approved: "success",
-  rejected: "error",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "Draft",
-  submitted: "Submitted — awaiting manager approval",
-  manager_approved: "Manager approved — awaiting finance sign-off",
-  approved: "Approved",
-  rejected: "Rejected",
-};
 
 export function MyTimesheetPage() {
   const queryClient = useQueryClient();
@@ -79,15 +62,6 @@ export function MyTimesheetPage() {
     }
     return map;
   }, [entries]);
-
-  const { data: submissions } = useQuery({
-    queryKey: ["timesheets", "submissions", "mine"],
-    queryFn: () => listMyTimesheetSubmissions(),
-  });
-  const currentSubmission = submissions?.find(
-    (s) => s.period_start === periodStartIso && s.period_end === periodEndIso,
-  );
-  const isLocked = currentSubmission?.status === "approved";
 
   const periodEntries = (entries ?? []).filter((e) => e.entry_date >= periodStartIso && e.entry_date <= periodEndIso);
   const periodTotalHours = periodEntries.reduce((sum, e) => sum + Number(e.hours), 0);
@@ -167,14 +141,6 @@ export function MyTimesheetPage() {
           <IconButton onClick={() => setRefDate(shiftPeriod(periodType, refDate, 1))} size="small">
             <ChevronRightIcon />
           </IconButton>
-          {currentSubmission && (
-            <Chip
-              label={STATUS_LABEL[currentSubmission.status]}
-              color={STATUS_COLOR[currentSubmission.status]}
-              size="small"
-              sx={{ ml: 1 }}
-            />
-          )}
         </Stack>
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Typography variant="body2" color="text.secondary">
@@ -188,7 +154,6 @@ export function MyTimesheetPage() {
               const defaultDate = todayIso >= periodStartIso && todayIso <= periodEndIso ? todayIso : periodStartIso;
               openCreate(defaultDate);
             }}
-            disabled={isLocked}
           >
             Log Time
           </Button>
@@ -209,7 +174,6 @@ export function MyTimesheetPage() {
         weekStartDay={weekStartDay}
         entriesByDate={entriesByDate}
         warnOnWeekend={config?.warn_on_weekend ?? true}
-        isLocked={isLocked}
         onDayClick={openCreate}
         onEntryClick={openEdit}
       />

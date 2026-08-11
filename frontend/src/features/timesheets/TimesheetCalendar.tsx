@@ -11,7 +11,6 @@ interface TimesheetCalendarProps {
   weekStartDay: number;
   entriesByDate: Record<string, TimesheetEntry[]>;
   warnOnWeekend: boolean;
-  isLocked: boolean;
   onDayClick: (dateIso: string) => void;
   onEntryClick: (entry: TimesheetEntry) => void;
 }
@@ -24,7 +23,6 @@ export function TimesheetCalendar({
   weekStartDay,
   entriesByDate,
   warnOnWeekend,
-  isLocked,
   onDayClick,
   onEntryClick,
 }: TimesheetCalendarProps) {
@@ -48,7 +46,7 @@ export function TimesheetCalendar({
           const isWeekend = day.getDay() === 0 || day.getDay() === 6;
           const entries = entriesByDate[dayIso] ?? [];
           const totalHours = entries.reduce((sum, e) => sum + Number(e.hours), 0);
-          const clickable = inActivePeriod && !isLocked;
+          const clickable = inActivePeriod;
 
           return (
             <Box
@@ -72,19 +70,22 @@ export function TimesheetCalendar({
                 {day.getDate()}
               </Typography>
               <Stack spacing={0.5} sx={{ flexGrow: 1, overflow: "hidden" }}>
-                {entries.map((entry) => (
-                  <Chip
-                    key={entry.id}
-                    label={`${entry.project_name}: ${entry.hours}h`}
-                    size="small"
-                    color={entry.status === "rejected" ? "error" : entry.status === "approved" ? "success" : "default"}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (inActivePeriod && !isLocked) onEntryClick(entry);
-                    }}
-                    sx={{ justifyContent: "flex-start", maxWidth: "100%" }}
-                  />
-                ))}
+                {entries.map((entry) => {
+                  const entryEditable = entry.status === "draft" || entry.status === "rejected";
+                  return (
+                    <Chip
+                      key={entry.id}
+                      label={`${entry.project_name}: ${entry.hours}h`}
+                      size="small"
+                      color={entry.status === "rejected" ? "error" : entry.status === "approved" ? "success" : "default"}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (entryEditable) onEntryClick(entry);
+                      }}
+                      sx={{ justifyContent: "flex-start", maxWidth: "100%" }}
+                    />
+                  );
+                })}
               </Stack>
               {totalHours > 0 && (
                 <Typography variant="caption" color="text.secondary">

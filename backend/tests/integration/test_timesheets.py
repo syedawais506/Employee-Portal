@@ -67,6 +67,15 @@ def test_full_lifecycle_entry_submit_approve_locks_entries(client, tenant_a):
     )
     assert locked_edit.status_code == 409
 
+    # The approved submission's range spans the whole week (Monday..Sunday),
+    # but only Monday actually has an entry. Logging a fresh entry on a
+    # different, never-submitted day in that same range must still work —
+    # locking is per-entry, not a blanket freeze over the whole date range.
+    other_day = _create_entry(
+        client, headers_employee, project_id=project_id, entry_date=WEEK_END, hours="2.00"
+    )
+    assert other_day.status_code == 201, other_day.text
+
 
 def test_duplicate_entry_same_date_and_project_returns_409(client, tenant_a):
     headers_admin = tenant_a.auth_headers(client, "Admin")
