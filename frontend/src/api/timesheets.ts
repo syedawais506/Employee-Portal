@@ -110,9 +110,23 @@ export async function getTimesheetDashboard(dateFrom?: string, dateTo?: string):
   return response.data;
 }
 
-export async function downloadTimesheetExportCsv(dateFrom?: string, dateTo?: string): Promise<void> {
+export interface TimesheetExportFilters {
+  dateFrom?: string;
+  dateTo?: string;
+  employeeId?: string;
+  projectId?: string;
+  location?: string;
+}
+
+export async function downloadTimesheetExportCsv(filters: TimesheetExportFilters = {}): Promise<void> {
   const response = await apiClient.get<Blob>("/timesheets/export", {
-    params: { date_from: dateFrom, date_to: dateTo },
+    params: {
+      date_from: filters.dateFrom,
+      date_to: filters.dateTo,
+      employee_id: filters.employeeId,
+      project_id: filters.projectId,
+      location: filters.location,
+    },
     responseType: "blob",
   });
   const url = window.URL.createObjectURL(response.data);

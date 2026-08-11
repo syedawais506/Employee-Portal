@@ -13,7 +13,6 @@ import {
   getTimesheetConfig,
   listMyTimesheetEntries,
   listMyTimesheetSubmissions,
-  submitTimesheetPeriod,
   updateTimesheetEntry,
   type TimesheetEntryInput,
 } from "@/api/timesheets";
@@ -92,7 +91,6 @@ export function MyTimesheetPage() {
 
   const periodEntries = (entries ?? []).filter((e) => e.entry_date >= periodStartIso && e.entry_date <= periodEndIso);
   const periodTotalHours = periodEntries.reduce((sum, e) => sum + Number(e.hours), 0);
-  const canSubmitPeriod = !isLocked && periodEntries.some((e) => e.status === "draft");
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["timesheets", "entries"] });
@@ -127,12 +125,6 @@ export function MyTimesheetPage() {
     },
   });
 
-  const submitMutation = useMutation({
-    mutationFn: () => submitTimesheetPeriod(periodStartIso),
-    onSuccess: invalidate,
-    onError: (error) => setErrorMessage(extractApiErrorMessage(error)),
-  });
-
   function openCreate(dateIso: string) {
     setErrorMessage(null);
     setFormState({ open: true, editing: null, date: dateIso });
@@ -163,7 +155,7 @@ export function MyTimesheetPage() {
     <>
       <PageHeader
         title="My Timesheet"
-        subtitle="Click a date to log hours against your assigned projects, then submit the period for approval."
+        subtitle="Click a date to log hours against your assigned projects — saved as a draft immediately. Review and submit from the Drafts tab."
       />
 
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }} flexWrap="wrap" gap={1}>
@@ -200,21 +192,9 @@ export function MyTimesheetPage() {
           >
             Log Time
           </Button>
-          <Button
-            variant="contained"
-            onClick={() => submitMutation.mutate()}
-            disabled={!canSubmitPeriod || submitMutation.isPending}
-          >
-            Submit Period
-          </Button>
         </Stack>
       </Stack>
 
-      {currentSubmission?.status === "rejected" && currentSubmission.rejection_reason && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Rejected: {currentSubmission.rejection_reason}. Edit the entries below and resubmit.
-        </Alert>
-      )}
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {errorMessage}

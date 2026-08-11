@@ -83,7 +83,14 @@ def seed_company(db, *, name: str, slug: str) -> None:
     department_repo.create(db, company.id, name="Sales", parent_department_id=None, cost_center_code="SALES")
 
     def make_user_and_employee(
-        *, role_name: str, department_id, designation: str, first_name: str, last_name: str, manager_id=None
+        *,
+        role_name: str,
+        department_id,
+        designation: str,
+        first_name: str,
+        last_name: str,
+        manager_id=None,
+        location: str = "United States",
     ):
         email = f"{role_name.lower()}@{slug}-demo.com"
         user = user_repo.create(
@@ -106,6 +113,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
             designation=designation,
             manager_id=manager_id,
             employment_type="full_time",
+            location=location,
             joining_date=date(2024, 1, 15),
             status="active",
         )
@@ -122,7 +130,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
     )
     engineer_employee = make_user_and_employee(
         role_name="Employee", department_id=engineering.id, designation="Software Engineer",
-        first_name="Riley", last_name="Employee", manager_id=manager_employee.id,
+        first_name="Riley", last_name="Employee", manager_id=manager_employee.id, location="India",
     )
     make_user_and_employee(
         role_name="HR", department_id=hr_dept.id, designation="HR Generalist",
@@ -130,7 +138,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
     )
     finance_employee = make_user_and_employee(
         role_name="Finance", department_id=finance_dept.id, designation="Finance Analyst",
-        first_name="Casey", last_name="Finance", manager_id=admin_employee.id,
+        first_name="Casey", last_name="Finance", manager_id=admin_employee.id, location="India",
     )
 
     # Onboarding demo: a document checklist plus one new hire already
@@ -152,6 +160,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
         designation="Associate Engineer",
         manager_id=manager_employee.id,
         employment_type="full_time",
+        location="United States",
         joining_date=date(2026, 3, 1),
         role_ids=[roles["Employee"].id],
         actor_user_id=admin_employee.user_id,

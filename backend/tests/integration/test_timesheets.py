@@ -246,3 +246,35 @@ def test_project_with_logged_hours_cannot_be_hard_deleted(client, tenant_a):
 
     delete_response = client.delete(f"/api/v1/projects/{project_id}", headers=headers_admin)
     assert delete_response.status_code == 409
+
+
+def test_export_can_be_filtered_by_employee_location(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _, engineer, _ = tenant_a.users["Employee"]
+    _, manager, _ = tenant_a.users["Manager"]
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    headers_manager = tenant_a.auth_headers(client, "Manager")
+
+    india_update = client.patch(
+        f"/api/v1/employees/{engineer.id}", headers=headers_admin, json={"location": "India"}
+    )
+    assert india_update.status_code == 200
+    us_update = client.patch(
+        f"/api/v1/employees/{manager.id}", headers=headers_admin, json={"location": "United States"}
+    )
+    assert us_update.status_code == 200
+
+    project_id = _create_project(
+        client, headers_admin, member_ids=[_member(engineer), _member(manager, "manager")]
+    )
+    _create_entry(client, headers_employee, project_id=project_id, entry_date=MONDAY, hours="4.00")
+    _create_entry(client, headers_manager, project_id=project_id, entry_date=MONDAY, hours="3.00")
+
+    india_export = client.get("/api/v1/timesheets/export", headers=headers_admin, params={"location": "India"})
+    assert india_export.status_code == 200
+    assert "Employee User" in india_export.text
+    assert "Manager User" not in india_export.text
+
+    us_export = client.get("/api/v1/timesheets/export", headers=headers_admin, params={"location": "United States"})
+    assert "Manager User" in us_export.text
+    assert "Employee User" not in us_export.text

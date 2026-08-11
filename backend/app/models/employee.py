@@ -37,6 +37,7 @@ class Employee(UUIDPkMixin, TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True), ForeignKey("employee.id", ondelete="SET NULL"), nullable=True
     )
     employment_type: Mapped[str] = mapped_column(String(30), default="full_time", nullable=False)
+    location: Mapped[str | None] = mapped_column(String(100), nullable=True)
     joining_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
     onboarding_status: Mapped[str] = mapped_column(String(20), default="completed", nullable=False)

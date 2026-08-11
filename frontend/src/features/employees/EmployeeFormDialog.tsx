@@ -16,7 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 
-import type { Department, EmployeeDetail, EmployeeSummary, Role } from "@/types";
+import { EMPLOYEE_LOCATIONS, type Department, type EmployeeDetail, type EmployeeSummary, type Role } from "@/types";
 
 export interface EmployeeFormValues {
   email: string;
@@ -27,6 +27,7 @@ export interface EmployeeFormValues {
   designation: string;
   manager_id: string;
   employment_type: string;
+  location: string;
   joining_date: string;
   status: string;
   role_ids: string[];
@@ -70,6 +71,7 @@ export function EmployeeFormDialog({
       designation: "",
       manager_id: "",
       employment_type: "full_time",
+      location: "",
       joining_date: "",
       status: "active",
       role_ids: [],
@@ -87,6 +89,7 @@ export function EmployeeFormDialog({
         designation: initial?.designation ?? "",
         manager_id: initial?.manager?.id ?? "",
         employment_type: initial?.employment_type ?? "full_time",
+        location: initial?.location ?? "",
         joining_date: initial?.joining_date ?? "",
         status: initial?.status ?? "active",
         role_ids: [],
@@ -199,6 +202,22 @@ export function EmployeeFormDialog({
                   {EMPLOYMENT_TYPES.map((type) => (
                     <MenuItem key={type} value={type}>
                       {type.replace("_", " ")}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <Controller
+              name="location"
+              control={control}
+              render={({ field }) => (
+                <TextField {...field} select label="Location" fullWidth>
+                  <MenuItem value="">None</MenuItem>
+                  {EMPLOYEE_LOCATIONS.map((location) => (
+                    <MenuItem key={location} value={location}>
+                      {location}
                     </MenuItem>
                   ))}
                 </TextField>

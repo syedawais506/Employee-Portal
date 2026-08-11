@@ -191,6 +191,7 @@ erDiagram
         string designation
         uuid manager_id FK
         string employment_type
+        string location "nullable — e.g. United States, India; set at employee creation, filters timesheet exports"
         date joining_date
         string status
         string onboarding_status "invited|submitted|hr_approved|completed"
@@ -291,6 +292,7 @@ erDiagram
 | designation | varchar(150) NULL | |
 | manager_id | uuid FK → employee.id NULL | self-ref, must be same company |
 | employment_type | varchar(30) NOT NULL DEFAULT 'full_time' | full_time / part_time / contract / intern |
+| location | varchar(100) NULL | free text, not a DB enum (same pattern as employment_type/status) — UI offers "United States" / "India" as presets; set at employee creation, used to filter timesheet exports across a multi-country workforce *(migration 0006)* |
 | joining_date | date NULL | |
 | status | varchar(20) NOT NULL DEFAULT 'active' | active / on_leave / exited |
 | onboarding_status | varchar(20) NOT NULL DEFAULT 'completed' | invited / submitted / hr_approved / completed — `'completed'` default backfills pre-Phase-2 rows and lets seed/admin-created rows opt out of the invite flow |

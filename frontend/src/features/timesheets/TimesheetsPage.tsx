@@ -3,12 +3,13 @@ import { Tab, Tabs } from "@mui/material";
 
 import { PageHeader } from "@/components/PageHeader";
 import { ApprovalsTab } from "@/features/timesheets/ApprovalsTab";
+import { DraftsTab } from "@/features/timesheets/DraftsTab";
 import { MyTimesheetPage } from "@/features/timesheets/MyTimesheetPage";
 import { TimesheetDashboardTab } from "@/features/timesheets/TimesheetDashboardTab";
 import { TimesheetSettingsTab } from "@/features/timesheets/TimesheetSettingsTab";
 import { useAuthStore } from "@/store/authStore";
 
-type TabValue = "mine" | "approvals" | "dashboard" | "settings";
+type TabValue = "mine" | "drafts" | "approvals" | "dashboard" | "settings";
 
 export function TimesheetsPage() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
@@ -23,11 +24,13 @@ export function TimesheetsPage() {
       <PageHeader title="Timesheets" subtitle="Log hours, track approvals, and review team utilization." />
       <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ mb: 3 }}>
         <Tab value="mine" label="My Timesheet" />
+        <Tab value="drafts" label="Drafts" />
         {canApprove && <Tab value="approvals" label="Approvals" />}
         {canSeeDashboard && <Tab value="dashboard" label="Dashboard" />}
         {canConfigure && <Tab value="settings" label="Settings" />}
       </Tabs>
       {tab === "mine" && <MyTimesheetPage />}
+      {tab === "drafts" && <DraftsTab />}
       {tab === "approvals" && canApprove && <ApprovalsTab />}
       {tab === "dashboard" && canSeeDashboard && <TimesheetDashboardTab />}
       {tab === "settings" && canConfigure && <TimesheetSettingsTab />}

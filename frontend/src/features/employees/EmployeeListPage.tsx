@@ -81,6 +81,7 @@ export function EmployeeListPage() {
         designation: values.designation || null,
         manager_id: values.manager_id || null,
         employment_type: values.employment_type,
+        location: values.location || null,
         joining_date: values.joining_date || null,
         role_ids: values.role_ids,
       }),

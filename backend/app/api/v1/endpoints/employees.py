@@ -60,6 +60,7 @@ def create_employee(
         designation=payload.designation,
         manager_id=payload.manager_id,
         employment_type=payload.employment_type,
+        location=payload.location,
         joining_date=payload.joining_date,
         role_ids=payload.role_ids,
         actor_user_id=current_user.id,

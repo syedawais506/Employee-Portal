@@ -61,6 +61,7 @@ export function EmployeeDetailPage() {
         designation: values.designation || null,
         manager_id: values.manager_id || null,
         employment_type: values.employment_type,
+        location: values.location || null,
         status: values.status,
       }),
     onSuccess: () => {
@@ -118,6 +119,7 @@ export function EmployeeDetailPage() {
           <Stack direction="row" spacing={1} sx={{ mb: 3 }}>
             <Chip label={employee.status.replace("_", " ")} size="small" color={employee.status === "active" ? "success" : "default"} />
             <Chip label={employee.employment_type.replace("_", " ")} size="small" variant="outlined" />
+            {employee.location && <Chip label={employee.location} size="small" variant="outlined" />}
             <Chip
               label={ONBOARDING_STATUS_LABEL[employee.onboarding_status] ?? employee.onboarding_status}
               size="small"

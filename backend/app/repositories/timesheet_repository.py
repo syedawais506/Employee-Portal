@@ -117,6 +117,7 @@ class TimesheetEntryRepository(TenantScopedRepository[TimesheetEntry]):
         date_to: date | None,
         employee_id: uuid.UUID | None,
         project_id: uuid.UUID | None,
+        location: str | None = None,
     ) -> list[TimesheetEntry]:
         conditions = [TimesheetEntry.company_id == company_id]
         if date_from is not None:
@@ -127,9 +128,12 @@ class TimesheetEntryRepository(TenantScopedRepository[TimesheetEntry]):
             conditions.append(TimesheetEntry.employee_id == employee_id)
         if project_id is not None:
             conditions.append(TimesheetEntry.project_id == project_id)
+        if location is not None:
+            conditions.append(Employee.location == location)
 
         stmt = (
             select(TimesheetEntry)
+            .join(Employee, Employee.id == TimesheetEntry.employee_id)
             .options(
                 joinedload(TimesheetEntry.project),
                 joinedload(TimesheetEntry.employee),

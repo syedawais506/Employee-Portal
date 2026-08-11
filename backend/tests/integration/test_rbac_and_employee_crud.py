@@ -38,6 +38,7 @@ def test_full_employee_crud_lifecycle_via_admin(client, tenant_a):
             "department_id": str(tenant_a.department.id),
             "designation": "QA Engineer",
             "employment_type": "full_time",
+            "location": "India",
             "joining_date": "2025-01-01",
         },
     )
@@ -45,14 +46,16 @@ def test_full_employee_crud_lifecycle_via_admin(client, tenant_a):
     employee = create_response.json()
     assert employee["employee_code"]
     assert employee["department"]["id"] == str(tenant_a.department.id)
+    assert employee["location"] == "India"
 
     update_response = client.patch(
         f"/api/v1/employees/{employee['id']}",
         headers=headers_admin,
-        json={"designation": "Senior QA Engineer"},
+        json={"designation": "Senior QA Engineer", "location": "United States"},
     )
     assert update_response.status_code == 200
     assert update_response.json()["designation"] == "Senior QA Engineer"
+    assert update_response.json()["location"] == "United States"
 
     list_response = client.get(
         "/api/v1/employees", headers=headers_admin, params={"search": "Lifecycle"}

@@ -83,7 +83,13 @@ Each demo company already has a client ("Northwind Trading Co") and two projects
 
 ### Try Timesheets
 
-Each demo company already has a submitted timesheet awaiting approval, an approved one, and a rejected one, so every tab has real data on first login. Log in as `employee@acme-demo.com` and open **Timesheets** to see **My Timesheet** — a full month calendar (the active week/month being submitted is outlined; the rest of the month stays visible for context). Click any date inside the outline to log hours against one of your assigned projects — a description is optional — which saves it as a draft; click an existing entry chip to edit or delete it. Once the days you want are logged, click **Submit Period** to send the whole period for approval in one go. Log in as `manager@acme-demo.com` to see an **Approvals** tab as well, where you can approve/reject/bulk-approve pending submissions. Log in as `admin@acme-demo.com` to additionally see a **Dashboard** tab (pending/rejected/late counts, hours by project/employee, billable %, CSV export) and a **Settings** tab (period type, min/max hours per day, whether a description is required, whether Finance sign-off is required — the only role that can change these company-wide rules).
+Each demo company already has a submitted timesheet awaiting approval, an approved one, and a rejected one, so every tab has real data on first login. Log in as `employee@acme-demo.com` and open **Timesheets**:
+- **My Timesheet** — a full month calendar (the active week/month is outlined; the rest of the month stays visible for context). Click any date inside the outline to log hours against one of your assigned projects — a description is optional — which saves it as a draft immediately. Click an existing entry chip to edit or delete it. There's no submit action here on purpose.
+- **Drafts** — review everything logged for the period (with the same period navigator) and click **Submit Period** once you're happy with it, so a half-finished week is never sent for approval by accident.
+
+Log in as `manager@acme-demo.com` to see an **Approvals** tab as well, where you can approve/reject/bulk-approve pending submissions. Log in as `admin@acme-demo.com` to additionally see a **Dashboard** tab — pending/rejected/late counts, hours by project/employee, billable %, and an export panel that filters the CSV by date range, project, employee, and employee location — and a **Settings** tab (period type, min/max hours per day, whether a description is required, whether Finance sign-off is required — the only role that can change these company-wide rules).
+
+Employee location (e.g. "United States" / "India") is set from **Employees → New Employee** (or the edit form) — it exists specifically so the timesheet export can be filtered by it for a multi-country workforce.
 
 ### Sending real email (instead of MailHog)
 

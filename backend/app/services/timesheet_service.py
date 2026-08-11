@@ -477,17 +477,27 @@ class TimesheetService:
         date_to: date | None,
         employee_id: uuid.UUID | None,
         project_id: uuid.UUID | None,
+        location: str | None = None,
     ) -> str:
         entries = self.entry_repo.search(
-            db, company_id, date_from=date_from, date_to=date_to, employee_id=employee_id, project_id=project_id
+            db,
+            company_id,
+            date_from=date_from,
+            date_to=date_to,
+            employee_id=employee_id,
+            project_id=project_id,
+            location=location,
         )
         buffer = io.StringIO()
         writer = csv.writer(buffer)
-        writer.writerow(["Employee", "Project", "Date", "Hours", "Billable", "Work Type", "Status", "Description"])
+        writer.writerow(
+            ["Employee", "Location", "Project", "Date", "Hours", "Billable", "Work Type", "Status", "Description"]
+        )
         for entry in entries:
             writer.writerow(
                 [
                     entry.employee.full_name,
+                    entry.employee.location or "",
                     entry.project.name,
                     entry.entry_date.isoformat(),
                     str(entry.hours),

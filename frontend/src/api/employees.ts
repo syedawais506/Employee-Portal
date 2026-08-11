@@ -18,6 +18,7 @@ export interface EmployeeInput {
   designation?: string | null;
   manager_id?: string | null;
   employment_type: string;
+  location?: string | null;
   joining_date?: string | null;
   role_ids?: string[];
 }

@@ -204,12 +204,19 @@ def export_csv(
     date_to: date | None = Query(default=None),
     employee_id: uuid.UUID | None = Query(default=None),
     project_id: uuid.UUID | None = Query(default=None),
+    location: str | None = Query(default=None),
     company_id: uuid.UUID = Depends(get_current_company_id),
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("timesheet", "export")),
 ):
     csv_text = timesheet_service.export_csv(
-        db, company_id, date_from=date_from, date_to=date_to, employee_id=employee_id, project_id=project_id
+        db,
+        company_id,
+        date_from=date_from,
+        date_to=date_to,
+        employee_id=employee_id,
+        project_id=project_id,
+        location=location,
     )
     return Response(
         content=csv_text,

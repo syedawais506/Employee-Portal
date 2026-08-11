@@ -59,9 +59,9 @@ Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI)
 | Method & Path | Body | Response | Permission |
 |---|---|---|---|
 | `GET /employees` | `search, department_id, status, manager_id, page, page_size` | Page<EmployeeSummary> | employee.view |
-| `POST /employees` | `{email, first_name, last_name, department_id?, designation?, manager_id?, employment_type, joining_date, role_ids[]}` | Employee (201) — creates `user_account` (deactivated) + `employee` (`onboarding_status="invited"`) + queues an onboarding invite email (see Onboarding below) | employee.create |
+| `POST /employees` | `{email, first_name, last_name, department_id?, designation?, manager_id?, employment_type, location?, joining_date, role_ids[]}` | Employee (201) — creates `user_account` (deactivated) + `employee` (`onboarding_status="invited"`) + queues an onboarding invite email (see Onboarding below) | employee.create |
 | `GET /employees/{id}` | — | EmployeeDetail (incl. `onboarding_status`) | employee.view |
-| `PATCH /employees/{id}` | `{first_name?, last_name?, phone?, department_id?, designation?, manager_id?, employment_type?, status?}` | EmployeeDetail | employee.update |
+| `PATCH /employees/{id}` | `{first_name?, last_name?, phone?, department_id?, designation?, manager_id?, employment_type?, location?, status?}` | EmployeeDetail | employee.update |
 | `DELETE /employees/{id}` | — | `204` (soft delete + deactivate user) | employee.delete |
 | `GET /employees/me` | — | EmployeeDetail (caller's own) | self |
 | `PATCH /employees/me` | `{phone?, address?}` (self-editable subset only) | EmployeeDetail | self |
@@ -142,7 +142,7 @@ Entries and submissions are always scoped to the caller's own employee record �
 | `POST /timesheets/submissions/bulk-approve` | `{submission_ids: [...]}` | `{approved: [...], failed: [{id, reason}]}` — partial failures don't abort the batch | timesheet.approve |
 | `POST /timesheets/submissions/{id}/reopen` | — | TimesheetSubmission (`status:"submitted"`) — only approved submissions can be reopened | timesheet.delete (Admin-only by default — see ROADMAP.md) |
 | `GET /timesheets/dashboard` | `date_from?, date_to?` | `{pending_count, rejected_count, late_count, billable_percentage, hours_by_project[], hours_by_employee[]}` | timesheet.approve OR timesheet.export |
-| `GET /timesheets/export` | `date_from?, date_to?, employee_id?, project_id?` | `text/csv` attachment | timesheet.export |
+| `GET /timesheets/export` | `date_from?, date_to?, employee_id?, project_id?, location?` | `text/csv` attachment (columns incl. Employee, Location, Project, Date, Hours, Billable, Work Type, Status, Description) | timesheet.export |
 
 `project_id` on entry creation is validated against the caller's own `project_member` rows — logging time against a project you're not assigned to returns `422`. A duplicate `(employee, date, project)` entry returns `409`, as does creating/editing an entry inside an already-approved (locked) period.
 
@@ -171,6 +171,7 @@ Unversioned and mounted at the application root (not under `/api/v1`), so infra 
   "designation": "Senior Software Engineer",
   "manager": { "id": "...", "first_name": "Rahul", "last_name": "Verma" },
   "employment_type": "full_time",
+  "location": "India",
   "joining_date": "2023-06-12",
   "status": "active",
   "roles": [{ "id": "...", "name": "Employee" }],

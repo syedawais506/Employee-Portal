@@ -76,6 +76,7 @@ export interface EmployeeSummary {
   department: DepartmentRef | null;
   status: string;
   employment_type: string;
+  location: string | null;
   onboarding_status: string;
 }
 
@@ -90,10 +91,16 @@ export interface EmployeeDetail {
   designation: string | null;
   manager: ManagerRef | null;
   employment_type: string;
+  location: string | null;
   joining_date: string | null;
   status: string;
   onboarding_status: string;
 }
+
+// Not a hard enum server-side (employee.location is a plain nullable string,
+// same pattern as employment_type/status) — this is just the preset list the
+// UI offers today; more locations can be added here without a migration.
+export const EMPLOYEE_LOCATIONS = ["United States", "India"] as const;
 
 export type EmploymentType = "full_time" | "part_time" | "contract" | "intern";
 export type EmployeeStatus = "active" | "on_leave" | "exited";
