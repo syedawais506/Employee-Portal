@@ -108,8 +108,9 @@ erDiagram
     HOLIDAY_CALENDAR {
         uuid id PK
         uuid company_id FK
-        date date "UNIQUE per company"
+        date date "UNIQUE per company + location"
         string name
+        string location "nullable = all locations; else must match employee.location"
     }
 
     LEAVE_BALANCE {
@@ -490,9 +491,12 @@ Entry status (`draft`/`submitted`/`manager_approved`/`approved`/`rejected`) is n
 |---|---|---|
 | id | uuid PK | |
 | company_id | uuid FK → company.id NOT NULL | |
-| date | date NOT NULL | `UNIQUE(company_id, date)` |
+| date | date NOT NULL | `UNIQUE(company_id, date, location)` *(migration 0009)* |
 | name | varchar(150) NOT NULL | |
+| location | varchar(100) NULL | `NULL` = applies company-wide to every employee; set (e.g. `"India"`) = only excluded from business-day math and shown on the calendar for employees whose `employee.location` matches exactly *(migration 0009)* |
 | created_at, updated_at | timestamptz | |
+
+Two holidays can share the same date as long as their `location` differs (e.g. a company-wide holiday and an India-only one on the same day) — Postgres treats `NULL` as distinct from itself for uniqueness purposes, so the service layer additionally checks for an exact `(date, location)` duplicate (including two `NULL`-location rows) before insert, rather than relying on the DB constraint alone.
 
 ### `leave_balance` *(Phase 5)*
 | Column | Type | Notes |

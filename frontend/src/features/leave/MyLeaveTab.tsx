@@ -21,7 +21,7 @@ import {
 } from "@mui/material";
 
 import { extractApiErrorMessage } from "@/api/client";
-import { listEmployees } from "@/api/employees";
+import { getEmployee, listEmployees } from "@/api/employees";
 import {
   cancelLeaveRequest,
   createLeaveRequest,
@@ -68,6 +68,7 @@ export function MyLeaveTab() {
   const queryClient = useQueryClient();
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const canActForOthers = hasPermission("leave", "approve");
+  const myEmployeeId = useAuthStore((state) => state.user?.employee_id ?? null);
 
   const [refDate, setRefDate] = useState(new Date());
   const [bucket, setBucket] = useState<Bucket>("pending");
@@ -88,6 +89,11 @@ export function MyLeaveTab() {
   const { data: holidays } = useQuery({
     queryKey: ["leave", "holidays", refDate.getFullYear()],
     queryFn: () => listHolidays(refDate.getFullYear()),
+  });
+  const { data: myEmployee } = useQuery({
+    queryKey: ["employees", myEmployeeId],
+    queryFn: () => getEmployee(myEmployeeId as string),
+    enabled: Boolean(myEmployeeId),
   });
 
   const gridDates = useMemo(() => getMonthGridDates(refDate, WEEK_START_DAY), [refDate]);
@@ -110,9 +116,12 @@ export function MyLeaveTab() {
 
   const holidaysByDate = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const holiday of holidays ?? []) map[holiday.date] = holiday.name;
+    for (const holiday of holidays ?? []) {
+      if (holiday.location !== null && holiday.location !== myEmployee?.location) continue;
+      map[holiday.date] = holiday.name;
+    }
     return map;
-  }, [holidays]);
+  }, [holidays, myEmployee]);
 
   const bucketedRequests = (myRequests ?? []).filter((r) => inBucket(r, bucket));
 

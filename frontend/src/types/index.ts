@@ -273,6 +273,7 @@ export interface Holiday {
   id: string;
   date: string;
   name: string;
+  location: string | null;
 }
 
 export interface LeaveSettings {

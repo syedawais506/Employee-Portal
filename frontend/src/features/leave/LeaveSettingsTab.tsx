@@ -34,7 +34,7 @@ import {
   updateHoliday,
   updateLeaveSettings,
   updateLeaveType,
-  type HolidayInput,
+  type HolidayUpdateInput,
   type LeaveTypeInput,
 } from "@/api/leave";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -95,8 +95,10 @@ export function LeaveSettingsTab() {
   });
 
   const holidayMutation = useMutation({
-    mutationFn: ({ id, payload }: { id?: string; payload: HolidayInput }) =>
-      id ? updateHoliday(id, payload) : createHoliday(payload),
+    mutationFn: ({ id, payload }: { id?: string; payload: HolidayUpdateInput }) =>
+      id
+        ? updateHoliday(id, payload)
+        : createHoliday({ date: payload.date ?? "", name: payload.name ?? "", location: payload.location }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leave", "holidays"] });
       setHolidayForm({ open: false, editing: null });
@@ -239,6 +241,7 @@ export function LeaveSettingsTab() {
             <TableRow>
               <TableCell>Date</TableCell>
               <TableCell>Name</TableCell>
+              <TableCell>Applies to</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -247,6 +250,7 @@ export function LeaveSettingsTab() {
               <TableRow key={holiday.id} hover>
                 <TableCell>{holiday.date}</TableCell>
                 <TableCell>{holiday.name}</TableCell>
+                <TableCell>{holiday.location ?? "All locations"}</TableCell>
                 <TableCell align="right">
                   <IconButton size="small" onClick={() => setHolidayForm({ open: true, editing: holiday })}>
                     <EditOutlinedIcon fontSize="small" />
@@ -259,7 +263,7 @@ export function LeaveSettingsTab() {
             ))}
             {(holidays ?? []).length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                <TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.secondary" }}>
                   No holidays configured yet.
                 </TableCell>
               </TableRow>

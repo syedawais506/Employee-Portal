@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.leave import HolidayCalendar, LeaveBalance, LeaveRequest, LeaveType
@@ -34,20 +34,29 @@ class HolidayRepository(TenantScopedRepository[HolidayCalendar]):
         stmt = select(HolidayCalendar).where(*conditions).order_by(HolidayCalendar.date)
         return list(db.execute(stmt).scalars().all())
 
-    def get_by_date(self, db: Session, company_id: uuid.UUID, holiday_date: date) -> HolidayCalendar | None:
+    def get_by_date(
+        self, db: Session, company_id: uuid.UUID, holiday_date: date, location: str | None = None
+    ) -> HolidayCalendar | None:
         stmt = select(HolidayCalendar).where(
-            HolidayCalendar.company_id == company_id, HolidayCalendar.date == holiday_date
+            HolidayCalendar.company_id == company_id,
+            HolidayCalendar.date == holiday_date,
+            HolidayCalendar.location.is_(None) if location is None else HolidayCalendar.location == location,
         )
         return db.execute(stmt).scalar_one_or_none()
 
     def list_dates_in_range(
-        self, db: Session, company_id: uuid.UUID, start: date, end: date
+        self, db: Session, company_id: uuid.UUID, start: date, end: date, *, location: str | None = None
     ) -> set[date]:
-        stmt = select(HolidayCalendar.date).where(
+        conditions = [
             HolidayCalendar.company_id == company_id,
             HolidayCalendar.date >= start,
             HolidayCalendar.date <= end,
-        )
+        ]
+        if location is None:
+            conditions.append(HolidayCalendar.location.is_(None))
+        else:
+            conditions.append(or_(HolidayCalendar.location.is_(None), HolidayCalendar.location == location))
+        stmt = select(HolidayCalendar.date).where(*conditions)
         return set(db.execute(stmt).scalars().all())
 
 

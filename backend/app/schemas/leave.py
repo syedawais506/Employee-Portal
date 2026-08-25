@@ -35,17 +35,21 @@ class LeaveTypeResponse(ORMModel):
 class HolidayCreateRequest(BaseModel):
     date: _date
     name: str = Field(min_length=1, max_length=150)
+    location: str | None = Field(default=None, max_length=100)
 
 
 class HolidayUpdateRequest(BaseModel):
     date: _date | None = None
     name: str | None = Field(default=None, min_length=1, max_length=150)
+    location: str | None = None
+    clear_location: bool = False
 
 
 class HolidayResponse(ORMModel):
     id: uuid.UUID
     date: _date
     name: str
+    location: str | None
 
 
 class LeaveSettingsResponse(BaseModel):

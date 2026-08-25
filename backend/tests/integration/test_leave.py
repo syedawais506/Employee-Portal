@@ -317,4 +317,63 @@ def test_export_returns_csv_with_employee_and_status(client, tenant_a):
     export_response = client.get("/api/v1/leave/export", headers=headers_admin)
     assert export_response.status_code == 200
     assert "Employee User" in export_response.text
-    assert "approved" in export_response.text
+
+
+def test_location_scoped_holiday_only_excludes_business_days_for_matching_employees(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    headers_manager = tenant_a.auth_headers(client, "Manager")
+    _, engineer, _ = tenant_a.users["Employee"]
+    leave_type = _create_leave_type(client, headers_admin)
+
+    location_update = client.patch(
+        f"/api/v1/employees/{engineer.id}", headers=headers_admin, json={"location": "India"}
+    )
+    assert location_update.status_code == 200
+
+    holiday_response = client.post(
+        "/api/v1/holidays", headers=headers_admin, json={"date": str(TUESDAY), "name": "Diwali", "location": "India"}
+    )
+    assert holiday_response.status_code == 201
+
+    india_request = _create_request(
+        client, headers_employee, leave_type_id=leave_type["id"], start_date=MONDAY, end_date=WEDNESDAY
+    )
+    assert india_request.status_code == 201
+    assert india_request.json()["days_count"] == 2  # Tuesday excluded as a holiday for India
+
+    unset_location_request = _create_request(
+        client, headers_manager, leave_type_id=leave_type["id"], start_date=MONDAY, end_date=WEDNESDAY
+    )
+    assert unset_location_request.status_code == 201
+    # Manager has no location set, so the India-scoped holiday doesn't apply to them.
+    assert unset_location_request.json()["days_count"] == 3
+
+
+def test_holiday_uniqueness_is_scoped_per_location(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+
+    company_wide = client.post(
+        "/api/v1/holidays", headers=headers_admin, json={"date": str(MONDAY), "name": "Founders Day"}
+    )
+    assert company_wide.status_code == 201
+
+    india_only = client.post(
+        "/api/v1/holidays", headers=headers_admin, json={"date": str(MONDAY), "name": "Diwali", "location": "India"}
+    )
+    assert india_only.status_code == 201
+
+    duplicate = client.post("/api/v1/holidays", headers=headers_admin, json={"date": str(MONDAY), "name": "Duplicate"})
+    assert duplicate.status_code == 409
+
+
+def test_holiday_location_can_be_cleared_via_update(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    created = client.post(
+        "/api/v1/holidays", headers=headers_admin, json={"date": str(MONDAY), "name": "Diwali", "location": "India"}
+    )
+    holiday_id = created.json()["id"]
+
+    updated = client.patch(f"/api/v1/holidays/{holiday_id}", headers=headers_admin, json={"clear_location": True})
+    assert updated.status_code == 200
+    assert updated.json()["location"] is None

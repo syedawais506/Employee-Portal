@@ -272,7 +272,12 @@ def seed_company(db, *, name: str, slug: str) -> None:
         requires_attachment=False, actor_user_id=admin_employee.user_id,
     )
     leave_service.create_holiday(
-        db, company.id, date=date(today.year, 12, 25), name="Christmas Day", actor_user_id=admin_employee.user_id,
+        db, company.id,
+        date=date(today.year, 12, 25), name="Christmas Day", location=None, actor_user_id=admin_employee.user_id,
+    )
+    leave_service.create_holiday(
+        db, company.id,
+        date=date(today.year, 11, 1), name="Diwali", location="India", actor_user_id=admin_employee.user_id,
     )
 
     leave_week1 = monday + timedelta(weeks=2)

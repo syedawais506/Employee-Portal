@@ -138,10 +138,19 @@ class LeaveService:
     def list_holidays(self, db: Session, company_id: uuid.UUID, *, year: int | None = None) -> list:
         return self.holiday_repo.list_all(db, company_id, year=year)
 
-    def create_holiday(self, db: Session, company_id: uuid.UUID, *, date: date, name: str, actor_user_id: uuid.UUID):
-        if self.holiday_repo.get_by_date(db, company_id, date) is not None:
-            raise ConflictError("A holiday is already defined for this date")
-        holiday = self.holiday_repo.create(db, company_id, date=date, name=name)
+    def create_holiday(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        date: date,
+        name: str,
+        location: str | None,
+        actor_user_id: uuid.UUID,
+    ):
+        if self.holiday_repo.get_by_date(db, company_id, date, location) is not None:
+            raise ConflictError("A holiday is already defined for this date and location")
+        holiday = self.holiday_repo.create(db, company_id, date=date, name=name, location=location)
         audit_service.record(
             db,
             company_id=company_id,
@@ -149,13 +158,20 @@ class LeaveService:
             entity_type="holiday",
             entity_id=holiday.id,
             action="create",
-            after={"date": str(date), "name": name},
+            after={"date": str(date), "name": name, "location": location},
         )
         db.commit()
         return holiday
 
     def update_holiday(
-        self, db: Session, company_id: uuid.UUID, holiday_id: uuid.UUID, *, actor_user_id: uuid.UUID, **updates
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        holiday_id: uuid.UUID,
+        *,
+        actor_user_id: uuid.UUID,
+        clear_location: bool = False,
+        **updates,
     ):
         holiday = self.holiday_repo.get(db, company_id, holiday_id)
         if holiday is None:
@@ -163,6 +179,8 @@ class LeaveService:
         for field, value in updates.items():
             if value is not None:
                 setattr(holiday, field, value)
+        if clear_location:
+            holiday.location = None
         db.flush()
         audit_service.record(
             db,
@@ -342,12 +360,15 @@ class LeaveService:
         employee_id = self._resolve_target_employee(
             db, company_id, caller_employee_id, requested_employee_id, can_act_for_others
         )
+        employee = self.employee_repo.get(db, company_id, employee_id)
         leave_type = self.get_leave_type(db, company_id, leave_type_id)
 
         if leave_type.requires_attachment and attachment is None:
             raise ValidationAppError(f"{leave_type.name} requires a supporting document to be attached")
 
-        holidays = self.holiday_repo.list_dates_in_range(db, company_id, start_date, end_date)
+        holidays = self.holiday_repo.list_dates_in_range(
+            db, company_id, start_date, end_date, location=employee.location if employee else None
+        )
         days_count = compute_business_days(start_date, end_date, holidays)
         if days_count == 0:
             raise ValidationAppError("The selected range has no working days")

@@ -1,27 +1,42 @@
 import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from "@mui/material";
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, MenuItem, TextField } from "@mui/material";
 
-import type { HolidayInput } from "@/api/leave";
-import type { Holiday } from "@/types";
+import type { HolidayUpdateInput } from "@/api/leave";
+import { EMPLOYEE_LOCATIONS, type Holiday } from "@/types";
 
 interface HolidayFormDialogProps {
   open: boolean;
   editing: Holiday | null;
   submitting?: boolean;
   onClose: () => void;
-  onSubmit: (values: HolidayInput) => void;
+  onSubmit: (values: HolidayUpdateInput) => void;
 }
 
-const EMPTY_VALUES: HolidayInput = { date: "", name: "" };
+interface FormValues {
+  date: string;
+  name: string;
+  location: string;
+}
+
+const EMPTY_VALUES: FormValues = { date: "", name: "", location: "" };
 
 export function HolidayFormDialog({ open, editing, submitting, onClose, onSubmit }: HolidayFormDialogProps) {
-  const { control, handleSubmit, reset } = useForm<HolidayInput>({ defaultValues: EMPTY_VALUES });
+  const { control, handleSubmit, reset } = useForm<FormValues>({ defaultValues: EMPTY_VALUES });
 
   useEffect(() => {
     if (!open) return;
-    reset(editing ? { date: editing.date, name: editing.name } : EMPTY_VALUES);
+    reset(editing ? { date: editing.date, name: editing.name, location: editing.location ?? "" } : EMPTY_VALUES);
   }, [open, editing, reset]);
+
+  function submit(values: FormValues) {
+    onSubmit({
+      date: values.date,
+      name: values.name,
+      location: values.location || null,
+      clear_location: values.location === "",
+    });
+  }
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
@@ -54,11 +69,33 @@ export function HolidayFormDialog({ open, editing, submitting, onClose, onSubmit
               )}
             />
           </Grid>
+          <Grid item xs={12}>
+            <Controller
+              name="location"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  label="Applies to"
+                  fullWidth
+                  helperText="Only employees at this location will see it and have it excluded from business-day counts"
+                >
+                  <MenuItem value="">All locations</MenuItem>
+                  {EMPLOYEE_LOCATIONS.map((location) => (
+                    <MenuItem key={location} value={location}>
+                      {location}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+          </Grid>
         </Grid>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={submitting}>
+        <Button variant="contained" onClick={handleSubmit(submit)} disabled={submitting}>
           {editing ? "Save changes" : "Create"}
         </Button>
       </DialogActions>

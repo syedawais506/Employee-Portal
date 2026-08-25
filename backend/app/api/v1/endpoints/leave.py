@@ -107,7 +107,12 @@ def create_holiday(
     db: Session = Depends(get_db),
 ):
     return leave_service.create_holiday(
-        db, company_id, date=payload.date, name=payload.name, actor_user_id=current_user.id
+        db,
+        company_id,
+        date=payload.date,
+        name=payload.name,
+        location=payload.location,
+        actor_user_id=current_user.id,
     )
 
 

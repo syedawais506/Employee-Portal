@@ -29,11 +29,17 @@ class LeaveType(UUIDPkMixin, TimestampMixin, Base):
 
 class HolidayCalendar(UUIDPkMixin, TimestampMixin, Base):
     __tablename__ = "holiday_calendar"
-    __table_args__ = (UniqueConstraint("company_id", "date", name="uq_holiday_company_date"),)
+    __table_args__ = (
+        UniqueConstraint("company_id", "date", "location", name="uq_holiday_company_date_location"),
+    )
 
     company_id: Mapped[uuid.UUID] = company_fk(nullable=False)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     name: Mapped[str] = mapped_column(String(150), nullable=False)
+    # Null = applies to every employee regardless of location (a company-wide
+    # holiday); set = only excluded from business-day math and shown on the
+    # calendar for employees whose employee.location matches exactly.
+    location: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
 
 class LeaveBalance(UUIDPkMixin, TimestampMixin, Base):

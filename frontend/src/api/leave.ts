@@ -34,6 +34,11 @@ export async function deleteLeaveType(id: string): Promise<void> {
 export interface HolidayInput {
   date: string;
   name: string;
+  location?: string | null;
+}
+
+export interface HolidayUpdateInput extends Partial<HolidayInput> {
+  clear_location?: boolean;
 }
 
 export async function listHolidays(year?: number): Promise<Holiday[]> {
@@ -46,7 +51,7 @@ export async function createHoliday(payload: HolidayInput): Promise<Holiday> {
   return response.data;
 }
 
-export async function updateHoliday(id: string, payload: Partial<HolidayInput>): Promise<Holiday> {
+export async function updateHoliday(id: string, payload: HolidayUpdateInput): Promise<Holiday> {
   const response = await apiClient.patch<Holiday>(`/holidays/${id}`, payload);
   return response.data;
 }

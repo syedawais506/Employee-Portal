@@ -161,9 +161,9 @@ Full-day only (no half-day/hourly granularity yet — see ROADMAP.md). Broad `le
 | `POST /leave-types` | `{name, is_paid, annual_quota_days?, max_carry_forward_days, requires_attachment}` | LeaveType (201) | leave.configure |
 | `PATCH /leave-types/{id}` | any subset of the above | LeaveType | leave.configure |
 | `DELETE /leave-types/{id}` | — | `204` — `409` if any leave request references it | leave.configure |
-| `GET /holidays` | `year?` | `[Holiday]` | leave.view |
-| `POST /holidays` | `{date, name}` | Holiday (201) | leave.configure |
-| `PATCH /holidays/{id}` | `{date?, name?}` | Holiday | leave.configure |
+| `GET /holidays` | `year?` | `[Holiday]` — every holiday regardless of location; the calendar UI filters client-side to the viewer's own `employee.location` (plus company-wide ones) | leave.view |
+| `POST /holidays` | `{date, name, location?}` | Holiday (201) — `location: null` (default) applies company-wide; a value like `"India"` scopes it to employees at that location | leave.configure |
+| `PATCH /holidays/{id}` | `{date?, name?, location?, clear_location?}` | Holiday — `clear_location: true` is required to revert a scoped holiday back to company-wide, since an omitted/`null` `location` is otherwise treated as "unchanged" like every other optional PATCH field | leave.configure |
 | `DELETE /holidays/{id}` | — | `204` | leave.configure |
 | `GET /leave/settings` | — | `{require_hr_leave_approval}` | leave.view |
 | `PATCH /leave/settings` | `{require_hr_leave_approval}` | `{require_hr_leave_approval}` | leave.configure |
@@ -180,7 +180,7 @@ Full-day only (no half-day/hourly granularity yet — see ROADMAP.md). Broad `le
 | `GET /leave/dashboard` | — | `{pending_count, on_leave_today_count}` | leave.approve |
 | `GET /leave/export` | `date_from?, date_to?, employee_id?, leave_type_id?, status?` | `text/csv` attachment (columns: Employee, Leave Type, Start Date, End Date, Days, Status, Reason) | leave.export |
 
-`days_count` is computed server-side as business days in the range (weekdays minus `holiday_calendar` dates), never trusted from the client. A request is rejected with `422` if it would exceed the employee's available balance (`granted + carried_forward + adjustment - held`, where "held" counts pending/manager_approved/approved requests, not just approved ones) for quota-tracked leave types, or if the selected leave type `requires_attachment` and no file was attached. Any two open requests for the same employee with overlapping date ranges return `409`, regardless of leave type. Carry-forward is a manual, admin-triggered action (no `celery-beat` scheduling yet — see ROADMAP.md).
+`days_count` is computed server-side as business days in the range (weekdays minus `holiday_calendar` dates — company-wide holidays plus any scoped to the *requesting employee's own* `employee.location`), never trusted from the client. A request is rejected with `422` if it would exceed the employee's available balance (`granted + carried_forward + adjustment - held`, where "held" counts pending/manager_approved/approved requests, not just approved ones) for quota-tracked leave types, or if the selected leave type `requires_attachment` and no file was attached. Any two open requests for the same employee with overlapping date ranges return `409`, regardless of leave type. Carry-forward is a manual, admin-triggered action (no `celery-beat` scheduling yet — see ROADMAP.md).
 
 ## Health
 
