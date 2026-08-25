@@ -5,6 +5,7 @@ import { Box, Card, CardContent, Chip, Grid, Stack, Typography } from "@mui/mate
 import { listCompanies } from "@/api/companies";
 import { listDepartments } from "@/api/departments";
 import { listEmployees } from "@/api/employees";
+import { getLeaveDashboard, listMyLeaveRequests } from "@/api/leave";
 import { listProjects } from "@/api/projects";
 import { getTimesheetDashboard, listMyTimesheetEntries } from "@/api/timesheets";
 import { PageHeader } from "@/components/PageHeader";
@@ -132,9 +133,22 @@ function TenantDashboard() {
   });
   const myWeekHours = (myWeekEntries ?? []).reduce((sum, e) => sum + Number(e.hours), 0);
 
-  const comingSoonCard = hasPermission("employee", "import")
-    ? { title: "Onboarding Queue", phase: "Phase 2" }
-    : { title: "Leave", phase: "Phase 5" };
+  const canApproveLeave = hasPermission("leave", "approve");
+  const canRequestLeave = hasPermission("leave", "view") && !canApproveLeave;
+
+  const { data: leaveDashboard } = useQuery({
+    queryKey: ["dashboard", "leave"],
+    queryFn: () => getLeaveDashboard(),
+    enabled: canApproveLeave,
+  });
+
+  const { data: myPendingLeave } = useQuery({
+    queryKey: ["dashboard", "my-leave-pending"],
+    queryFn: () => listMyLeaveRequests("pending"),
+    enabled: canRequestLeave,
+  });
+
+  const comingSoonCard = hasPermission("employee", "import") ? { title: "Onboarding Queue", phase: "Phase 2" } : null;
 
   return (
     <Stack spacing={3}>
@@ -179,10 +193,28 @@ function TenantDashboard() {
             <KpiCard label="My Hours This Week" value={myWeekHours.toFixed(2)} helper="Log time in Timesheets" />
           </Grid>
         )}
+        {canApproveLeave && (
+          <Grid item xs={12} sm={4}>
+            <KpiCard
+              label="Pending Leave Requests"
+              value={leaveDashboard?.pending_count ?? "—"}
+              helper={leaveDashboard ? `${leaveDashboard.on_leave_today_count} on leave today` : undefined}
+            />
+          </Grid>
+        )}
+        {canRequestLeave && (
+          <Grid item xs={12} sm={4}>
+            <KpiCard
+              label="My Pending Leave Requests"
+              value={myPendingLeave?.length ?? "—"}
+              helper="Request time off in Leave"
+            />
+          </Grid>
+        )}
       </Grid>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} md={comingSoonCard ? 8 : 12}>
           <Card variant="outlined">
             <CardContent>
               <Typography variant="h3" sx={{ mb: 2 }}>
@@ -202,9 +234,11 @@ function TenantDashboard() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={4}>
-          <ComingSoonCard title={comingSoonCard.title} phase={comingSoonCard.phase} />
-        </Grid>
+        {comingSoonCard && (
+          <Grid item xs={12} md={4}>
+            <ComingSoonCard title={comingSoonCard.title} phase={comingSoonCard.phase} />
+          </Grid>
+        )}
       </Grid>
     </Stack>
   );

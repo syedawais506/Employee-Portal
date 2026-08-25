@@ -1,4 +1,4 @@
-# Database Schema — Phase 1, 2, 3 & 4
+# Database Schema — Phase 1, 2, 3, 4 & 5
 
 PostgreSQL 16. All tenant-owned tables carry `company_id`. UUID primary keys are generated in the application (Python `uuid.uuid4()`), not by a Postgres extension. All tables have `created_at`, `updated_at`; soft-deletable tables also have `deleted_at`.
 
@@ -44,6 +44,15 @@ erDiagram
     EMPLOYEE ||--o{ TIMESHEET_SUBMISSION : submits
     TIMESHEET_SUBMISSION ||--o{ TIMESHEET_ENTRY : groups
 
+    COMPANY ||--o{ LEAVE_TYPE : configures
+    COMPANY ||--o{ HOLIDAY_CALENDAR : configures
+    COMPANY ||--o{ LEAVE_BALANCE : scopes
+    COMPANY ||--o{ LEAVE_REQUEST : scopes
+    EMPLOYEE ||--o{ LEAVE_BALANCE : has
+    EMPLOYEE ||--o{ LEAVE_REQUEST : requests
+    LEAVE_TYPE ||--o{ LEAVE_BALANCE : "tracked as"
+    LEAVE_TYPE ||--o{ LEAVE_REQUEST : "instance of"
+
     TIMESHEET_PERIOD_CONFIG {
         uuid id PK
         uuid company_id FK UK "one config per company"
@@ -84,6 +93,55 @@ erDiagram
         bool is_billable
         string work_type "office|remote|client_site"
         string description "nullable"
+    }
+
+    LEAVE_TYPE {
+        uuid id PK
+        uuid company_id FK
+        string name "UNIQUE per company"
+        bool is_paid
+        int annual_quota_days "nullable = unlimited/untracked"
+        int max_carry_forward_days
+        bool requires_attachment
+    }
+
+    HOLIDAY_CALENDAR {
+        uuid id PK
+        uuid company_id FK
+        date date "UNIQUE per company"
+        string name
+    }
+
+    LEAVE_BALANCE {
+        uuid id PK
+        uuid company_id FK
+        uuid employee_id FK
+        uuid leave_type_id FK
+        int year
+        numeric granted
+        numeric carried_forward
+        numeric adjustment
+    }
+
+    LEAVE_REQUEST {
+        uuid id PK
+        uuid company_id FK
+        uuid employee_id FK
+        uuid leave_type_id FK "ON DELETE RESTRICT"
+        date start_date
+        date end_date
+        int days_count "business days, holidays/weekends excluded"
+        string reason "nullable"
+        string attachment_file_key "nullable"
+        string status "pending|manager_approved|approved|rejected|cancelled"
+        uuid manager_approved_by FK "nullable"
+        timestamptz manager_approved_at "nullable"
+        uuid hr_approved_by FK "nullable"
+        timestamptz hr_approved_at "nullable"
+        uuid rejected_by FK "nullable"
+        timestamptz rejected_at "nullable"
+        string rejection_reason "nullable"
+        timestamptz cancelled_at "nullable"
     }
 
     CLIENT {
@@ -235,7 +293,7 @@ erDiagram
     }
 ```
 
-> Further future-phase tables (`leave_request`, `leave_balance`, `holiday_calendar`, `asset`, `notification`) are specified in [ROADMAP.md](./ROADMAP.md) with their own migrations when their phase begins, so this schema doesn't carry speculative, unused tables ahead of need. Foreign keys they will need (`employee.id`, `project.id`, `department.id`, `company.id`) already exist.
+> Further future-phase tables (`asset`, `notification`) are specified in [ROADMAP.md](./ROADMAP.md) with their own migrations when their phase begins, so this schema doesn't carry speculative, unused tables ahead of need. Foreign keys they will need (`employee.id`, `project.id`, `department.id`, `company.id`) already exist.
 
 ---
 
@@ -249,6 +307,7 @@ erDiagram
 | slug | varchar(100) UNIQUE NOT NULL | URL-safe identifier |
 | subdomain | varchar(100) UNIQUE | reserved for future subdomain-per-tenant routing |
 | status | varchar(20) NOT NULL DEFAULT 'active' | active / suspended / cancelled |
+| require_hr_leave_approval | boolean NOT NULL DEFAULT false | *(Phase 5)* adds the optional HR sign-off step after Manager approval on leave requests |
 | created_at, updated_at | timestamptz | |
 | deleted_at | timestamptz NULL | soft delete |
 
@@ -414,6 +473,62 @@ A pure join table — no `company_id` of its own, same pattern as `role_permissi
 
 Entry status (`draft`/`submitted`/`manager_approved`/`approved`/`rejected`) is not its own column — it's a computed property that reads the linked submission's status (or `"draft"` if `submission_id` is null), so the two can never drift out of sync.
 
+### `leave_type` *(Phase 5)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| name | varchar(100) NOT NULL | `UNIQUE(company_id, name)` |
+| is_paid | boolean NOT NULL DEFAULT true | |
+| annual_quota_days | int NULL | `NULL` = unlimited/untracked (e.g. Unpaid Leave) — skips balance enforcement entirely |
+| max_carry_forward_days | int NOT NULL DEFAULT 0 | cap applied by the carry-forward job, not enforced at request time |
+| requires_attachment | boolean NOT NULL DEFAULT false | e.g. Sick Leave requiring a medical certificate |
+| created_at, updated_at | timestamptz | |
+
+### `holiday_calendar` *(Phase 5)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| date | date NOT NULL | `UNIQUE(company_id, date)` |
+| name | varchar(150) NOT NULL | |
+| created_at, updated_at | timestamptz | |
+
+### `leave_balance` *(Phase 5)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| employee_id | uuid FK → employee.id NOT NULL | |
+| leave_type_id | uuid FK → leave_type.id NOT NULL | `UNIQUE(employee_id, leave_type_id, year)` |
+| year | int NOT NULL | |
+| granted | numeric(5,1) NOT NULL DEFAULT 0 | seeded from `leave_type.annual_quota_days` when the row is first created |
+| carried_forward | numeric(5,1) NOT NULL DEFAULT 0 | set by the carry-forward action, capped at `max_carry_forward_days` |
+| adjustment | numeric(5,1) NOT NULL DEFAULT 0 | manual admin correction, reserved for future use — not yet exposed in the UI |
+| created_at, updated_at | timestamptz | |
+
+`used` and `available` are never stored — `used` is computed by summing `leave_request.days_count` for that employee/type/year across `approved` requests, and `available = granted + carried_forward + adjustment - used`, matching the "compute from source records" approach already used for Timesheets' entry status.
+
+### `leave_request` *(Phase 5)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| employee_id | uuid FK → employee.id NOT NULL | who the leave is for — may differ from the filer when filed on behalf of another employee |
+| leave_type_id | uuid FK → leave_type.id NOT NULL, `ON DELETE RESTRICT` | mirrors `timesheet_entry.project_id` — a leave type with requests logged against it can't be hard-deleted |
+| start_date, end_date | date NOT NULL | inclusive range; full-day only (no half-day/hourly granularity — see ROADMAP.md) |
+| days_count | int NOT NULL | business days in the range, excluding weekends and `holiday_calendar` dates |
+| reason | varchar(500) NULL | |
+| attachment_file_key, attachment_original_filename | varchar NULL | object key in the S3/MinIO bucket, same pattern as `employee_document` |
+| status | varchar(20) NOT NULL DEFAULT 'pending' | pending → (manager_approved, only if `company.require_hr_leave_approval`) → approved; or → rejected/cancelled at any open step |
+| manager_approved_by, manager_approved_at | uuid FK → user_account.id / timestamptz, NULL | |
+| hr_approved_by, hr_approved_at | uuid FK → user_account.id / timestamptz, NULL | only set when `require_hr_leave_approval` |
+| rejected_by, rejected_at, rejection_reason | uuid FK / timestamptz / varchar(500), NULL | |
+| cancelled_at | timestamptz NULL | self-service cancel, or by anyone holding `leave.approve` on the employee's behalf |
+| created_at, updated_at | timestamptz | |
+
+No two open (`pending`/`manager_approved`/`approved`) requests for the same employee may have overlapping date ranges, regardless of leave type — enforced at the service layer, not a DB constraint.
+
 ### `role`, `permission`, `role_permission`, `user_role`
 Standard RBAC join tables as diagrammed above. `permission.module + permission.action` is `UNIQUE`. `role_permission(role_id, permission_id)` composite PK. `user_role(user_id, role_id)` composite PK.
 
@@ -435,6 +550,8 @@ Append-only; no `updated_at`/`deleted_at`. Indexed on `(company_id, entity_type,
 - `project(company_id, status)` — implicit via the `UNIQUE(company_id, name)` constraint plus status filtering in list queries *(Phase 3)*
 - `timesheet_entry(employee_id)`, `timesheet_entry(project_id)`, `timesheet_entry(submission_id)`, `timesheet_entry(entry_date)` *(Phase 4)*
 - `timesheet_submission(employee_id)` — the hot lookup path for "my submissions" and the manager approval queue *(Phase 4)*
+- `leave_request(employee_id)`, `leave_request(leave_type_id)`, `leave_request(start_date)` *(Phase 5)*
+- `leave_balance(employee_id, leave_type_id, year)` — implicit via the unique constraint, the hot lookup path for balance enforcement at request-creation time *(Phase 5)*
 
 ## Row-Level Security
 
@@ -446,7 +563,8 @@ CREATE POLICY tenant_isolation ON employee
 -- (Phase 2) document_type, employee_document, onboarding_invite,
 -- (Phase 3) client, project — NOT project_member, which is a pure join
 -- table without its own company_id (see above) — and
--- (Phase 4) timesheet_period_config, timesheet_submission, timesheet_entry
+-- (Phase 4) timesheet_period_config, timesheet_submission, timesheet_entry, and
+-- (Phase 5) leave_type, holiday_calendar, leave_balance, leave_request
 ```
 
 Applied to every tenant-scoped table as defense-in-depth behind the repository-layer enforcement described in [LLD.md §4](./LLD.md#4-multi-tenant-enforcement--tenantscopedrepository). See [HLD.md §4](./HLD.md#4-multi-tenancy-strategy) for the caveat that this is currently inert in the local Docker Compose setup (superuser Postgres role) and needs a dedicated non-superuser app role to act as a real second layer in production.

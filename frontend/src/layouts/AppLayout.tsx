@@ -21,6 +21,7 @@ import {
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import BadgeIcon from "@mui/icons-material/Badge";
+import BeachAccessIcon from "@mui/icons-material/BeachAccess";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import DashboardIcon from "@mui/icons-material/Dashboard";
@@ -79,6 +80,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: <AccessTimeIcon fontSize="small" />,
     match: (p) => p.startsWith("/timesheets"),
     visible: ({ hasPermission }) => hasPermission("timesheet", "view"),
+  },
+  {
+    label: "Leave",
+    to: "/leave",
+    icon: <BeachAccessIcon fontSize="small" />,
+    match: (p) => p.startsWith("/leave"),
+    visible: ({ hasPermission }) => hasPermission("leave", "view"),
   },
   {
     label: "Onboarding",

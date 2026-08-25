@@ -151,6 +151,37 @@ Submission ranges are free-form: the caller picks the exact `period_start`/`peri
 
 `project_id` on entry creation is validated against the caller's own `project_member` rows — logging time against a project you're not assigned to returns `422`. A duplicate `(employee, date, project)` entry returns `409`, as does creating/editing an entry inside an already-approved (locked) period.
 
+## Leave — `/api/v1/leave-types`, `/holidays`, `/leave-requests`, `/leave/...` *(Phase 5)*
+
+Full-day only (no half-day/hourly granularity yet — see ROADMAP.md). Broad `leave.view` is company-wide read access to leave types/holidays/settings only — anything that exposes *other employees'* requests or balances (the approval queue, company-wide balances, dashboard, export) is gated on the narrower `leave.approve`/`leave.export` instead, the same lesson the offer-letter feature was rebuilt around. That same `leave.approve` permission is reused as the signal for "may file leave on behalf of another employee," rather than inventing a separate permission for it.
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `GET /leave-types` | — | `[LeaveType]` | leave.view |
+| `POST /leave-types` | `{name, is_paid, annual_quota_days?, max_carry_forward_days, requires_attachment}` | LeaveType (201) | leave.configure |
+| `PATCH /leave-types/{id}` | any subset of the above | LeaveType | leave.configure |
+| `DELETE /leave-types/{id}` | — | `204` — `409` if any leave request references it | leave.configure |
+| `GET /holidays` | `year?` | `[Holiday]` | leave.view |
+| `POST /holidays` | `{date, name}` | Holiday (201) | leave.configure |
+| `PATCH /holidays/{id}` | `{date?, name?}` | Holiday | leave.configure |
+| `DELETE /holidays/{id}` | — | `204` | leave.configure |
+| `GET /leave/settings` | — | `{require_hr_leave_approval}` | leave.view |
+| `PATCH /leave/settings` | `{require_hr_leave_approval}` | `{require_hr_leave_approval}` | leave.configure |
+| `GET /leave/balances/mine` | `year?` (defaults to current year) | `[LeaveBalance]` — caller's own | authenticated (self) |
+| `GET /leave/balances` | `year?, employee_id?` | `[LeaveBalance]` — company-wide when `employee_id` is omitted | leave.approve |
+| `POST /leave-requests` | multipart form: `leave_type_id, start_date, end_date, reason?, employee_id?, file?` | LeaveRequest (201) | leave.create (self, or on behalf of `employee_id` if the caller also holds leave.approve) |
+| `GET /leave-requests/mine` | `status?` | `[LeaveRequest]` — caller's own | authenticated (self) |
+| `GET /leave-requests` | `employee_id?, leave_type_id?, status?, page, page_size` | Page\<LeaveRequest\> — approval queue | leave.approve |
+| `POST /leave-requests/{id}/cancel` | — | LeaveRequest (`status:"cancelled"`) — only while still open (pending/manager_approved/approved) | leave.update (self, or on behalf of, same as filing) |
+| `DELETE /leave-requests/{id}` | — | `204` — hard delete | leave.delete |
+| `POST /leave-requests/{id}/approve` | — | LeaveRequest — advances one step (Manager, then HR only if `require_hr_leave_approval`) | leave.approve |
+| `POST /leave-requests/{id}/reject` | `{reason}` | LeaveRequest (`status:"rejected"`) | leave.reject |
+| `POST /leave/carry-forward` | `{from_year, employee_id?}` | `{from_year, to_year, balances_updated}` — company-wide when `employee_id` is omitted | leave.configure |
+| `GET /leave/dashboard` | — | `{pending_count, on_leave_today_count}` | leave.approve |
+| `GET /leave/export` | `date_from?, date_to?, employee_id?, leave_type_id?, status?` | `text/csv` attachment (columns: Employee, Leave Type, Start Date, End Date, Days, Status, Reason) | leave.export |
+
+`days_count` is computed server-side as business days in the range (weekdays minus `holiday_calendar` dates), never trusted from the client. A request is rejected with `422` if it would exceed the employee's available balance (`granted + carried_forward + adjustment - held`, where "held" counts pending/manager_approved/approved requests, not just approved ones) for quota-tracked leave types, or if the selected leave type `requires_attachment` and no file was attached. Any two open requests for the same employee with overlapping date ranges return `409`, regardless of leave type. Carry-forward is a manual, admin-triggered action (no `celery-beat` scheduling yet — see ROADMAP.md).
+
 ## Health
 
 Unversioned and mounted at the application root (not under `/api/v1`), so infra healthchecks (Docker `HEALTHCHECK`, load balancer probes) don't break across API version bumps.

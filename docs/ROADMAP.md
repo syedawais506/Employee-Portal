@@ -73,11 +73,20 @@ Requested directly by the user after Timesheets shipped its export panel ("admin
 
 All four share the CSV-building helper (`app/utils/csv_export.py`) that Timesheets' export was refactored to use too, rather than four more copies of the same `csv.writer` boilerplate. Scope was deliberately kept to CSV with server-side filters (no `.xlsx`/PDF, no saved filter presets) — same reasoning as Timesheets' export: ship the real, useful version now, formatted reports are a fast-follow if asked for.
 
-## Phase 5 — Leave Management
-- `leave_type`, `leave_policy`, `leave_balance`, `leave_request`, `holiday_calendar`
-- Configurable leave types incl. custom, half-day/hourly leave, carry-forward rules, encashment-ready ledger
-- Approval workflow (reuses the Phase 4 configurable-chain engine)
-- Leave calendar (FullCalendar integration) + holiday calendar
+## Phase 5 — Leave Management *(shipped)*
+- `leave_type` — per-company configurable (name, paid/unpaid, annual quota, max carry-forward days, requires-approval, requires-attachment) — merges the original draft's separate `leave_type` + `leave_policy` into one flat table, same pattern as `document_type` (Phase 2) and `timesheet_period_config` (Phase 4): no separate policy-versioning system for a first version
+- `leave_balance` (employee, leave_type, year) — ledger fields (opening, accrued, carried-forward, used, adjustment) rather than a single mutable counter, so it stays encashment-ready and auditable the way Timesheets' entry-level tracking is
+- `leave_request` (employee, leave_type, start_date, end_date, reason, optional attachment via the existing Phase 2 S3/document infra, status) — full-day / date-range only; half-day and hourly leave are deferred (see below)
+- `holiday_calendar` (per-company: date, name) — also closes the loop Phase 4 left open: Timesheet's weekend-warning rule becomes holiday-aware once this table exists
+- Approval chain: Manager always required, with a per-company toggle for an optional final HR sign-off — the same simplified 2-tier shape that worked for Timesheets (not literally shared code; Leave and Timesheets are different entities), and it matches the permissions Manager/HR/Admin already hold since Phase 1 (`leave.approve`/`leave.reject`)
+- Balance enforcement: a request is rejected at creation time if pending + approved requests would exceed the available balance — avoids needing a hold/release state machine for "reserved" leave
+- Carry-forward: a manual Admin-triggered action (per employee or company-wide) at the year boundary, not an automatic scheduled job — no `celery-beat` introduced this phase, consistent with Phase 4 deferring the same for reminders
+- Leave calendar: extends the hand-built calendar component Timesheets already shipped (multi-day leave spans + holidays) rather than adding FullCalendar as a new dependency
+- `leave.export` permission + CSV export (date range, leave type, employee, status filters) shipped from the start, applying the cross-module export pattern (Employees/Departments/Projects/Clients/Timesheets) at build time instead of retrofitting it afterward
+- Permission fix: `leave.create` added to Admin/HR defaults so they can file leave on behalf of an employee (e.g. recording sick leave after the fact) — currently only Employee has it
+- Dashboard: the existing "Leave" placeholder card becomes real (pending leave approvals, who's on leave today)
+
+**Adjusted from the original scope** (scope-review discussion before this phase started): half-day and hourly leave were cut to full-day/date-range only — half-day is a real, common need but was cut anyway this round in favor of shipping the simpler model first; hourly leave specifically needs a work-day-length baseline that doesn't exist until Attendance/shift management (Phase 8), so building it now would mean assuming a placeholder number. The leave calendar reuses Timesheets' hand-built component instead of adding FullCalendar, and carry-forward is a manual Admin action rather than a scheduled job, both to avoid new infrastructure (a JS calendar library; `celery-beat`) for a first version. "Reuses the Phase 4 configurable-chain engine" from the original draft was inaccurate to keep — Phase 4 never built a generic reusable engine, it shipped a simplified Manager+optional-second-approver *pattern*, which Leave now follows on its own terms (Manager + optional HR, vs. Timesheets' Manager + optional Finance).
 
 ## Phase 6 — Assets
 - `asset`, `asset_assignment`, `asset_type`

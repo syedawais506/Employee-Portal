@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     departments,
     document_types,
     employees,
+    leave,
     onboarding,
     projects,
     roles,
@@ -25,3 +26,4 @@ api_router.include_router(onboarding.management_router)
 api_router.include_router(clients.router)
 api_router.include_router(projects.router)
 api_router.include_router(timesheets.router)
+api_router.include_router(leave.router)

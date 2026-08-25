@@ -18,6 +18,7 @@ from app.repositories.project_repository import ClientRepository, ProjectMemberR
 from app.repositories.role_repository import RoleRepository
 from app.repositories.user_repository import UserRepository
 from app.services.employee_service import employee_service
+from app.services.leave_service import leave_service
 from app.services.onboarding_service import onboarding_service
 from app.services.role_service import DEFAULT_ROLE_PERMISSIONS, role_service
 from app.services.timesheet_service import timesheet_service
@@ -249,6 +250,60 @@ def seed_company(db, *, name: str, slug: str) -> None:
     timesheet_service.reject_submission(
         db, company.id, finance_submission.id,
         reason="Please split hours by task and add more detail to the description.",
+        actor_user_id=manager_employee.user_id,
+    )
+
+    # Leave demo: an annual/sick/unpaid leave type catalog, one holiday, and
+    # a pending, an approved, and a rejected request so the My Leave /
+    # Approvals / Balances / Dashboard screens all have real data.
+    annual_leave = leave_service.create_leave_type(
+        db, company.id,
+        name="Annual Leave", is_paid=True, annual_quota_days=20, max_carry_forward_days=5,
+        requires_attachment=False, actor_user_id=admin_employee.user_id,
+    )
+    sick_leave = leave_service.create_leave_type(
+        db, company.id,
+        name="Sick Leave", is_paid=True, annual_quota_days=10, max_carry_forward_days=0,
+        requires_attachment=True, actor_user_id=admin_employee.user_id,
+    )
+    leave_service.create_leave_type(
+        db, company.id,
+        name="Unpaid Leave", is_paid=False, annual_quota_days=None, max_carry_forward_days=0,
+        requires_attachment=False, actor_user_id=admin_employee.user_id,
+    )
+    leave_service.create_holiday(
+        db, company.id, date=date(today.year, 12, 25), name="Christmas Day", actor_user_id=admin_employee.user_id,
+    )
+
+    leave_week1 = monday + timedelta(weeks=2)
+    leave_service.create_request(
+        db, company.id,
+        caller_employee_id=engineer_employee.id, requested_employee_id=None, can_act_for_others=False,
+        leave_type_id=annual_leave.id, start_date=leave_week1, end_date=leave_week1 + timedelta(days=1),
+        reason="Family trip", attachment=None, actor_user_id=engineer_employee.user_id,
+    )
+
+    leave_week2 = monday + timedelta(weeks=3)
+    approved_request = leave_service.create_request(
+        db, company.id,
+        caller_employee_id=manager_employee.id, requested_employee_id=None, can_act_for_others=False,
+        leave_type_id=sick_leave.id, start_date=leave_week2, end_date=leave_week2,
+        reason="Medical appointment",
+        attachment=(b"Demo medical certificate content.", "medical_certificate.pdf", "application/pdf"),
+        actor_user_id=manager_employee.user_id,
+    )
+    leave_service.approve_request(db, company.id, approved_request.id, actor_user_id=admin_employee.user_id)
+
+    leave_week3 = monday + timedelta(weeks=4)
+    rejected_request = leave_service.create_request(
+        db, company.id,
+        caller_employee_id=finance_employee.id, requested_employee_id=None, can_act_for_others=False,
+        leave_type_id=annual_leave.id, start_date=leave_week3, end_date=leave_week3,
+        reason="Personal errand", attachment=None, actor_user_id=finance_employee.user_id,
+    )
+    leave_service.reject_request(
+        db, company.id, rejected_request.id,
+        reason="This overlaps with a planned client deliverable — please pick different dates.",
         actor_user_id=manager_employee.user_id,
     )
 

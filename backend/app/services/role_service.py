@@ -18,7 +18,7 @@ PERMISSION_CATALOG: dict[str, list[str]] = {
     "onboarding": ["view", "review", "approve", "configure"],
     "project": ["view", "create", "update", "delete", "export"],
     "timesheet": ["view", "create", "update", "delete", "approve", "reject", "export", "configure"],
-    "leave": ["view", "create", "update", "delete", "approve", "reject"],
+    "leave": ["view", "create", "update", "delete", "approve", "reject", "export", "configure"],
     "asset": ["view", "create", "update", "delete"],
     "report": ["view", "export"],
 }
@@ -34,7 +34,8 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "project.view", "project.create", "project.update", "project.delete", "project.export",
         "timesheet.view", "timesheet.create", "timesheet.update", "timesheet.delete",
         "timesheet.approve", "timesheet.reject", "timesheet.export", "timesheet.configure",
-        "leave.view", "leave.approve", "leave.reject",
+        "leave.view", "leave.create", "leave.update", "leave.delete",
+        "leave.approve", "leave.reject", "leave.export", "leave.configure",
         "asset.view", "asset.create", "asset.update", "asset.delete",
         "report.view", "report.export",
     ],
@@ -43,7 +44,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "department.view",
         "onboarding.view", "onboarding.review",
         "timesheet.view", "timesheet.create", "timesheet.update",
-        "leave.view", "leave.approve", "leave.reject",
+        "leave.view", "leave.create", "leave.update", "leave.approve", "leave.reject", "leave.export",
         "report.view",
     ],
     "Manager": [
@@ -51,7 +52,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "department.view",
         "project.view", "project.update",
         "timesheet.view", "timesheet.create", "timesheet.update", "timesheet.approve", "timesheet.reject",
-        "leave.view", "leave.approve", "leave.reject",
+        "leave.view", "leave.create", "leave.update", "leave.approve", "leave.reject",
         "report.view",
     ],
     "Employee": [

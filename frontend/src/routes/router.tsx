@@ -10,6 +10,7 @@ import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { DepartmentListPage } from "@/features/departments/DepartmentListPage";
 import { EmployeeDetailPage } from "@/features/employees/EmployeeDetailPage";
 import { EmployeeListPage } from "@/features/employees/EmployeeListPage";
+import { LeavePage } from "@/features/leave/LeavePage";
 import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { OnboardingReviewPage } from "@/features/onboarding/OnboardingReviewPage";
 import { PublicOnboardingPage } from "@/features/onboarding/PublicOnboardingPage";
@@ -68,6 +69,10 @@ export const router = createBrowserRouter([
           {
             element: <RequirePermission module="timesheet" action="view" />,
             children: [{ path: "/timesheets", element: <TimesheetsPage /> }],
+          },
+          {
+            element: <RequirePermission module="leave" action="view" />,
+            children: [{ path: "/leave", element: <LeavePage /> }],
           },
           {
             element: <RequireSuperAdmin />,

@@ -257,3 +257,62 @@ export interface TimesheetDashboard {
   hours_by_project: HoursByBucket[];
   hours_by_employee: HoursByBucket[];
 }
+
+export type LeaveRequestStatus = "pending" | "manager_approved" | "approved" | "rejected" | "cancelled";
+
+export interface LeaveType {
+  id: string;
+  name: string;
+  is_paid: boolean;
+  annual_quota_days: number | null;
+  max_carry_forward_days: number;
+  requires_attachment: boolean;
+}
+
+export interface Holiday {
+  id: string;
+  date: string;
+  name: string;
+}
+
+export interface LeaveSettings {
+  require_hr_leave_approval: boolean;
+}
+
+export interface LeaveBalance {
+  employee_id: string | null;
+  employee_name: string | null;
+  leave_type_id: string;
+  leave_type_name: string;
+  year: number;
+  granted: string | null;
+  carried_forward: string;
+  adjustment: string;
+  used: string;
+  available: string | null;
+}
+
+export interface LeaveRequest {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  leave_type_id: string;
+  leave_type_name: string;
+  start_date: string;
+  end_date: string;
+  days_count: number;
+  reason: string | null;
+  attachment_original_filename: string | null;
+  status: LeaveRequestStatus;
+  manager_approved_at: string | null;
+  hr_approved_at: string | null;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+}
+
+export interface LeaveDashboard {
+  pending_count: number;
+  on_leave_today_count: number;
+}

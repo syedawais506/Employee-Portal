@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String
+from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -18,6 +18,7 @@ class Company(UUIDPkMixin, TimestampMixin, SoftDeleteMixin, Base):
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     subdomain: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    require_hr_leave_approval: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     departments: Mapped[list["Department"]] = relationship(
         back_populates="company", cascade="all, delete-orphan"
