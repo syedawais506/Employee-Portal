@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import DownloadIcon from "@mui/icons-material/Download";
-import { Alert, Button, Grid, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Button, Grid, MenuItem, Paper, Stack, TextField } from "@mui/material";
 
 import { listAssetTypes } from "@/api/assets";
 import { extractApiErrorMessage } from "@/api/client";
@@ -25,7 +25,7 @@ import { ReportFilterForm } from "@/features/reports/ReportFilterForm";
 import { ReportPreviewTable } from "@/features/reports/ReportPreviewTable";
 import { REPORT_MODULES, type ReportFieldOption } from "@/features/reports/reportModules";
 import { SaveReportDialog } from "@/features/reports/SaveReportDialog";
-import { SavedReportsList } from "@/features/reports/SavedReportsList";
+import { SavedReportSelect } from "@/features/reports/SavedReportSelect";
 import { useAuthStore } from "@/store/authStore";
 import type { ReportModule, ReportPreview, SavedReport } from "@/types";
 
@@ -37,6 +37,7 @@ export function ReportsPage() {
 
   const [module, setModule] = useState<ReportModule>("employee");
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  const [selectedSavedReportId, setSelectedSavedReportId] = useState("");
   const [preview, setPreview] = useState<ReportPreview | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -89,8 +90,9 @@ export function ReportsPage() {
 
   const saveMutation = useMutation({
     mutationFn: (name: string) => createSavedReport({ name, module, filters: buildFilters() }),
-    onSuccess: () => {
+    onSuccess: (report) => {
       queryClient.invalidateQueries({ queryKey: ["reports", "saved"] });
+      setSelectedSavedReportId(report.id);
       setSaveDialogOpen(false);
     },
     onError: (error) => setErrorMessage(extractApiErrorMessage(error)),
@@ -100,6 +102,7 @@ export function ReportsPage() {
     mutationFn: deleteSavedReport,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reports", "saved"] });
+      setSelectedSavedReportId((current) => (current === pendingDelete?.id ? "" : current));
       setPendingDelete(null);
     },
   });
@@ -107,6 +110,7 @@ export function ReportsPage() {
   function handleModuleChange(next: ReportModule) {
     setModule(next);
     setFilterValues({});
+    setSelectedSavedReportId("");
     setPreview(null);
   }
 
@@ -121,7 +125,8 @@ export function ReportsPage() {
     }
   }
 
-  async function handleRunSaved(report: SavedReport) {
+  async function handleSelectSaved(report: SavedReport) {
+    setSelectedSavedReportId(report.id);
     setModule(report.module);
     const stringValues: Record<string, string> = {};
     for (const [key, value] of Object.entries(report.filters)) stringValues[key] = String(value);
@@ -152,64 +157,57 @@ export function ReportsPage() {
         </Alert>
       )}
 
-      <Grid container spacing={3} sx={{ minWidth: 0 }}>
-        <Grid item xs={12} md={2.5} sx={{ minWidth: 0 }}>
-          <Typography variant="h3" sx={{ mb: 1.5 }}>
-            Saved Reports
-          </Typography>
-          <SavedReportsList
-            savedReports={savedReports ?? []}
-            canConfigure={canConfigure}
-            onRun={handleRunSaved}
-            onExport={handleExportSaved}
-            onDelete={setPendingDelete}
-          />
-        </Grid>
-
-        <Grid item xs={12} md={9.5} sx={{ minWidth: 0 }}>
-          <Paper variant="outlined" sx={{ p: 2.5, mb: 3 }}>
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} sm={4} md={3}>
-                <TextField
-                  select
-                  label="Module"
-                  fullWidth
-                  size="small"
-                  value={module}
-                  onChange={(event) => handleModuleChange(event.target.value as ReportModule)}
-                >
-                  {REPORT_MODULES.map((m) => (
-                    <MenuItem key={m.value} value={m.value}>
-                      {m.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-            </Grid>
-
-            <ReportFilterForm
-              fields={moduleConfig.fields}
-              values={filterValues}
-              optionsBySource={optionsBySource}
-              onChange={(name, value) => setFilterValues((prev) => ({ ...prev, [name]: value }))}
+      <Paper variant="outlined" sx={{ p: 2.5, mb: 3 }}>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              select
+              label="Module"
+              fullWidth
+              size="small"
+              value={module}
+              onChange={(event) => handleModuleChange(event.target.value as ReportModule)}
+            >
+              {REPORT_MODULES.map((m) => (
+                <MenuItem key={m.value} value={m.value}>
+                  {m.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <SavedReportSelect
+              savedReports={savedReports ?? []}
+              selectedId={selectedSavedReportId}
+              canConfigure={canConfigure}
+              onSelect={handleSelectSaved}
+              onExport={handleExportSaved}
+              onDelete={setPendingDelete}
             />
-
-            <Stack direction="row" spacing={1.5} sx={{ mt: 3 }}>
-              <Button variant="contained" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending}>
-                Preview
-              </Button>
-              {canExport && (
-                <Button startIcon={<DownloadIcon />} onClick={handleExport} disabled={exporting}>
-                  Export CSV
-                </Button>
-              )}
-              {canConfigure && <Button onClick={() => setSaveDialogOpen(true)}>Save Report</Button>}
-            </Stack>
-          </Paper>
-
-          <ReportPreviewTable preview={preview} />
+          </Grid>
         </Grid>
-      </Grid>
+
+        <ReportFilterForm
+          fields={moduleConfig.fields}
+          values={filterValues}
+          optionsBySource={optionsBySource}
+          onChange={(name, value) => setFilterValues((prev) => ({ ...prev, [name]: value }))}
+        />
+
+        <Stack direction="row" spacing={1.5} sx={{ mt: 3 }}>
+          <Button variant="contained" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending}>
+            Preview
+          </Button>
+          {canExport && (
+            <Button startIcon={<DownloadIcon />} onClick={handleExport} disabled={exporting}>
+              Export CSV
+            </Button>
+          )}
+          {canConfigure && <Button onClick={() => setSaveDialogOpen(true)}>Save Report</Button>}
+        </Stack>
+      </Paper>
+
+      <ReportPreviewTable preview={preview} />
 
       <SaveReportDialog
         open={saveDialogOpen}

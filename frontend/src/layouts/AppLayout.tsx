@@ -156,7 +156,7 @@ export function AppLayout() {
   }
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", overflowX: "hidden" }}>
       <Drawer
         variant="permanent"
         sx={{
