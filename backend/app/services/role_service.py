@@ -20,7 +20,7 @@ PERMISSION_CATALOG: dict[str, list[str]] = {
     "timesheet": ["view", "create", "update", "delete", "approve", "reject", "export", "configure"],
     "leave": ["view", "create", "update", "delete", "approve", "reject", "export", "configure"],
     "asset": ["view", "create", "update", "delete", "export"],
-    "report": ["view", "export"],
+    "report": ["view", "export", "configure"],
 }
 
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
@@ -37,7 +37,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "leave.view", "leave.create", "leave.update", "leave.delete",
         "leave.approve", "leave.reject", "leave.export", "leave.configure",
         "asset.view", "asset.create", "asset.update", "asset.delete", "asset.export",
-        "report.view", "report.export",
+        "report.view", "report.export", "report.configure",
     ],
     "HR": [
         "employee.view", "employee.create", "employee.update", "employee.export",

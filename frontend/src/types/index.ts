@@ -358,3 +358,20 @@ export interface AssetSummary {
   lost: number;
   damaged: number;
 }
+
+export type ReportModule = "employee" | "department" | "project" | "timesheet" | "leave" | "asset";
+
+export interface ReportPreview {
+  header: string[];
+  rows: (string | number)[][];
+  total: number;
+  truncated: boolean;
+}
+
+export interface SavedReport {
+  id: string;
+  name: string;
+  module: ReportModule;
+  filters: Record<string, unknown>;
+  created_at: string;
+}

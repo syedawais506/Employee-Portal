@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     leave,
     onboarding,
     projects,
+    reports,
     roles,
     timesheets,
 )
@@ -29,3 +30,4 @@ api_router.include_router(projects.router)
 api_router.include_router(timesheets.router)
 api_router.include_router(leave.router)
 api_router.include_router(assets.router)
+api_router.include_router(reports.router)

@@ -21,6 +21,7 @@ from app.services.asset_service import asset_service
 from app.services.employee_service import employee_service
 from app.services.leave_service import leave_service
 from app.services.onboarding_service import onboarding_service
+from app.services.report_service import report_service
 from app.services.role_service import DEFAULT_ROLE_PERMISSIONS, role_service
 from app.services.timesheet_service import timesheet_service
 from app.utils.storage import ensure_bucket_exists, upload_document
@@ -334,6 +335,19 @@ def seed_company(db, *, name: str, slug: str) -> None:
         asset_type_id=laptop_type.id, asset_tag=f"{slug.upper()}-LT-002", name="Dell Latitude 5440",
         purchase_date=date(2025, 6, 1), warranty_expiry=date(2028, 6, 1),
         notes="Spare — available for the next new hire", actor_user_id=admin_employee.user_id,
+    )
+
+    # Reporting demo: a couple of saved reports so the Reports screen isn't
+    # empty on first login.
+    report_service.create_saved_report(
+        db, company.id,
+        name="Active Employees", module="employee", filters={"status": "active"},
+        actor_user_id=admin_employee.user_id,
+    )
+    report_service.create_saved_report(
+        db, company.id,
+        name="Pending Leave Requests", module="leave", filters={"status": "pending"},
+        actor_user_id=admin_employee.user_id,
     )
 
 

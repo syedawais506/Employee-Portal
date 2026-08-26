@@ -456,17 +456,17 @@ class TimesheetService:
             "hours_by_employee": hours_by_employee,
         }
 
-    def export_csv(
+    def report_rows(
         self,
         db: Session,
         company_id: uuid.UUID,
         *,
-        date_from: date | None,
-        date_to: date | None,
-        employee_id: uuid.UUID | None,
-        project_id: uuid.UUID | None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        employee_id: uuid.UUID | None = None,
+        project_id: uuid.UUID | None = None,
         location: str | None = None,
-    ) -> str:
+    ) -> tuple[list[str], list[list]]:
         entries = self.entry_repo.search(
             db,
             company_id,
@@ -491,6 +491,28 @@ class TimesheetService:
             ]
             for entry in entries
         ]
+        return header, rows
+
+    def export_csv(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+        employee_id: uuid.UUID | None,
+        project_id: uuid.UUID | None,
+        location: str | None = None,
+    ) -> str:
+        header, rows = self.report_rows(
+            db,
+            company_id,
+            date_from=date_from,
+            date_to=date_to,
+            employee_id=employee_id,
+            project_id=project_id,
+            location=location,
+        )
         return build_csv(header, rows)
 
 

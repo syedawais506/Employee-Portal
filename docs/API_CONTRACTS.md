@@ -203,6 +203,23 @@ No approval step — Admin/HR assign and return directly. "Current holder" is ne
 | `POST /assets/{id}/return` | — | Asset (`status:"available"`) — `409` if there's no open assignment | asset.update |
 | `GET /assets/{id}/history` | — | `[AssetAssignment]` — every assignment for this asset, newest first | asset.view |
 
+## Reports — `/api/v1/reports` *(Phase 7)*
+
+Not a generic query builder — each of the six reportable modules (`employee`, `department`, `project`, `timesheet`, `leave`, `asset`) has a fixed column set, reusing the exact `report_rows()` method that module's own Export button has called since its own phase (no duplicated SQL, no drift between what a module's own export produces and what shows up here). `filters` is a per-module shape, validated against that module's Pydantic filter schema — an unknown `module` or a filter that fails validation (e.g. a non-UUID `department_id`) returns `422`. Preview and export both run the identical unpaginated query; preview just truncates the in-memory result to 200 rows.
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `POST /reports/preview` | `{module, filters}` | `{header: [...], rows: [[...]], total, truncated}` — first 200 rows | report.view |
+| `POST /reports/export` | `{module, filters}` | `text/csv` attachment, same columns as that module's own `.../export` endpoint | report.export |
+| `GET /reports/saved` | — | `[SavedReport]` — company-shared, not creator-private | report.view |
+| `POST /reports/saved` | `{name, module, filters}` | SavedReport (201) — `409` on a duplicate name | report.configure |
+| `PATCH /reports/saved/{id}` | `{name?, filters?}` | SavedReport — a new `filters` is validated against the report's own (unchangeable) `module` | report.configure |
+| `DELETE /reports/saved/{id}` | — | `204` | report.configure |
+| `POST /reports/saved/{id}/run` | — | Same shape as `/reports/preview`, using the saved filters | report.view |
+| `GET /reports/saved/{id}/export` | — | `text/csv` attachment, using the saved filters | report.export |
+
+`report.view`/`report.export` were declared in the permission catalog since Phase 1 (Admin/Finance: view+export; HR/Manager: view-only; Employee: none) but never wired to anything until this phase. `report.configure` (create/update/delete saved reports) is new, granted Admin-only — narrower than "use" the same way `leave.configure`/`timesheet.configure` are narrower than their modules' `.view`.
+
 ## Health
 
 Unversioned and mounted at the application root (not under `/api/v1`), so infra healthchecks (Docker `HEALTHCHECK`, load balancer probes) don't break across API version bumps.

@@ -209,17 +209,17 @@ class ProjectService:
             for m in memberships
         ]
 
-    def export_csv(
+    def report_rows(
         self,
         db: Session,
         company_id: uuid.UUID,
         *,
-        status: str | None,
-        client_id: uuid.UUID | None,
-        is_billable: bool | None,
-        start_date_from: date | None,
-        start_date_to: date | None,
-    ) -> str:
+        status: str | None = None,
+        client_id: uuid.UUID | None = None,
+        is_billable: bool | None = None,
+        start_date_from: date | None = None,
+        start_date_to: date | None = None,
+    ) -> tuple[list[str], list[list]]:
         projects = self.repo.list_for_export(
             db,
             company_id,
@@ -243,6 +243,28 @@ class ProjectService:
             ]
             for p in projects
         ]
+        return header, rows
+
+    def export_csv(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        status: str | None,
+        client_id: uuid.UUID | None,
+        is_billable: bool | None,
+        start_date_from: date | None,
+        start_date_to: date | None,
+    ) -> str:
+        header, rows = self.report_rows(
+            db,
+            company_id,
+            status=status,
+            client_id=client_id,
+            is_billable=is_billable,
+            start_date_from=start_date_from,
+            start_date_to=start_date_to,
+        )
         return build_csv(header, rows)
 
 

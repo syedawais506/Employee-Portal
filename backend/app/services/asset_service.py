@@ -305,9 +305,9 @@ class AssetService:
             "damaged": counts.get("damaged", 0),
         }
 
-    def export_csv(
-        self, db: Session, company_id: uuid.UUID, *, asset_type_id: uuid.UUID | None, status: str | None
-    ) -> str:
+    def report_rows(
+        self, db: Session, company_id: uuid.UUID, *, asset_type_id: uuid.UUID | None = None, status: str | None = None
+    ) -> tuple[list[str], list[list]]:
         assets = self.asset_repo.list_for_export(db, company_id, asset_type_id=asset_type_id, status=status)
         open_map = self.assignment_repo.get_open_for_assets(db, company_id, [a.id for a in assets])
         header = ["Asset Tag", "Name", "Type", "Status", "Current Holder", "Purchase Date", "Warranty Expiry"]
@@ -323,6 +323,12 @@ class AssetService:
             ]
             for a in assets
         ]
+        return header, rows
+
+    def export_csv(
+        self, db: Session, company_id: uuid.UUID, *, asset_type_id: uuid.UUID | None, status: str | None
+    ) -> str:
+        header, rows = self.report_rows(db, company_id, asset_type_id=asset_type_id, status=status)
         return build_csv(header, rows)
 
 

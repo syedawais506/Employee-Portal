@@ -622,17 +622,17 @@ class LeaveService:
             "on_leave_today_count": self.request_repo.count_on_leave_on(db, company_id, date.today()),
         }
 
-    def export_csv(
+    def report_rows(
         self,
         db: Session,
         company_id: uuid.UUID,
         *,
-        date_from: date | None,
-        date_to: date | None,
-        employee_id: uuid.UUID | None,
-        leave_type_id: uuid.UUID | None,
-        status: str | None,
-    ) -> str:
+        date_from: date | None = None,
+        date_to: date | None = None,
+        employee_id: uuid.UUID | None = None,
+        leave_type_id: uuid.UUID | None = None,
+        status: str | None = None,
+    ) -> tuple[list[str], list[list]]:
         requests = self.request_repo.list_for_export(
             db,
             company_id,
@@ -655,6 +655,28 @@ class LeaveService:
             ]
             for r in requests
         ]
+        return header, rows
+
+    def export_csv(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+        employee_id: uuid.UUID | None,
+        leave_type_id: uuid.UUID | None,
+        status: str | None,
+    ) -> str:
+        header, rows = self.report_rows(
+            db,
+            company_id,
+            date_from=date_from,
+            date_to=date_to,
+            employee_id=employee_id,
+            leave_type_id=leave_type_id,
+            status=status,
+        )
         return build_csv(header, rows)
 
 

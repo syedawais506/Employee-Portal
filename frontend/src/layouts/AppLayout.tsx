@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import ApartmentIcon from "@mui/icons-material/Apartment";
+import AssessmentIcon from "@mui/icons-material/Assessment";
 import BadgeIcon from "@mui/icons-material/Badge";
 import BeachAccessIcon from "@mui/icons-material/BeachAccess";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
@@ -102,6 +103,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: <HowToRegIcon fontSize="small" />,
     match: (p) => p.startsWith("/onboarding"),
     visible: ({ hasPermission }) => hasPermission("onboarding", "view"),
+  },
+  {
+    label: "Reports",
+    to: "/reports",
+    icon: <AssessmentIcon fontSize="small" />,
+    match: (p) => p.startsWith("/reports"),
+    visible: ({ hasPermission }) => hasPermission("report", "view"),
   },
   {
     label: "Roles & Permissions",

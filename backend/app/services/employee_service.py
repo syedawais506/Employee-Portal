@@ -203,20 +203,20 @@ class EmployeeService:
         )
         db.commit()
 
-    def export_csv(
+    def report_rows(
         self,
         db: Session,
         company_id: uuid.UUID,
         *,
-        search: str | None,
-        department_id: uuid.UUID | None,
-        status: str | None,
-        manager_id: uuid.UUID | None,
-        employment_type: str | None,
-        location: str | None,
-        joining_date_from: date | None,
-        joining_date_to: date | None,
-    ) -> str:
+        search: str | None = None,
+        department_id: uuid.UUID | None = None,
+        status: str | None = None,
+        manager_id: uuid.UUID | None = None,
+        employment_type: str | None = None,
+        location: str | None = None,
+        joining_date_from: date | None = None,
+        joining_date_to: date | None = None,
+    ) -> tuple[list[str], list[list]]:
         employees = self.employee_repo.list_for_export(
             db,
             company_id,
@@ -250,6 +250,34 @@ class EmployeeService:
             ]
             for e in employees
         ]
+        return header, rows
+
+    def export_csv(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        search: str | None,
+        department_id: uuid.UUID | None,
+        status: str | None,
+        manager_id: uuid.UUID | None,
+        employment_type: str | None,
+        location: str | None,
+        joining_date_from: date | None,
+        joining_date_to: date | None,
+    ) -> str:
+        header, rows = self.report_rows(
+            db,
+            company_id,
+            search=search,
+            department_id=department_id,
+            status=status,
+            manager_id=manager_id,
+            employment_type=employment_type,
+            location=location,
+            joining_date_from=joining_date_from,
+            joining_date_to=joining_date_to,
+        )
         return build_csv(header, rows)
 
 

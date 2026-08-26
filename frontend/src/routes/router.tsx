@@ -18,6 +18,7 @@ import { PublicOnboardingPage } from "@/features/onboarding/PublicOnboardingPage
 import { MyProfilePage } from "@/features/profile/MyProfilePage";
 import { ProjectDetailPage } from "@/features/projects/ProjectDetailPage";
 import { ProjectsEntryPage } from "@/features/projects/ProjectsEntryPage";
+import { ReportsPage } from "@/features/reports/ReportsPage";
 import { RoleListPage } from "@/features/roles/RoleListPage";
 import { TimesheetsPage } from "@/features/timesheets/TimesheetsPage";
 import { ProtectedRoute, RequirePermission, RequireSuperAdmin } from "@/routes/ProtectedRoute";
@@ -76,6 +77,10 @@ export const router = createBrowserRouter([
             children: [{ path: "/leave", element: <LeavePage /> }],
           },
           { path: "/assets", element: <AssetsPage /> },
+          {
+            element: <RequirePermission module="report" action="view" />,
+            children: [{ path: "/reports", element: <ReportsPage /> }],
+          },
           {
             element: <RequireSuperAdmin />,
             children: [{ path: "/companies", element: <CompanyListPage /> }],

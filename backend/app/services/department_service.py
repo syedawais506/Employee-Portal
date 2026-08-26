@@ -115,16 +115,16 @@ class DepartmentService:
         )
         db.commit()
 
-    def export_csv(
+    def report_rows(
         self,
         db: Session,
         company_id: uuid.UUID,
         *,
-        search: str | None,
-        parent_department_id: uuid.UUID | None,
-        created_from: datetime | None,
-        created_to: datetime | None,
-    ) -> str:
+        search: str | None = None,
+        parent_department_id: uuid.UUID | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+    ) -> tuple[list[str], list[list]]:
         departments = self.repo.list_for_export(
             db,
             company_id,
@@ -143,6 +143,26 @@ class DepartmentService:
             ]
             for dept in departments
         ]
+        return header, rows
+
+    def export_csv(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        search: str | None,
+        parent_department_id: uuid.UUID | None,
+        created_from: datetime | None,
+        created_to: datetime | None,
+    ) -> str:
+        header, rows = self.report_rows(
+            db,
+            company_id,
+            search=search,
+            parent_department_id=parent_department_id,
+            created_from=created_from,
+            created_to=created_to,
+        )
         return build_csv(header, rows)
 
 

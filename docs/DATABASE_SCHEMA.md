@@ -1,4 +1,4 @@
-# Database Schema — Phase 1, 2, 3, 4, 5 & 6
+# Database Schema — Phase 1, 2, 3, 4, 5, 6 & 7
 
 PostgreSQL 16. All tenant-owned tables carry `company_id`. UUID primary keys are generated in the application (Python `uuid.uuid4()`), not by a Postgres extension. All tables have `created_at`, `updated_at`; soft-deletable tables also have `deleted_at`.
 
@@ -59,6 +59,7 @@ erDiagram
     ASSET_TYPE ||--o{ ASSET : "instance of"
     ASSET ||--o{ ASSET_ASSIGNMENT : "assigned via"
     EMPLOYEE ||--o{ ASSET_ASSIGNMENT : holds
+    COMPANY ||--o{ SAVED_REPORT : configures
 
     TIMESHEET_PERIOD_CONFIG {
         uuid id PK
@@ -179,6 +180,15 @@ erDiagram
         uuid assigned_by FK "nullable"
         timestamptz returned_at "nullable"
         uuid returned_by FK "nullable"
+    }
+
+    SAVED_REPORT {
+        uuid id PK
+        uuid company_id FK
+        string name "UNIQUE per company"
+        string module "employee|department|project|timesheet|leave|asset"
+        jsonb filters
+        uuid created_by FK "nullable"
     }
 
     CLIENT {
@@ -604,6 +614,19 @@ No two open (`pending`/`manager_approved`/`approved`) requests for the same empl
 
 A ledger, not a mutable "current holder" column on `asset` — same "compute from source records" approach as Leave's balance ledger and Timesheets' entry status. "Who has this asset now" is the row with `returned_at IS NULL`; "history per employee" is every row for that `employee_id`. At most one open assignment per asset at a time, enforced at the service layer (mirrors Leave's overlap-prevention check) — assigning a non-`available` asset, or returning one with no open assignment, is rejected (`409`). Unlike Timesheets/Leave, there's no approval step here: Admin/HR assign and return directly.
 
+### `saved_report` *(Phase 7)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| name | varchar(150) NOT NULL | `UNIQUE(company_id, name)` |
+| module | varchar(20) NOT NULL | `employee` \| `department` \| `project` \| `timesheet` \| `leave` \| `asset` |
+| filters | jsonb NOT NULL DEFAULT '{}' | shape depends on `module` — validated against that module's Pydantic filter schema on every read/write, never trusted blindly |
+| created_by | uuid FK → user_account.id NULL | |
+| created_at, updated_at | timestamptz | |
+
+A saved *filter set*, not a generic query — there's no `columns` field; every module reuses that module's own fixed export column set (`Employee`/`Department`/`Project`/`Timesheet`/`Leave`/`Asset` report rows are produced by the exact same `report_rows()` method each module's own CSV export already used since its own phase, not a second query engine). Saved reports are company-shared (visible to anyone with `report.view`), not private to their creator — same as Leave types or holidays.
+
 ### `role`, `permission`, `role_permission`, `user_role`
 Standard RBAC join tables as diagrammed above. `permission.module + permission.action` is `UNIQUE`. `role_permission(role_id, permission_id)` composite PK. `user_role(user_id, role_id)` composite PK.
 
@@ -628,6 +651,7 @@ Append-only; no `updated_at`/`deleted_at`. Indexed on `(company_id, entity_type,
 - `leave_request(employee_id)`, `leave_request(leave_type_id)`, `leave_request(start_date)` *(Phase 5)*
 - `leave_balance(employee_id, leave_type_id, year)` — implicit via the unique constraint, the hot lookup path for balance enforcement at request-creation time *(Phase 5)*
 - `asset(asset_type_id)`, `asset_assignment(asset_id)`, `asset_assignment(employee_id)` *(Phase 6)*
+- `saved_report(company_id, name)` — implicit via the unique constraint *(Phase 7)*
 
 ## Row-Level Security
 
@@ -641,7 +665,8 @@ CREATE POLICY tenant_isolation ON employee
 -- table without its own company_id (see above) — and
 -- (Phase 4) timesheet_period_config, timesheet_submission, timesheet_entry,
 -- (Phase 5) leave_type, holiday_calendar, leave_balance, leave_request, and
--- (Phase 6) asset_type, asset, asset_assignment
+-- (Phase 6) asset_type, asset, asset_assignment, and
+-- (Phase 7) saved_report
 ```
 
 Applied to every tenant-scoped table as defense-in-depth behind the repository-layer enforcement described in [LLD.md §4](./LLD.md#4-multi-tenant-enforcement--tenantscopedrepository). See [HLD.md §4](./HLD.md#4-multi-tenancy-strategy) for the caveat that this is currently inert in the local Docker Compose setup (superuser Postgres role) and needs a dedicated non-superuser app role to act as a real second layer in production.
