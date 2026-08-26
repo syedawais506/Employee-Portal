@@ -202,7 +202,7 @@ export function AppLayout() {
         </List>
       </Drawer>
 
-      <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
+      <Box sx={{ flexGrow: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <AppBar
           position="sticky"
           color="transparent"
@@ -250,7 +250,7 @@ export function AppLayout() {
           </Toolbar>
         </AppBar>
 
-        <Box component="main" sx={{ flexGrow: 1, p: 4 }}>
+        <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: 4 }}>
           <Outlet />
         </Box>
       </Box>

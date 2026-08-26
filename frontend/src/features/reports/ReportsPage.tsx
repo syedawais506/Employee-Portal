@@ -152,8 +152,8 @@ export function ReportsPage() {
         </Alert>
       )}
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={3}>
+      <Grid container spacing={3} sx={{ minWidth: 0 }}>
+        <Grid item xs={12} md={2.5} sx={{ minWidth: 0 }}>
           <Typography variant="h3" sx={{ mb: 1.5 }}>
             Saved Reports
           </Typography>
@@ -166,7 +166,7 @@ export function ReportsPage() {
           />
         </Grid>
 
-        <Grid item xs={12} md={9}>
+        <Grid item xs={12} md={9.5} sx={{ minWidth: 0 }}>
           <Paper variant="outlined" sx={{ p: 2.5, mb: 3 }}>
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={12} sm={4} md={3}>

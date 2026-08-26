@@ -22,8 +22,8 @@ export function ReportPreviewTable({ preview }: ReportPreviewTableProps) {
           Showing the first {preview.rows.length} of {preview.total} rows — export the CSV for the full set.
         </Alert>
       )}
-      <Paper variant="outlined" sx={{ overflowX: "auto" }}>
-        <Table size="small">
+      <Paper variant="outlined" sx={{ width: "100%", maxWidth: "100%", overflowX: "auto" }}>
+        <Table size="small" sx={{ "& td, & th": { whiteSpace: "nowrap", px: 1.5, py: 0.75 } }}>
           <TableHead>
             <TableRow>
               {preview.header.map((column) => (
