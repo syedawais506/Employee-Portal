@@ -94,7 +94,7 @@ export function AllAssetsTab() {
   const { data: assetTypes } = useQuery({ queryKey: ["assets", "types"], queryFn: listAssetTypes });
   const { data: employees } = useQuery({
     queryKey: ["employees", "all"],
-    queryFn: () => listEmployees({ page: 1, page_size: 200 }),
+    queryFn: () => listEmployees({ page: 1, page_size: 100 }),
     enabled: canUpdate,
   });
   const { data, isLoading } = useQuery({

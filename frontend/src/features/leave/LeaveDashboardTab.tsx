@@ -37,7 +37,7 @@ export function LeaveDashboardTab() {
   const { data } = useQuery({ queryKey: ["dashboard", "leave"], queryFn: getLeaveDashboard });
   const { data: employees } = useQuery({
     queryKey: ["employees", "all"],
-    queryFn: () => listEmployees({ page: 1, page_size: 200 }),
+    queryFn: () => listEmployees({ page: 1, page_size: 100 }),
   });
   const { data: leaveTypes } = useQuery({ queryKey: ["leave", "types"], queryFn: listLeaveTypes });
 

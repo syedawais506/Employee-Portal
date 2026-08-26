@@ -55,11 +55,11 @@ export function TimesheetDashboardTab() {
 
   const { data: employees } = useQuery({
     queryKey: ["employees", "all"],
-    queryFn: () => listEmployees({ page: 1, page_size: 200 }),
+    queryFn: () => listEmployees({ page: 1, page_size: 100 }),
   });
   const { data: projects } = useQuery({
     queryKey: ["projects", "all"],
-    queryFn: () => listProjects(1, 200),
+    queryFn: () => listProjects(1, 100),
   });
 
   function updateFilter<K extends keyof ExportFilters>(key: K, value: ExportFilters[K]) {

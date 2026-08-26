@@ -46,12 +46,12 @@ export function ReportsPage() {
 
   const moduleConfig = REPORT_MODULES.find((m) => m.value === module) ?? REPORT_MODULES[0];
 
-  const { data: departments } = useQuery({ queryKey: ["departments", "all"], queryFn: () => listDepartments(1, 200) });
+  const { data: departments } = useQuery({ queryKey: ["departments", "all"], queryFn: () => listDepartments(1, 100) });
   const { data: employees } = useQuery({
     queryKey: ["employees", "all"],
-    queryFn: () => listEmployees({ page: 1, page_size: 200 }),
+    queryFn: () => listEmployees({ page: 1, page_size: 100 }),
   });
-  const { data: projects } = useQuery({ queryKey: ["projects", "all"], queryFn: () => listProjects(1, 200) });
+  const { data: projects } = useQuery({ queryKey: ["projects", "all"], queryFn: () => listProjects(1, 100) });
   const { data: clients } = useQuery({ queryKey: ["clients", "all"], queryFn: listClients });
   const { data: leaveTypes } = useQuery({ queryKey: ["leave", "types"], queryFn: listLeaveTypes });
   const { data: assetTypes } = useQuery({ queryKey: ["assets", "types"], queryFn: listAssetTypes });
