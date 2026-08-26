@@ -5,6 +5,7 @@ import { AuthLayout } from "@/layouts/AuthLayout";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
+import { AssetsPage } from "@/features/assets/AssetsPage";
 import { CompanyListPage } from "@/features/companies/CompanyListPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { DepartmentListPage } from "@/features/departments/DepartmentListPage";
@@ -74,6 +75,7 @@ export const router = createBrowserRouter([
             element: <RequirePermission module="leave" action="view" />,
             children: [{ path: "/leave", element: <LeavePage /> }],
           },
+          { path: "/assets", element: <AssetsPage /> },
           {
             element: <RequireSuperAdmin />,
             children: [{ path: "/companies", element: <CompanyListPage /> }],

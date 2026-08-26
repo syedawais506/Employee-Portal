@@ -1,3 +1,4 @@
+from app.models.asset import Asset, AssetAssignment, AssetType
 from app.models.audit_log import AuditLog
 from app.models.company import Company
 from app.models.department import Department
@@ -10,6 +11,9 @@ from app.models.timesheet import TimesheetEntry, TimesheetPeriodConfig, Timeshee
 from app.models.user import User
 
 __all__ = [
+    "Asset",
+    "AssetAssignment",
+    "AssetType",
     "AuditLog",
     "Client",
     "Company",

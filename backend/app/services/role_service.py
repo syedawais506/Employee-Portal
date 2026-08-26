@@ -19,7 +19,7 @@ PERMISSION_CATALOG: dict[str, list[str]] = {
     "project": ["view", "create", "update", "delete", "export"],
     "timesheet": ["view", "create", "update", "delete", "approve", "reject", "export", "configure"],
     "leave": ["view", "create", "update", "delete", "approve", "reject", "export", "configure"],
-    "asset": ["view", "create", "update", "delete"],
+    "asset": ["view", "create", "update", "delete", "export"],
     "report": ["view", "export"],
 }
 
@@ -36,7 +36,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "timesheet.approve", "timesheet.reject", "timesheet.export", "timesheet.configure",
         "leave.view", "leave.create", "leave.update", "leave.delete",
         "leave.approve", "leave.reject", "leave.export", "leave.configure",
-        "asset.view", "asset.create", "asset.update", "asset.delete",
+        "asset.view", "asset.create", "asset.update", "asset.delete", "asset.export",
         "report.view", "report.export",
     ],
     "HR": [
@@ -45,6 +45,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "onboarding.view", "onboarding.review",
         "timesheet.view", "timesheet.create", "timesheet.update",
         "leave.view", "leave.create", "leave.update", "leave.approve", "leave.reject", "leave.export",
+        "asset.view", "asset.create", "asset.update", "asset.export",
         "report.view",
     ],
     "Manager": [
@@ -53,6 +54,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "project.view", "project.update",
         "timesheet.view", "timesheet.create", "timesheet.update", "timesheet.approve", "timesheet.reject",
         "leave.view", "leave.create", "leave.update", "leave.approve", "leave.reject",
+        "asset.view",
         "report.view",
     ],
     "Employee": [

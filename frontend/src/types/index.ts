@@ -317,3 +317,44 @@ export interface LeaveDashboard {
   pending_count: number;
   on_leave_today_count: number;
 }
+
+export type AssetStatus = "available" | "assigned" | "retired" | "lost" | "damaged";
+
+export interface AssetType {
+  id: string;
+  name: string;
+}
+
+export interface Asset {
+  id: string;
+  asset_type_id: string;
+  asset_type_name: string;
+  asset_tag: string;
+  name: string;
+  purchase_date: string | null;
+  warranty_expiry: string | null;
+  status: AssetStatus;
+  notes: string | null;
+  current_employee_id: string | null;
+  current_employee_name: string | null;
+}
+
+export interface AssetAssignment {
+  id: string;
+  asset_id: string;
+  asset_tag: string;
+  asset_name: string;
+  employee_id: string;
+  employee_name: string;
+  assigned_at: string;
+  returned_at: string | null;
+}
+
+export interface AssetSummary {
+  total: number;
+  available: number;
+  assigned: number;
+  retired: number;
+  lost: number;
+  damaged: number;
+}

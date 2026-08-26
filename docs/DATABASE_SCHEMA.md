@@ -1,4 +1,4 @@
-# Database Schema — Phase 1, 2, 3, 4 & 5
+# Database Schema — Phase 1, 2, 3, 4, 5 & 6
 
 PostgreSQL 16. All tenant-owned tables carry `company_id`. UUID primary keys are generated in the application (Python `uuid.uuid4()`), not by a Postgres extension. All tables have `created_at`, `updated_at`; soft-deletable tables also have `deleted_at`.
 
@@ -52,6 +52,13 @@ erDiagram
     EMPLOYEE ||--o{ LEAVE_REQUEST : requests
     LEAVE_TYPE ||--o{ LEAVE_BALANCE : "tracked as"
     LEAVE_TYPE ||--o{ LEAVE_REQUEST : "instance of"
+
+    COMPANY ||--o{ ASSET_TYPE : configures
+    COMPANY ||--o{ ASSET : owns
+    COMPANY ||--o{ ASSET_ASSIGNMENT : scopes
+    ASSET_TYPE ||--o{ ASSET : "instance of"
+    ASSET ||--o{ ASSET_ASSIGNMENT : "assigned via"
+    EMPLOYEE ||--o{ ASSET_ASSIGNMENT : holds
 
     TIMESHEET_PERIOD_CONFIG {
         uuid id PK
@@ -143,6 +150,35 @@ erDiagram
         timestamptz rejected_at "nullable"
         string rejection_reason "nullable"
         timestamptz cancelled_at "nullable"
+    }
+
+    ASSET_TYPE {
+        uuid id PK
+        uuid company_id FK
+        string name "UNIQUE per company"
+    }
+
+    ASSET {
+        uuid id PK
+        uuid company_id FK
+        uuid asset_type_id FK "ON DELETE RESTRICT"
+        string asset_tag "UNIQUE per company"
+        string name
+        date purchase_date "nullable"
+        date warranty_expiry "nullable"
+        string status "available|assigned|retired|lost|damaged"
+        string notes "nullable"
+    }
+
+    ASSET_ASSIGNMENT {
+        uuid id PK
+        uuid company_id FK
+        uuid asset_id FK
+        uuid employee_id FK
+        timestamptz assigned_at
+        uuid assigned_by FK "nullable"
+        timestamptz returned_at "nullable"
+        uuid returned_by FK "nullable"
     }
 
     CLIENT {
@@ -294,7 +330,7 @@ erDiagram
     }
 ```
 
-> Further future-phase tables (`asset`, `notification`) are specified in [ROADMAP.md](./ROADMAP.md) with their own migrations when their phase begins, so this schema doesn't carry speculative, unused tables ahead of need. Foreign keys they will need (`employee.id`, `project.id`, `department.id`, `company.id`) already exist.
+> Further future-phase tables (`notification`) are specified in [ROADMAP.md](./ROADMAP.md) with their own migrations when their phase begins, so this schema doesn't carry speculative, unused tables ahead of need. Foreign keys they will need (`employee.id`, `project.id`, `department.id`, `company.id`) already exist.
 
 ---
 
@@ -533,6 +569,41 @@ Two holidays can share the same date as long as their `location` differs (e.g. a
 
 No two open (`pending`/`manager_approved`/`approved`) requests for the same employee may have overlapping date ranges, regardless of leave type — enforced at the service layer, not a DB constraint.
 
+### `asset_type` *(Phase 6)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| name | varchar(100) NOT NULL | `UNIQUE(company_id, name)` |
+| created_at, updated_at | timestamptz | |
+
+### `asset` *(Phase 6)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| asset_type_id | uuid FK → asset_type.id NOT NULL, `ON DELETE RESTRICT` | an asset type with assets against it can't be hard-deleted, same pattern as `leave_type`/`project` |
+| asset_tag | varchar(100) NOT NULL | `UNIQUE(company_id, asset_tag)` — serial number / tag |
+| name | varchar(150) NOT NULL | |
+| purchase_date, warranty_expiry | date NULL | plain dates — no expiry alerting this phase (needs Phase 7's notification infra) |
+| status | varchar(20) NOT NULL DEFAULT 'available' | available / assigned / retired / lost / damaged — `assigned` is kept in sync by the assign/return actions; the other three are edited directly, since they aren't assignment events |
+| notes | varchar(1000) NULL | |
+| created_at, updated_at | timestamptz | |
+
+### `asset_assignment` *(Phase 6)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| asset_id | uuid FK → asset.id NOT NULL, `ON DELETE CASCADE` | |
+| employee_id | uuid FK → employee.id NOT NULL | |
+| assigned_at | timestamptz NOT NULL | |
+| assigned_by | uuid FK → user_account.id NULL | |
+| returned_at, returned_by | timestamptz / uuid FK → user_account.id, NULL | `NULL` = still open (the asset's current holder) |
+| created_at, updated_at | timestamptz | |
+
+A ledger, not a mutable "current holder" column on `asset` — same "compute from source records" approach as Leave's balance ledger and Timesheets' entry status. "Who has this asset now" is the row with `returned_at IS NULL`; "history per employee" is every row for that `employee_id`. At most one open assignment per asset at a time, enforced at the service layer (mirrors Leave's overlap-prevention check) — assigning a non-`available` asset, or returning one with no open assignment, is rejected (`409`). Unlike Timesheets/Leave, there's no approval step here: Admin/HR assign and return directly.
+
 ### `role`, `permission`, `role_permission`, `user_role`
 Standard RBAC join tables as diagrammed above. `permission.module + permission.action` is `UNIQUE`. `role_permission(role_id, permission_id)` composite PK. `user_role(user_id, role_id)` composite PK.
 
@@ -556,6 +627,7 @@ Append-only; no `updated_at`/`deleted_at`. Indexed on `(company_id, entity_type,
 - `timesheet_submission(employee_id)` — the hot lookup path for "my submissions" and the manager approval queue *(Phase 4)*
 - `leave_request(employee_id)`, `leave_request(leave_type_id)`, `leave_request(start_date)` *(Phase 5)*
 - `leave_balance(employee_id, leave_type_id, year)` — implicit via the unique constraint, the hot lookup path for balance enforcement at request-creation time *(Phase 5)*
+- `asset(asset_type_id)`, `asset_assignment(asset_id)`, `asset_assignment(employee_id)` *(Phase 6)*
 
 ## Row-Level Security
 
@@ -567,8 +639,9 @@ CREATE POLICY tenant_isolation ON employee
 -- (Phase 2) document_type, employee_document, onboarding_invite,
 -- (Phase 3) client, project — NOT project_member, which is a pure join
 -- table without its own company_id (see above) — and
--- (Phase 4) timesheet_period_config, timesheet_submission, timesheet_entry, and
--- (Phase 5) leave_type, holiday_calendar, leave_balance, leave_request
+-- (Phase 4) timesheet_period_config, timesheet_submission, timesheet_entry,
+-- (Phase 5) leave_type, holiday_calendar, leave_balance, leave_request, and
+-- (Phase 6) asset_type, asset, asset_assignment
 ```
 
 Applied to every tenant-scoped table as defense-in-depth behind the repository-layer enforcement described in [LLD.md §4](./LLD.md#4-multi-tenant-enforcement--tenantscopedrepository). See [HLD.md §4](./HLD.md#4-multi-tenancy-strategy) for the caveat that this is currently inert in the local Docker Compose setup (superuser Postgres role) and needs a dedicated non-superuser app role to act as a real second layer in production.

@@ -182,6 +182,27 @@ Full-day only (no half-day/hourly granularity yet — see ROADMAP.md). Broad `le
 
 `days_count` is computed server-side as business days in the range (weekdays minus `holiday_calendar` dates — company-wide holidays plus any scoped to the *requesting employee's own* `employee.location`), never trusted from the client. A request is rejected with `422` if it would exceed the employee's available balance (`granted + carried_forward + adjustment - held`, where "held" counts pending/manager_approved/approved requests, not just approved ones) for quota-tracked leave types, or if the selected leave type `requires_attachment` and no file was attached. Any two open requests for the same employee with overlapping date ranges return `409`, regardless of leave type. Carry-forward is a manual, admin-triggered action (no `celery-beat` scheduling yet — see ROADMAP.md).
 
+## Assets — `/api/v1/asset-types`, `/assets` *(Phase 6)*
+
+No approval step — Admin/HR assign and return directly. "Current holder" is never a stored field; it's derived from whichever `AssetAssignment` row for that asset has `returned_at: null` (at most one at a time). `asset.view` (company-wide) is Admin/HR/Manager only — a plain Employee holds no `asset.*` permission at all, but can always see their own current + past assignments via `/assets/mine`, which needs only authentication, the same self-scoping pattern as `/leave-requests/mine`.
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `GET /asset-types` | — | `[AssetType]` | asset.view |
+| `POST /asset-types` | `{name}` | AssetType (201) | asset.create |
+| `PATCH /asset-types/{id}` | `{name?}` | AssetType | asset.update |
+| `DELETE /asset-types/{id}` | — | `204` — `409` if any asset references it | asset.delete |
+| `GET /assets` | `asset_type_id?, status?, page, page_size` | Page\<Asset\> | asset.view |
+| `GET /assets/mine` | — | `[AssetAssignment]` — caller's own current + past assignments | authenticated (self) |
+| `GET /assets/summary` | — | `{total, available, assigned, retired, lost, damaged}` | asset.view |
+| `GET /assets/export` | `asset_type_id?, status?` | `text/csv` attachment (columns: Asset Tag, Name, Type, Status, Current Holder, Purchase Date, Warranty Expiry) | asset.export |
+| `POST /assets` | `{asset_type_id, asset_tag, name, purchase_date?, warranty_expiry?, notes?}` | Asset (201) | asset.create |
+| `PATCH /assets/{id}` | `{asset_type_id?, asset_tag?, name?, purchase_date?, warranty_expiry?, status?, notes?}` | Asset — `status: "assigned"` is rejected (`422`); use `/assign` instead | asset.update |
+| `DELETE /assets/{id}` | — | `204` — `409` if it has any assignment history | asset.delete |
+| `POST /assets/{id}/assign` | `{employee_id}` | Asset (`status:"assigned"`) — `409` if the asset isn't `available` | asset.update |
+| `POST /assets/{id}/return` | — | Asset (`status:"available"`) — `409` if there's no open assignment | asset.update |
+| `GET /assets/{id}/history` | — | `[AssetAssignment]` — every assignment for this asset, newest first | asset.view |
+
 ## Health
 
 Unversioned and mounted at the application root (not under `/api/v1`), so infra healthchecks (Docker `HEALTHCHECK`, load balancer probes) don't break across API version bumps.

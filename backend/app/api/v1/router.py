@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    assets,
     auth,
     clients,
     companies,
@@ -27,3 +28,4 @@ api_router.include_router(clients.router)
 api_router.include_router(projects.router)
 api_router.include_router(timesheets.router)
 api_router.include_router(leave.router)
+api_router.include_router(assets.router)

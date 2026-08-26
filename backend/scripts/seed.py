@@ -17,6 +17,7 @@ from app.repositories.onboarding_repository import DocumentTypeRepository, Onboa
 from app.repositories.project_repository import ClientRepository, ProjectMemberRepository, ProjectRepository
 from app.repositories.role_repository import RoleRepository
 from app.repositories.user_repository import UserRepository
+from app.services.asset_service import asset_service
 from app.services.employee_service import employee_service
 from app.services.leave_service import leave_service
 from app.services.onboarding_service import onboarding_service
@@ -310,6 +311,29 @@ def seed_company(db, *, name: str, slug: str) -> None:
         db, company.id, rejected_request.id,
         reason="This overlaps with a planned client deliverable — please pick different dates.",
         actor_user_id=manager_employee.user_id,
+    )
+
+    # Assets demo: a laptop/monitor catalog, one asset currently assigned
+    # (with history), and one still sitting available, so the Assets screen
+    # has real data on first login.
+    laptop_type = asset_service.create_asset_type(db, company.id, name="Laptop", actor_user_id=admin_employee.user_id)
+    asset_service.create_asset_type(db, company.id, name="Monitor", actor_user_id=admin_employee.user_id)
+
+    assigned_laptop = asset_service.create_asset(
+        db, company.id,
+        asset_type_id=laptop_type.id, asset_tag=f"{slug.upper()}-LT-001", name="Dell Latitude 5440",
+        purchase_date=date(2025, 6, 1), warranty_expiry=date(2028, 6, 1),
+        notes=None, actor_user_id=admin_employee.user_id,
+    )
+    asset_service.assign_asset(
+        db, company.id, assigned_laptop.id, employee_id=engineer_employee.id, actor_user_id=admin_employee.user_id
+    )
+
+    asset_service.create_asset(
+        db, company.id,
+        asset_type_id=laptop_type.id, asset_tag=f"{slug.upper()}-LT-002", name="Dell Latitude 5440",
+        purchase_date=date(2025, 6, 1), warranty_expiry=date(2028, 6, 1),
+        notes="Spare — available for the next new hire", actor_user_id=admin_employee.user_id,
     )
 
 

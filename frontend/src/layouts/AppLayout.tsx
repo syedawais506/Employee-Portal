@@ -27,6 +27,7 @@ import Brightness7Icon from "@mui/icons-material/Brightness7";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import DomainIcon from "@mui/icons-material/Domain";
 import HowToRegIcon from "@mui/icons-material/HowToReg";
+import InventoryIcon from "@mui/icons-material/Inventory";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SecurityIcon from "@mui/icons-material/Security";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
@@ -87,6 +88,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: <BeachAccessIcon fontSize="small" />,
     match: (p) => p.startsWith("/leave"),
     visible: ({ hasPermission }) => hasPermission("leave", "view"),
+  },
+  {
+    label: "Assets",
+    to: "/assets",
+    icon: <InventoryIcon fontSize="small" />,
+    match: (p) => p.startsWith("/assets"),
+    visible: ({ isSuperAdmin }) => !isSuperAdmin,
   },
   {
     label: "Onboarding",
