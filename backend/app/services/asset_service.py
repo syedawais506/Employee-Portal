@@ -12,6 +12,7 @@ from app.repositories.employee_repository import EmployeeRepository
 from app.schemas.asset import AssetResponse
 from app.schemas.common import Page
 from app.services.audit_service import audit_service
+from app.services.notification_service import notification_service
 from app.utils.csv_export import build_csv
 
 VALID_STATUSES = {"available", "assigned", "retired", "lost", "damaged"}
@@ -238,7 +239,8 @@ class AssetService:
             raise NotFoundError("Asset not found")
         if asset.status != "available":
             raise ConflictError(f"Asset is not available (current status: {asset.status})")
-        if self.employee_repo.get(db, company_id, employee_id) is None:
+        employee = self.employee_repo.get(db, company_id, employee_id)
+        if employee is None:
             raise ValidationAppError("Employee does not belong to this company")
 
         self.assignment_repo.create_assignment(
@@ -254,6 +256,16 @@ class AssetService:
             entity_id=asset.id,
             action="update",
             after={"status": "assigned", "employee_id": str(employee_id)},
+        )
+        notification_service.notify(
+            db,
+            company_id,
+            employee.user_id,
+            type="asset.assigned",
+            title=f"{asset.name} was assigned to you",
+            body=f"Asset tag: {asset.asset_tag}",
+            entity_type="asset",
+            entity_id=asset.id,
         )
         db.commit()
         return self.get_asset(db, company_id, asset_id)

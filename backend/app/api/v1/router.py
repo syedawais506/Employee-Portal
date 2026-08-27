@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     document_types,
     employees,
     leave,
+    notifications,
     onboarding,
     projects,
     reports,
@@ -31,3 +32,4 @@ api_router.include_router(timesheets.router)
 api_router.include_router(leave.router)
 api_router.include_router(assets.router)
 api_router.include_router(reports.router)
+api_router.include_router(notifications.router)

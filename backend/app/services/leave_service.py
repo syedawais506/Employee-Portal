@@ -19,6 +19,7 @@ from app.repositories.leave_repository import (
 )
 from app.schemas.common import Page
 from app.services.audit_service import audit_service
+from app.services.notification_service import notification_service
 from app.utils.csv_export import build_csv
 from app.utils.storage import upload_document
 
@@ -418,6 +419,32 @@ class LeaveService:
             action="create",
             after={"start_date": str(start_date), "end_date": str(end_date), "days_count": days_count},
         )
+
+        if employee is not None:
+            date_range = f"{start_date.isoformat()} – {end_date.isoformat()}"
+            if employee.manager is not None:
+                notification_service.notify(
+                    db,
+                    company_id,
+                    employee.manager.user_id,
+                    type="leave.submitted",
+                    title=f"{employee.full_name} requested leave",
+                    body=f"{leave_type.name}, {date_range}",
+                    entity_type="leave_request",
+                    entity_id=request.id,
+                )
+            if caller_employee_id != employee_id:
+                notification_service.notify(
+                    db,
+                    company_id,
+                    employee.user_id,
+                    type="leave.filed_for_you",
+                    title="A leave request was filed on your behalf",
+                    body=f"{leave_type.name}, {date_range}",
+                    entity_type="leave_request",
+                    entity_id=request.id,
+                )
+
         db.commit()
         return self.get_request(db, company_id, request.id)
 
@@ -535,6 +562,17 @@ class LeaveService:
             action="update",
             after={"status": request.status},
         )
+        if request.status == "approved":
+            notification_service.notify(
+                db,
+                company_id,
+                request.employee.user_id,
+                type="leave.approved",
+                title="Your leave request was approved",
+                body=f"{request.leave_type.name}, {request.start_date.isoformat()} – {request.end_date.isoformat()}",
+                entity_type="leave_request",
+                entity_id=request.id,
+            )
         db.commit()
         return self.get_request(db, company_id, request_id)
 
@@ -559,6 +597,16 @@ class LeaveService:
             action="update",
             before=before,
             after={"status": "rejected", "reason": reason},
+        )
+        notification_service.notify(
+            db,
+            company_id,
+            request.employee.user_id,
+            type="leave.rejected",
+            title="Your leave request was rejected",
+            body=reason,
+            entity_type="leave_request",
+            entity_id=request.id,
         )
         db.commit()
         return self.get_request(db, company_id, request_id)

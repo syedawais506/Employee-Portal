@@ -220,6 +220,20 @@ Not a generic query builder — each of the six reportable modules (`employee`, 
 
 `report.view`/`report.export` were declared in the permission catalog since Phase 1 (Admin/Finance: view+export; HR/Manager: view-only; Employee: none) but never wired to anything until this phase. `report.configure` (create/update/delete saved reports) is new, granted Admin-only — narrower than "use" the same way `leave.configure`/`timesheet.configure` are narrower than their modules' `.view`.
 
+## Notifications — `/api/v1/notifications` *(Phase 7b)*
+
+Always self-scoped to the recipient — no new permission catalog entries, same self-scoping pattern as `/leave-requests/mine`. A notification is created synchronously inside the same request/transaction as the action that triggered it (leave/timesheet submit+approve+reject, asset assign, onboarding submission → fans out to everyone holding `onboarding.review`); the REST API below is always the source of truth. The live WebSocket push is best-effort on top of that — if it fails or the client wasn't connected, the row is still there on next `GET /notifications`.
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `GET /notifications` | `unread_only?, page, page_size` | Page\<Notification\> — caller's own | authenticated (self) |
+| `GET /notifications/unread-count` | — | `{unread_count}` | authenticated (self) |
+| `POST /notifications/{id}/read` | — | Notification (`is_read: true`) — `404` if it isn't the caller's own | authenticated (self) |
+| `POST /notifications/read-all` | — | `{marked_read: <count>}` | authenticated (self) |
+| `WS /notifications/ws?token=<access_token>` | — | `{"type": "notification", "data": Notification}` per push | authenticated (self) |
+
+The WebSocket route is the one deliberate exception to this app's "Bearer token in the `Authorization` header" auth convention — a browser `WebSocket` handshake can't set custom headers, so the access token travels as a query parameter instead, validated with the exact same `decode_token()`/active-user checks `get_current_user` uses for every other endpoint. An invalid or expired token closes the connection with code `4401` before `accept()`. Delivery is in-process only (an in-memory `user_id -> connections` registry, captured against the single Uvicorn event loop at startup) — there's no Redis pub/sub yet, so a notification created on one backend process can't reach a connection held open on another; fine for this app's current single-instance deployment, revisit if it's ever horizontally scaled.
+
 ## Health
 
 Unversioned and mounted at the application root (not under `/api/v1`), so infra healthchecks (Docker `HEALTHCHECK`, load balancer probes) don't break across API version bumps.

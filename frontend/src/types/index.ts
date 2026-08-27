@@ -375,3 +375,14 @@ export interface SavedReport {
   filters: Record<string, unknown>;
   created_at: string;
 }
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  is_read: boolean;
+  created_at: string;
+}

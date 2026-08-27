@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -14,6 +15,7 @@ from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import RequestIdMiddleware, configure_logging, get_logger
 from app.core.rate_limit import limiter
+from app.services.notification_ws import connection_manager
 from app.utils.storage import ensure_bucket_exists
 
 configure_logging(settings.debug)
@@ -22,6 +24,7 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
+    connection_manager.loop = asyncio.get_running_loop()
     try:
         ensure_bucket_exists()
     except Exception:

@@ -20,6 +20,7 @@ from app.repositories.onboarding_repository import (
 from app.repositories.user_repository import UserRepository
 from app.schemas.onboarding import OnboardingContextResponse, OnboardingEmployeeInfo
 from app.services.audit_service import audit_service
+from app.services.notification_service import notification_service
 from app.tasks.email_tasks import send_onboarding_invite_email
 from app.utils.storage import (
     ALLOWED_CONTENT_TYPES,
@@ -170,6 +171,17 @@ class OnboardingService:
         if all(rt.id in uploaded_type_ids for rt in required_types):
             employee.onboarding_status = "submitted"
             db.flush()
+            notification_service.notify_users_with_permission(
+                db,
+                employee.company_id,
+                module="onboarding",
+                action="review",
+                type="onboarding.submitted",
+                title=f"{employee.full_name} submitted onboarding documents",
+                body="Ready for HR review",
+                entity_type="employee",
+                entity_id=employee.id,
+            )
 
     # -- HR review ---------------------------------------------------------
 

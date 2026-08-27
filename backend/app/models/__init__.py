@@ -4,6 +4,7 @@ from app.models.company import Company
 from app.models.department import Department
 from app.models.employee import Employee
 from app.models.leave import HolidayCalendar, LeaveBalance, LeaveRequest, LeaveType
+from app.models.notification import Notification
 from app.models.onboarding import DocumentType, EmployeeDocument, OnboardingInvite
 from app.models.project import Client, Project, ProjectMember
 from app.models.report import SavedReport
@@ -26,6 +27,7 @@ __all__ = [
     "LeaveBalance",
     "LeaveRequest",
     "LeaveType",
+    "Notification",
     "OnboardingInvite",
     "Permission",
     "Project",

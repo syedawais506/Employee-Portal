@@ -34,6 +34,7 @@ import SecurityIcon from "@mui/icons-material/Security";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
 
 import { logout as logoutRequest } from "@/api/auth";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
 
@@ -221,6 +222,7 @@ export function AppLayout() {
               <IconButton onClick={toggleMode} size="small" aria-label="Toggle color mode">
                 {mode === "dark" ? <Brightness7Icon fontSize="small" /> : <Brightness4Icon fontSize="small" />}
               </IconButton>
+              {!isSuperAdmin && <NotificationBell />}
               <IconButton onClick={(event) => setMenuAnchor(event.currentTarget)} size="small">
                 <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main", fontSize: 14 }}>
                   {(user?.full_name ?? user?.email ?? "?").charAt(0).toUpperCase()}

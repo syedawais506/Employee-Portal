@@ -1,4 +1,4 @@
-# Database Schema — Phase 1, 2, 3, 4, 5, 6 & 7
+# Database Schema — Phase 1, 2, 3, 4, 5, 6, 7 & 7b
 
 PostgreSQL 16. All tenant-owned tables carry `company_id`. UUID primary keys are generated in the application (Python `uuid.uuid4()`), not by a Postgres extension. All tables have `created_at`, `updated_at`; soft-deletable tables also have `deleted_at`.
 
@@ -60,6 +60,8 @@ erDiagram
     ASSET ||--o{ ASSET_ASSIGNMENT : "assigned via"
     EMPLOYEE ||--o{ ASSET_ASSIGNMENT : holds
     COMPANY ||--o{ SAVED_REPORT : configures
+    COMPANY ||--o{ NOTIFICATION : scopes
+    USER_ACCOUNT ||--o{ NOTIFICATION : receives
 
     TIMESHEET_PERIOD_CONFIG {
         uuid id PK
@@ -189,6 +191,18 @@ erDiagram
         string module "employee|department|project|timesheet|leave|asset"
         jsonb filters
         uuid created_by FK "nullable"
+    }
+
+    NOTIFICATION {
+        uuid id PK
+        uuid company_id FK
+        uuid user_id FK "recipient"
+        string type "e.g. leave.approved, asset.assigned"
+        string title
+        string body "nullable"
+        string entity_type "nullable, loose reference"
+        uuid entity_id "nullable"
+        bool is_read
     }
 
     CLIENT {
@@ -339,8 +353,6 @@ erDiagram
         timestamptz created_at
     }
 ```
-
-> Further future-phase tables (`notification`) are specified in [ROADMAP.md](./ROADMAP.md) with their own migrations when their phase begins, so this schema doesn't carry speculative, unused tables ahead of need. Foreign keys they will need (`employee.id`, `project.id`, `department.id`, `company.id`) already exist.
 
 ---
 
@@ -627,6 +639,21 @@ A ledger, not a mutable "current holder" column on `asset` — same "compute fro
 
 A saved *filter set*, not a generic query — there's no `columns` field; every module reuses that module's own fixed export column set (`Employee`/`Department`/`Project`/`Timesheet`/`Leave`/`Asset` report rows are produced by the exact same `report_rows()` method each module's own CSV export already used since its own phase, not a second query engine). Saved reports are company-shared (visible to anyone with `report.view`), not private to their creator — same as Leave types or holidays.
 
+### `notification` *(Phase 7b)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| user_id | uuid FK → user_account.id NOT NULL, `ON DELETE CASCADE` | the recipient |
+| type | varchar(50) NOT NULL | e.g. `leave.submitted`, `leave.approved`, `timesheet.rejected`, `asset.assigned`, `onboarding.submitted` |
+| title | varchar(200) NOT NULL | |
+| body | varchar(500) NULL | |
+| entity_type, entity_id | varchar(50) / uuid, NULL | what the notification is about, for the frontend to link to — a loose reference, not a real FK (the target could be any module) |
+| is_read | boolean NOT NULL DEFAULT false | |
+| created_at, updated_at | timestamptz | |
+
+Always created synchronously inside the same request/transaction as the action that triggered it (leave/timesheet submit+approve+reject, asset assign, onboarding submission), the same "no background indirection for in-process logic" pattern Celery is deliberately *not* used for here — see API_CONTRACTS.md. A live push over `/api/v1/notifications/ws` is best-effort on top of the persisted row (an in-process connection registry, no Redis pub/sub yet — see ROADMAP.md); the REST API is always the source of truth regardless of whether the push was delivered.
+
 ### `role`, `permission`, `role_permission`, `user_role`
 Standard RBAC join tables as diagrammed above. `permission.module + permission.action` is `UNIQUE`. `role_permission(role_id, permission_id)` composite PK. `user_role(user_id, role_id)` composite PK.
 
@@ -652,6 +679,7 @@ Append-only; no `updated_at`/`deleted_at`. Indexed on `(company_id, entity_type,
 - `leave_balance(employee_id, leave_type_id, year)` — implicit via the unique constraint, the hot lookup path for balance enforcement at request-creation time *(Phase 5)*
 - `asset(asset_type_id)`, `asset_assignment(asset_id)`, `asset_assignment(employee_id)` *(Phase 6)*
 - `saved_report(company_id, name)` — implicit via the unique constraint *(Phase 7)*
+- `notification(user_id, is_read)` — the hot lookup path for the unread-count badge and the "unread only" feed filter *(Phase 7b)*
 
 ## Row-Level Security
 
@@ -665,8 +693,9 @@ CREATE POLICY tenant_isolation ON employee
 -- table without its own company_id (see above) — and
 -- (Phase 4) timesheet_period_config, timesheet_submission, timesheet_entry,
 -- (Phase 5) leave_type, holiday_calendar, leave_balance, leave_request, and
--- (Phase 6) asset_type, asset, asset_assignment, and
--- (Phase 7) saved_report
+-- (Phase 6) asset_type, asset, asset_assignment,
+-- (Phase 7) saved_report, and
+-- (Phase 7b) notification
 ```
 
 Applied to every tenant-scoped table as defense-in-depth behind the repository-layer enforcement described in [LLD.md §4](./LLD.md#4-multi-tenant-enforcement--tenantscopedrepository). See [HLD.md §4](./HLD.md#4-multi-tenancy-strategy) for the caveat that this is currently inert in the local Docker Compose setup (superuser Postgres role) and needs a dedicated non-superuser app role to act as a real second layer in production.

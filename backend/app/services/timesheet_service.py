@@ -17,6 +17,7 @@ from app.repositories.timesheet_repository import (
 from app.schemas.common import Page
 from app.schemas.timesheet import VALID_PERIOD_TYPES, VALID_WORK_TYPES
 from app.services.audit_service import audit_service
+from app.services.notification_service import notification_service
 from app.utils.csv_export import build_csv
 
 OPEN_SUBMISSION_STATUSES = {"submitted", "manager_approved"}
@@ -298,6 +299,18 @@ class TimesheetService:
             action="create",
             after={"period_start": str(period_start), "period_end": str(period_end)},
         )
+        manager = submission.employee.manager
+        if manager is not None:
+            notification_service.notify(
+                db,
+                company_id,
+                manager.user_id,
+                type="timesheet.submitted",
+                title=f"{submission.employee.full_name} submitted a timesheet",
+                body=f"{period_start.isoformat()} – {period_end.isoformat()}",
+                entity_type="timesheet_submission",
+                entity_id=submission.id,
+            )
         db.commit()
         return self.submission_repo.get(db, company_id, submission.id)  # type: ignore[return-value]
 
@@ -349,6 +362,17 @@ class TimesheetService:
             action="update",
             after={"status": submission.status},
         )
+        if submission.status == "approved":
+            notification_service.notify(
+                db,
+                company_id,
+                submission.employee.user_id,
+                type="timesheet.approved",
+                title="Your timesheet was approved",
+                body=f"{submission.period_start.isoformat()} – {submission.period_end.isoformat()}",
+                entity_type="timesheet_submission",
+                entity_id=submission.id,
+            )
         db.commit()
         return self.get_submission(db, company_id, submission_id)
 
@@ -375,6 +399,16 @@ class TimesheetService:
             action="update",
             before=before,
             after={"status": "rejected", "reason": reason},
+        )
+        notification_service.notify(
+            db,
+            company_id,
+            submission.employee.user_id,
+            type="timesheet.rejected",
+            title="Your timesheet was rejected",
+            body=reason,
+            entity_type="timesheet_submission",
+            entity_id=submission.id,
         )
         db.commit()
         return self.get_submission(db, company_id, submission_id)
