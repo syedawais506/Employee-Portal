@@ -39,10 +39,11 @@ export async function reviewEmployeeDocument(
   documentId: string,
   approve: boolean,
   notes?: string,
+  expiryDate?: string | null,
 ): Promise<EmployeeDocument> {
   const response = await apiClient.post<EmployeeDocument>(
     `/employees/${employeeId}/documents/${documentId}/review`,
-    { approve, notes },
+    { approve, notes, expiry_date: expiryDate || null },
   );
   return response.data;
 }

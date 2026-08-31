@@ -10,6 +10,7 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.common import Page
 from app.schemas.notification import NotificationResponse
 from app.services.notification_ws import connection_manager
+from app.services.webhook_service import webhook_service
 
 
 class NotificationService:
@@ -29,19 +30,11 @@ class NotificationService:
         entity_type: str | None = None,
         entity_id: uuid.UUID | None = None,
     ) -> Notification:
-        notification = self.repo.create(
-            db,
-            company_id,
-            user_id=user_id,
-            type=type,
-            title=title,
-            body=body,
-            entity_type=entity_type,
-            entity_id=entity_id,
+        notification = self._create_and_push(
+            db, company_id, user_id,
+            type=type, title=title, body=body, entity_type=entity_type, entity_id=entity_id,
         )
-        db.flush()
-        payload = NotificationResponse.model_validate(notification).model_dump(mode="json")
-        connection_manager.push(user_id, {"type": "notification", "data": payload})
+        webhook_service.dispatch(db, company_id, f"{title}\n{body}" if body else title)
         return notification
 
     def notify_users_with_permission(
@@ -58,19 +51,44 @@ class NotificationService:
         entity_id: uuid.UUID | None = None,
     ) -> list[Notification]:
         users = self.user_repo.list_by_permission(db, company_id, module, action)
-        return [
-            self.notify(
-                db,
-                company_id,
-                user.id,
-                type=type,
-                title=title,
-                body=body,
-                entity_type=entity_type,
-                entity_id=entity_id,
+        notifications = [
+            self._create_and_push(
+                db, company_id, user.id,
+                type=type, title=title, body=body, entity_type=entity_type, entity_id=entity_id,
             )
             for user in users
         ]
+        # One webhook message per event, not one per fanned-out recipient.
+        if notifications:
+            webhook_service.dispatch(db, company_id, f"{title}\n{body}" if body else title)
+        return notifications
+
+    def _create_and_push(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        user_id: uuid.UUID,
+        *,
+        type: str,
+        title: str,
+        body: str | None,
+        entity_type: str | None,
+        entity_id: uuid.UUID | None,
+    ) -> Notification:
+        notification = self.repo.create(
+            db,
+            company_id,
+            user_id=user_id,
+            type=type,
+            title=title,
+            body=body,
+            entity_type=entity_type,
+            entity_id=entity_id,
+        )
+        db.flush()
+        payload = NotificationResponse.model_validate(notification).model_dump(mode="json")
+        connection_manager.push(user_id, {"type": "notification", "data": payload})
+        return notification
 
     def list_my_notifications(
         self,

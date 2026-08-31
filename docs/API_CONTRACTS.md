@@ -90,7 +90,7 @@ The `/onboarding/{token}` routes are **unauthenticated by design** — `{token}`
 | `POST /onboarding/{token}/password` | `{password}` | `204` | public (token); only while `onboarding_status="invited"` |
 | `POST /onboarding/{token}/documents` | multipart: `document_type_id`, `file` | EmployeeDocument (201) | public (token); only while status is `invited`/`submitted` |
 | `GET /employees/{id}/documents` | — | `[EmployeeDocument]` | onboarding.view |
-| `POST /employees/{id}/documents/{doc_id}/review` | `{approve, notes?}` | EmployeeDocument (status set to approved/rejected) | onboarding.review |
+| `POST /employees/{id}/documents/{doc_id}/review` | `{approve, notes?, expiry_date?}` | EmployeeDocument (status set to approved/rejected) — `expiry_date` *(Phase 7c)* is optional, e.g. for a visa or ID card; when set, the daily digest notifies `onboarding.review` holders 7 days before it | onboarding.review |
 | `GET /employees/{id}/documents/{doc_id}/download` | — | `{url}` — presigned S3/MinIO GET URL, 5 min expiry | onboarding.view |
 | `POST /employees/{id}/onboarding/hr-approve` | — | `{onboarding_status:"hr_approved"}` — 422 if any required document isn't `approved` yet | onboarding.review |
 | `POST /employees/{id}/onboarding/approve` | — | `{onboarding_status:"completed"}` — activates the account; 422 if not yet `hr_approved` | onboarding.approve |
@@ -233,6 +233,25 @@ Always self-scoped to the recipient — no new permission catalog entries, same 
 | `WS /notifications/ws?token=<access_token>` | — | `{"type": "notification", "data": Notification}` per push | authenticated (self) |
 
 The WebSocket route is the one deliberate exception to this app's "Bearer token in the `Authorization` header" auth convention — a browser `WebSocket` handshake can't set custom headers, so the access token travels as a query parameter instead, validated with the exact same `decode_token()`/active-user checks `get_current_user` uses for every other endpoint. An invalid or expired token closes the connection with code `4401` before `accept()`. Delivery is in-process only (an in-memory `user_id -> connections` registry, captured against the single Uvicorn event loop at startup) — there's no Redis pub/sub yet, so a notification created on one backend process can't reach a connection held open on another; fine for this app's current single-instance deployment, revisit if it's ever horizontally scaled.
+
+## Integrations — `/api/v1/integrations` *(Phase 7c)*
+
+Admin-only, self-scoped to the caller's own company — distinct from `/companies` (Super-Admin-only, cross-tenant management). Gated on a new `company.configure` permission rather than reusing `company.update`, since that action is Super-Admin-only cross-tenant management and would be the wrong semantic fit for a tenant Admin editing their own company's settings.
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `GET /integrations/slack` | — | `{slack_webhook_url}` | company.configure |
+| `PATCH /integrations/slack` | `{slack_webhook_url}` | `{slack_webhook_url}` | company.configure |
+| `POST /integrations/slack/test` | — | `{sent}` — `false` if no URL is configured yet | company.configure |
+
+When `slack_webhook_url` is set, every event that already triggers an in-app notification (Leave, Timesheet, Assets, Onboarding, plus the two daily digest reminders below) also enqueues a fire-and-forget Celery task that `POST`s `{"text": "..."}` to that URL — the plain-text format both Slack incoming webhooks and Teams connectors accept. A fan-out event (e.g. onboarding submission notifying every `onboarding.review` holder) posts exactly one webhook message per event, not one per recipient. A dead or slow webhook URL never blocks or fails the request that triggered it — the in-app notification is created and pushed independently either way.
+
+## Digest Reminders *(Phase 7c)*
+
+Not a REST surface — a `celery-beat` scheduled task (`run_daily_digest`, daily at 08:00 UTC) that iterates every active company and creates ordinary in-app notifications (same feed as Phase 7b, same webhook dispatch as above) for two cases:
+
+- **Work anniversaries** — an employee whose `joining_date` month/day matches today (excluding the hire's own join year) gets a self-scoped `employee.anniversary` notification.
+- **Document expiry** — an `employee_document` with `expiry_date` exactly 7 days from today notifies every `onboarding.review` holder with a `document.expiring` notification. The match is exact-date, not a rolling window, so a given document only ever fires once rather than once per day for a week.
 
 ## Health
 

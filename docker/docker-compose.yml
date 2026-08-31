@@ -108,6 +108,33 @@ services:
       redis:
         condition: service_healthy
 
+  celery-beat:
+    build:
+      context: ../backend
+      target: production
+    restart: unless-stopped
+    command: celery -A app.tasks.celery_app beat --loglevel=info --schedule=/app/celerybeat-data/celerybeat-schedule
+    environment:
+      APP_ENV: production
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-portal}:${POSTGRES_PASSWORD:-portal}@postgres:5432/${POSTGRES_DB:-employee_portal}
+      REDIS_URL: redis://redis:6379/0
+      SMTP_HOST: ${SMTP_HOST:-mailhog}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-false}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-no-reply@employee-portal.local}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:8080}
+    volumes:
+      - celery_beat_data:/app/celerybeat-data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   frontend:
     # VITE_API_BASE_URL is compiled into the static bundle at build time (Vite
     # convention), not read at container runtime — it already defaults to the
@@ -132,3 +159,4 @@ services:
 volumes:
   postgres_data:
   minio_data:
+  celery_beat_data:

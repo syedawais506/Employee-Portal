@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     departments,
     document_types,
     employees,
+    integrations,
     leave,
     notifications,
     onboarding,
@@ -33,3 +34,4 @@ api_router.include_router(leave.router)
 api_router.include_router(assets.router)
 api_router.include_router(reports.router)
 api_router.include_router(notifications.router)
+api_router.include_router(integrations.router)

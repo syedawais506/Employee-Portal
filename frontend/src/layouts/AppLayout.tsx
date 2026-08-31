@@ -28,6 +28,7 @@ import Brightness7Icon from "@mui/icons-material/Brightness7";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import DomainIcon from "@mui/icons-material/Domain";
 import HowToRegIcon from "@mui/icons-material/HowToReg";
+import IntegrationInstructionsIcon from "@mui/icons-material/IntegrationInstructions";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SecurityIcon from "@mui/icons-material/Security";
@@ -118,6 +119,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: <SecurityIcon fontSize="small" />,
     match: (p) => p.startsWith("/roles"),
     visible: ({ hasPermission }) => hasPermission("role", "view"),
+  },
+  {
+    label: "Integrations",
+    to: "/integrations",
+    icon: <IntegrationInstructionsIcon fontSize="small" />,
+    match: (p) => p.startsWith("/integrations"),
+    visible: ({ hasPermission }) => hasPermission("company", "configure"),
   },
   {
     label: "Companies",

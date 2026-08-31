@@ -19,6 +19,7 @@ class Company(UUIDPkMixin, TimestampMixin, SoftDeleteMixin, Base):
     subdomain: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     require_hr_leave_approval: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    slack_webhook_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     departments: Mapped[list["Department"]] = relationship(
         back_populates="company", cascade="all, delete-orphan"

@@ -367,6 +367,7 @@ erDiagram
 | subdomain | varchar(100) UNIQUE | reserved for future subdomain-per-tenant routing |
 | status | varchar(20) NOT NULL DEFAULT 'active' | active / suspended / cancelled |
 | require_hr_leave_approval | boolean NOT NULL DEFAULT false | *(Phase 5)* adds the optional HR sign-off step after Manager approval on leave requests |
+| slack_webhook_url | varchar(500) NULL | *(Phase 7c)* Admin-configured Slack incoming-webhook or Teams connector URL; when set, every event that already triggers an in-app notification also posts a plain-text message here |
 | created_at, updated_at | timestamptz | |
 | deleted_at | timestamptz NULL | soft delete |
 
@@ -441,6 +442,7 @@ erDiagram
 | review_notes | varchar(500) NULL | shown back to the employee on rejection |
 | reviewed_by | uuid FK → user_account.id NULL | |
 | reviewed_at | timestamptz NULL | |
+| expiry_date | date NULL | *(Phase 7c)* optionally set by HR at review time (visa, ID card, etc.); the daily digest notifies `onboarding.review` holders exactly 7 days before this date |
 | uploaded_at | timestamptz | |
 
 ### `onboarding_invite` *(Phase 2)*

@@ -22,7 +22,8 @@ RUN pip install -r requirements.txt
 
 FROM production-deps AS production
 COPY . .
-RUN useradd --create-home appuser && chown -R appuser:appuser /app
+RUN mkdir -p /app/celerybeat-data \
+    && useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

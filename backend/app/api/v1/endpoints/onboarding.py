@@ -74,6 +74,7 @@ async def upload_onboarding_document(
         review_notes=document.review_notes,
         uploaded_at=document.uploaded_at,
         reviewed_at=document.reviewed_at,
+        expiry_date=document.expiry_date,
     )
 
 
@@ -97,6 +98,7 @@ def list_employee_documents(
             review_notes=d.review_notes,
             uploaded_at=d.uploaded_at,
             reviewed_at=d.reviewed_at,
+            expiry_date=d.expiry_date,
         )
         for d in documents
     ]
@@ -118,6 +120,7 @@ def review_employee_document(
         approve=payload.approve,
         notes=payload.notes,
         actor_user_id=current_user.id,
+        expiry_date=payload.expiry_date,
     )
     return EmployeeDocumentResponse(
         id=document.id,
@@ -130,6 +133,7 @@ def review_employee_document(
         review_notes=document.review_notes,
         uploaded_at=document.uploaded_at,
         reviewed_at=document.reviewed_at,
+        expiry_date=document.expiry_date,
     )
 
 

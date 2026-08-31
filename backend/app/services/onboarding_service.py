@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
@@ -194,6 +194,7 @@ class OnboardingService:
         approve: bool,
         notes: str | None,
         actor_user_id: uuid.UUID,
+        expiry_date: date | None = None,
     ) -> EmployeeDocument:
         document = self.employee_document_repo.get(db, company_id, document_id)
         if document is None:
@@ -202,6 +203,8 @@ class OnboardingService:
         document.review_notes = notes
         document.reviewed_by = actor_user_id
         document.reviewed_at = datetime.now(timezone.utc)
+        if expiry_date is not None:
+            document.expiry_date = expiry_date
         db.flush()
         audit_service.record(
             db,
@@ -210,7 +213,10 @@ class OnboardingService:
             entity_type="employee_document",
             entity_id=document.id,
             action="update",
-            after={"status": document.status},
+            after={
+                "status": document.status,
+                "expiry_date": str(document.expiry_date) if document.expiry_date else None,
+            },
         )
         db.commit()
         return document

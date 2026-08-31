@@ -23,3 +23,15 @@ class CompanyResponse(ORMModel):
     name: str
     slug: str
     status: str
+
+
+class IntegrationSettingsResponse(ORMModel):
+    slack_webhook_url: str | None
+
+
+class IntegrationSettingsUpdateRequest(BaseModel):
+    slack_webhook_url: str | None = Field(default=None, max_length=500)
+
+
+class WebhookTestResponse(BaseModel):
+    sent: bool

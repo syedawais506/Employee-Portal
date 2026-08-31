@@ -53,6 +53,8 @@ export function OnboardingReviewPage() {
   const queryClient = useQueryClient();
   const [rejecting, setRejecting] = useState<EmployeeDocument | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
+  const [approving, setApproving] = useState<EmployeeDocument | null>(null);
+  const [approveExpiryDate, setApproveExpiryDate] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { data: employee } = useQuery({
@@ -74,12 +76,23 @@ export function OnboardingReviewPage() {
   }
 
   const reviewMutation = useMutation({
-    mutationFn: ({ documentId, approve, notes }: { documentId: string; approve: boolean; notes?: string }) =>
-      reviewEmployeeDocument(employeeId as string, documentId, approve, notes),
+    mutationFn: ({
+      documentId,
+      approve,
+      notes,
+      expiryDate,
+    }: {
+      documentId: string;
+      approve: boolean;
+      notes?: string;
+      expiryDate?: string | null;
+    }) => reviewEmployeeDocument(employeeId as string, documentId, approve, notes, expiryDate),
     onSuccess: () => {
       invalidateAll();
       setRejecting(null);
       setRejectNotes("");
+      setApproving(null);
+      setApproveExpiryDate("");
     },
     onError: (error) => setErrorMessage(extractApiErrorMessage(error)),
   });
@@ -165,6 +178,7 @@ export function OnboardingReviewPage() {
                 <TableCell>Document</TableCell>
                 <TableCell>File</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Expires</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -176,6 +190,7 @@ export function OnboardingReviewPage() {
                   <TableCell>
                     <Chip label={doc.status} size="small" color={STATUS_COLOR[doc.status]} />
                   </TableCell>
+                  <TableCell>{doc.expiry_date ?? "—"}</TableCell>
                   <TableCell align="right">
                     <IconButton size="small" onClick={() => handleDownload(doc.id)}>
                       <DownloadIcon fontSize="small" />
@@ -184,7 +199,10 @@ export function OnboardingReviewPage() {
                       <IconButton
                         size="small"
                         color="success"
-                        onClick={() => reviewMutation.mutate({ documentId: doc.id, approve: true })}
+                        onClick={() => {
+                          setApproveExpiryDate(doc.expiry_date ?? "");
+                          setApproving(doc);
+                        }}
                         disabled={doc.status === "approved"}
                       >
                         <CheckIcon fontSize="small" />
@@ -198,7 +216,7 @@ export function OnboardingReviewPage() {
               ))}
               {(documents ?? []).length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>
                     No documents uploaded yet.
                   </TableCell>
                 </TableRow>
@@ -233,6 +251,37 @@ export function OnboardingReviewPage() {
             }
           >
             Reject
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(approving)} onClose={() => setApproving(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Approve "{approving?.document_type_name}"</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            type="date"
+            label="Expiry date (optional)"
+            InputLabelProps={{ shrink: true }}
+            value={approveExpiryDate}
+            onChange={(event) => setApproveExpiryDate(event.target.value)}
+            helperText="Set this for documents like a visa or ID card that expire — you'll get a reminder 7 days before."
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setApproving(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="success"
+            disabled={reviewMutation.isPending}
+            onClick={() =>
+              approving &&
+              reviewMutation.mutate({ documentId: approving.id, approve: true, expiryDate: approveExpiryDate })
+            }
+          >
+            Approve
           </Button>
         </DialogActions>
       </Dialog>

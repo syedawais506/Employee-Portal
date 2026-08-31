@@ -11,6 +11,7 @@ import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { DepartmentListPage } from "@/features/departments/DepartmentListPage";
 import { EmployeeDetailPage } from "@/features/employees/EmployeeDetailPage";
 import { EmployeeListPage } from "@/features/employees/EmployeeListPage";
+import { IntegrationsPage } from "@/features/integrations/IntegrationsPage";
 import { LeavePage } from "@/features/leave/LeavePage";
 import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { OnboardingReviewPage } from "@/features/onboarding/OnboardingReviewPage";
@@ -80,6 +81,10 @@ export const router = createBrowserRouter([
           {
             element: <RequirePermission module="report" action="view" />,
             children: [{ path: "/reports", element: <ReportsPage /> }],
+          },
+          {
+            element: <RequirePermission module="company" action="configure" />,
+            children: [{ path: "/integrations", element: <IntegrationsPage /> }],
           },
           {
             element: <RequireSuperAdmin />,

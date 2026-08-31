@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -42,6 +42,7 @@ class EmployeeDocument(UUIDPkMixin, Base):
         UUID(as_uuid=True), ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default="now()"
     )

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -36,11 +36,13 @@ class EmployeeDocumentResponse(ORMModel):
     review_notes: str | None
     uploaded_at: datetime
     reviewed_at: datetime | None
+    expiry_date: date | None = None
 
 
 class DocumentReviewRequest(BaseModel):
     approve: bool
     notes: str | None = None
+    expiry_date: date | None = None
 
 
 class OnboardingCompleteRequest(BaseModel):

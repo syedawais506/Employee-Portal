@@ -124,6 +124,7 @@ export interface EmployeeDocument {
   review_notes: string | null;
   uploaded_at: string;
   reviewed_at: string | null;
+  expiry_date: string | null;
 }
 
 export interface OnboardingContext {
@@ -278,6 +279,10 @@ export interface Holiday {
 
 export interface LeaveSettings {
   require_hr_leave_approval: boolean;
+}
+
+export interface IntegrationSettings {
+  slack_webhook_url: string | null;
 }
 
 export interface LeaveBalance {
