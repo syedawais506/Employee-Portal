@@ -127,6 +127,20 @@ export interface EmployeeDocument {
   expiry_date: string | null;
 }
 
+export interface CompanyBranding {
+  name: string;
+  logo_url: string | null;
+  primary_color: string | null;
+}
+
+export interface CompanyTourStep {
+  id: string;
+  title: string;
+  body: string;
+  image_url: string | null;
+  sort_order: number;
+}
+
 export interface OnboardingContext {
   employee: {
     first_name: string;
@@ -139,6 +153,8 @@ export interface OnboardingContext {
   uploaded_documents: EmployeeDocument[];
   password_already_set: boolean;
   expires_at: string;
+  company_branding: CompanyBranding;
+  tour_steps: CompanyTourStep[];
 }
 
 export interface OnboardingQueueEntry {

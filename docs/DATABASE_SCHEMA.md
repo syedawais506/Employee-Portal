@@ -368,6 +368,8 @@ erDiagram
 | status | varchar(20) NOT NULL DEFAULT 'active' | active / suspended / cancelled |
 | require_hr_leave_approval | boolean NOT NULL DEFAULT false | *(Phase 5)* adds the optional HR sign-off step after Manager approval on leave requests |
 | slack_webhook_url | varchar(500) NULL | *(Phase 7c)* Admin-configured Slack incoming-webhook or Teams connector URL; when set, every event that already triggers an in-app notification also posts a plain-text message here |
+| logo_key | varchar(512) NULL | *(Phase 9c)* S3/MinIO object key for the company's logo — same private-bucket-plus-presigned-URL pattern as employee documents, not a public URL stored directly |
+| primary_color | varchar(20) NULL | *(Phase 9c)* hex accent color (e.g. `#4F46E5`) applied to the public onboarding link's buttons |
 | created_at, updated_at | timestamptz | |
 | deleted_at | timestamptz NULL | soft delete |
 
@@ -427,6 +429,19 @@ erDiagram
 | is_required | boolean NOT NULL DEFAULT true | admin-toggleable per company |
 | sort_order | int NOT NULL DEFAULT 0 | display order in the checklist |
 | created_at, updated_at | timestamptz | |
+
+### `company_tour_step` *(Phase 9c)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| title | varchar(150) NOT NULL | |
+| body | varchar(2000) NOT NULL | |
+| image_key | varchar(512) NULL | optional slide image, same private-bucket-plus-presigned-URL pattern as `company.logo_key` |
+| sort_order | int NOT NULL DEFAULT 0 | display order in the tour |
+| created_at, updated_at | timestamptz | |
+
+An Admin-authored, ordered list of welcome slides shown to a new hire on the public onboarding page before they set a password — same company-scoped catalog shape as `document_type` (no approval step, no versioning; edit or delete in place). No "seen" flag stored here or anywhere else — whether a given onboarding link has already shown the tour is tracked client-side only (localStorage, keyed by the onboarding token).
 
 ### `employee_document` *(Phase 2)*
 | Column | Type | Notes |

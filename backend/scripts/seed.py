@@ -19,6 +19,7 @@ from app.repositories.role_repository import RoleRepository
 from app.repositories.user_repository import UserRepository
 from app.services.asset_service import asset_service
 from app.services.attendance_service import attendance_service
+from app.services.company_tour_service import company_tour_service
 from app.services.employee_service import employee_service
 from app.services.leave_service import leave_service
 from app.services.onboarding_service import onboarding_service
@@ -153,6 +154,33 @@ def seed_company(db, *, name: str, slug: str) -> None:
         document_type_repo.create(db, company.id, name="Government ID", is_required=True, sort_order=2),
         document_type_repo.create(db, company.id, name="PAN Card", is_required=False, sort_order=3),
     ]
+
+    # Branding & Company Tour demo: a distinct accent color per company and a
+    # short welcome tour, so the public onboarding link a new hire opens
+    # looks genuinely on-brand rather than a shared unbranded page.
+    company.primary_color = "#4F46E5" if slug == "acme" else "#0D9488"
+    db.flush()
+    company_tour_service.create_step(
+        db, company.id,
+        title=f"Welcome to {name}!",
+        body="We're excited to have you join the team. This short tour covers what to expect before your first day.",
+        sort_order=1, image=None, actor_user_id=admin_employee.user_id,
+    )
+    company_tour_service.create_step(
+        db, company.id,
+        title="Our Culture",
+        body=(
+            "We value ownership, transparency, and moving fast without breaking trust. "
+            "You'll get a deeper walkthrough from your manager in week one."
+        ),
+        sort_order=2, image=None, actor_user_id=admin_employee.user_id,
+    )
+    company_tour_service.create_step(
+        db, company.id,
+        title="Next Steps",
+        body="Set your password and upload the documents below to finish setting up your account.",
+        sort_order=3, image=None, actor_user_id=admin_employee.user_id,
+    )
     new_hire = employee_service.create_employee(
         db,
         company.id,

@@ -62,6 +62,16 @@ def build_document_key(
     return f"{company_id}/employees/{employee_id}/documents/{document_type_id}/{uuid.uuid4().hex}_{safe_name}"
 
 
+def build_branding_logo_key(*, company_id: uuid.UUID, filename: str) -> str:
+    safe_name = filename.replace("/", "_")
+    return f"{company_id}/branding/logo/{uuid.uuid4().hex}_{safe_name}"
+
+
+def build_tour_step_image_key(*, company_id: uuid.UUID, filename: str) -> str:
+    safe_name = filename.replace("/", "_")
+    return f"{company_id}/branding/tour/{uuid.uuid4().hex}_{safe_name}"
+
+
 def upload_document(*, key: str, content: bytes, content_type: str) -> None:
     get_s3_client().put_object(
         Bucket=settings.s3_bucket_name,

@@ -4,6 +4,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field
 
 from app.schemas.common import ORMModel
+from app.schemas.company import CompanyBrandingResponse
 
 
 class DocumentTypeCreateRequest(BaseModel):
@@ -45,6 +46,20 @@ class DocumentReviewRequest(BaseModel):
     expiry_date: date | None = None
 
 
+class CompanyTourStepUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=150)
+    body: str | None = Field(default=None, min_length=1, max_length=2000)
+    sort_order: int | None = None
+
+
+class CompanyTourStepResponse(BaseModel):
+    id: uuid.UUID
+    title: str
+    body: str
+    image_url: str | None
+    sort_order: int
+
+
 class OnboardingCompleteRequest(BaseModel):
     password: str = Field(min_length=10)
 
@@ -63,6 +78,8 @@ class OnboardingContextResponse(BaseModel):
     uploaded_documents: list[EmployeeDocumentResponse]
     password_already_set: bool
     expires_at: datetime
+    company_branding: CompanyBrandingResponse
+    tour_steps: list[CompanyTourStepResponse]
 
 
 class OnboardingQueueEntry(ORMModel):

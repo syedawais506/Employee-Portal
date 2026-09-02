@@ -86,7 +86,7 @@ The `/onboarding/{token}` routes are **unauthenticated by design** — `{token}`
 | Method & Path | Body | Response | Auth |
 |---|---|---|---|
 | `GET /onboarding/queue` | `page` n/a — full list | `[{id, employee_code, first_name, last_name, onboarding_status}]` for employees in `invited`/`submitted`/`hr_approved` | onboarding.view |
-| `GET /onboarding/{token}` | — | `{employee, document_types[], uploaded_documents[], password_already_set, expires_at}` | public (token) |
+| `GET /onboarding/{token}` | — | `{employee, document_types[], uploaded_documents[], password_already_set, expires_at, company_branding, tour_steps[]}` — `company_branding`/`tour_steps` *(Phase 9c)* added for the on-brand onboarding experience, see below | public (token) |
 | `POST /onboarding/{token}/password` | `{password}` | `204` | public (token); only while `onboarding_status="invited"` |
 | `POST /onboarding/{token}/documents` | multipart: `document_type_id`, `file` | EmployeeDocument (201) | public (token); only while status is `invited`/`submitted` |
 | `GET /employees/{id}/documents` | — | `[EmployeeDocument]` | onboarding.view |
@@ -96,6 +96,31 @@ The `/onboarding/{token}` routes are **unauthenticated by design** — `{token}`
 | `POST /employees/{id}/onboarding/approve` | — | `{onboarding_status:"completed"}` — activates the account; 422 if not yet `hr_approved` | onboarding.approve |
 
 File uploads are limited to PDF/PNG/JPEG, 10 MB max, validated server-side regardless of client-declared content type.
+
+## Branding — `/api/v1/branding` *(Phase 9c)*
+
+Per-company white-label branding for the public onboarding link only — not the authenticated internal app (see docs/ROADMAP.md for why that's out of scope). Reuses the existing `onboarding.view`/`onboarding.configure` permissions rather than a new module, since this genuinely is onboarding-flow configuration.
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `GET /branding` | — | `{name, logo_url, primary_color}` | onboarding.view |
+| `PATCH /branding/color` | `{primary_color}` — hex string or `null` | `{name, logo_url, primary_color}` | onboarding.configure |
+| `POST /branding/logo` | multipart: `file` (PNG/JPEG, 10 MB max) | `{name, logo_url, primary_color}` | onboarding.configure |
+
+`logo_url` is a presigned S3/MinIO GET URL (1 hour expiry) generated fresh on every read, same pattern as employee document downloads — the logo is never served from a public bucket or a bare stored URL.
+
+## Company Tour — `/api/v1/company-tour` *(Phase 9c)*
+
+An Admin-authored, ordered list of welcome slides shown on the public onboarding page before password/document upload — reuses `onboarding.view`/`onboarding.configure`, no new permission module.
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `GET /company-tour` | — | `[{id, title, body, image_url, sort_order}]`, ordered by `sort_order` | onboarding.view |
+| `POST /company-tour` | multipart: `title`, `body`, `sort_order`, `image?` (PNG/JPEG, optional) | CompanyTourStep (201) | onboarding.configure |
+| `PATCH /company-tour/{id}` | `{title?, body?, sort_order?}` | CompanyTourStep — no way to change/remove an already-uploaded image via this route, delete and recreate the step instead | onboarding.configure |
+| `DELETE /company-tour/{id}` | — | `204` | onboarding.configure |
+
+On the public onboarding page, the tour shows as a skippable stepper (Back/Next/Skip/Finish) before the existing password/document steps, using the company's `primary_color` as the button accent. Once dismissed it's tracked client-side only (localStorage keyed by the onboarding token) so it doesn't reappear on that same link — there's a "View company tour" link to replay it.
 
 ## Clients — `/api/v1/clients` *(Phase 3)*
 

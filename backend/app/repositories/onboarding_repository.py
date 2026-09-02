@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.onboarding import DocumentType, EmployeeDocument, OnboardingInvite
+from app.models.onboarding import CompanyTourStep, DocumentType, EmployeeDocument, OnboardingInvite
 from app.repositories.base import TenantScopedRepository
 
 
@@ -24,6 +24,18 @@ class DocumentTypeRepository(TenantScopedRepository[DocumentType]):
     def list_required(self, db: Session, company_id: uuid.UUID) -> list[DocumentType]:
         stmt = select(DocumentType).where(
             DocumentType.company_id == company_id, DocumentType.is_required.is_(True)
+        )
+        return list(db.execute(stmt).scalars().all())
+
+
+class CompanyTourStepRepository(TenantScopedRepository[CompanyTourStep]):
+    model = CompanyTourStep
+
+    def list_all(self, db: Session, company_id: uuid.UUID) -> list[CompanyTourStep]:
+        stmt = (
+            select(CompanyTourStep)
+            .where(CompanyTourStep.company_id == company_id)
+            .order_by(CompanyTourStep.sort_order, CompanyTourStep.created_at)
         )
         return list(db.execute(stmt).scalars().all())
 

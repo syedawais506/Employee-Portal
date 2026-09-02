@@ -35,3 +35,13 @@ class IntegrationSettingsUpdateRequest(BaseModel):
 
 class WebhookTestResponse(BaseModel):
     sent: bool
+
+
+class CompanyBrandingResponse(BaseModel):
+    name: str
+    logo_url: str | None
+    primary_color: str | None
+
+
+class CompanyBrandingColorUpdateRequest(BaseModel):
+    primary_color: str | None = Field(default=None, max_length=20, pattern=r"^#[0-9a-fA-F]{6}$")

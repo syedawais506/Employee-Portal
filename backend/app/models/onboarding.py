@@ -50,6 +50,16 @@ class EmployeeDocument(UUIDPkMixin, Base):
     document_type: Mapped["DocumentType"] = relationship()
 
 
+class CompanyTourStep(UUIDPkMixin, TimestampMixin, Base):
+    __tablename__ = "company_tour_step"
+
+    company_id: Mapped[uuid.UUID] = company_fk()
+    title: Mapped[str] = mapped_column(String(150), nullable=False)
+    body: Mapped[str] = mapped_column(String(2000), nullable=False)
+    image_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
 class OnboardingInvite(UUIDPkMixin, Base):
     __tablename__ = "onboarding_invite"
 

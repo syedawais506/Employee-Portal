@@ -18,8 +18,11 @@ from app.repositories.onboarding_repository import (
     OnboardingInviteRepository,
 )
 from app.repositories.user_repository import UserRepository
-from app.schemas.onboarding import OnboardingContextResponse, OnboardingEmployeeInfo
+from app.schemas.company import CompanyBrandingResponse
+from app.schemas.onboarding import CompanyTourStepResponse, OnboardingContextResponse, OnboardingEmployeeInfo
 from app.services.audit_service import audit_service
+from app.services.branding_service import branding_service
+from app.services.company_tour_service import company_tour_service
 from app.services.notification_service import notification_service
 from app.tasks.email_tasks import send_onboarding_invite_email
 from app.utils.storage import (
@@ -77,7 +80,24 @@ class OnboardingService:
         invite, employee = self._resolve_invite(db, raw_token)
         document_types = self.document_type_repo.list_all(db, employee.company_id)
         documents = self.employee_document_repo.list_for_employee(db, employee.company_id, employee.id)
+        company = branding_service.get_branding(db, employee.company_id)
+        tour_steps = company_tour_service.list_steps(db, employee.company_id)
         return OnboardingContextResponse(
+            company_branding=CompanyBrandingResponse(
+                name=company.name,
+                logo_url=branding_service.logo_url(company),
+                primary_color=company.primary_color,
+            ),
+            tour_steps=[
+                CompanyTourStepResponse(
+                    id=step.id,
+                    title=step.title,
+                    body=step.body,
+                    image_url=company_tour_service.image_url(step),
+                    sort_order=step.sort_order,
+                )
+                for step in tour_steps
+            ],
             employee=OnboardingEmployeeInfo(
                 first_name=employee.first_name,
                 last_name=employee.last_name,

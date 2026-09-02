@@ -145,6 +145,14 @@ All four share the CSV-building helper (`app/utils/csv_export.py`) that Timeshee
 ## Phase 9b — Subscription/Billing
 - Super Admin subscription plans, seat limits, license enforcement, usage metering
 
+## Phase 9c — White-Label Onboarding Branding & Company Tour *(shipped)*
+- `company.logo_key` (nullable, S3/MinIO object key, same private-bucket-plus-presigned-URL pattern as employee documents) and `company.primary_color` (nullable hex string), Admin-configurable via a new "Branding & Tour" tab on the existing Onboarding settings page, gated on the existing `onboarding.configure` permission — no new permission module needed, since this genuinely is onboarding-flow configuration
+- `company_tour_step`: an Admin-authored, ordered list of simple slides (title, body text, optional image) shown to a new hire during onboarding — same company-scoped catalog shape as `document_type` (sort_order, no approval/versioning), CRUD gated on `onboarding.configure`
+- Scope is deliberately narrowed to the **public onboarding experience only** (`/onboarding/{token}`, already unauthenticated and already has company context via the invite token) — not the authenticated internal app (dashboard, login page). The internal app is used daily by the company's own staff who already know it's a shared platform; a new hire's onboarding link is the one surface an outside person sees before they're a "user" of anything, so that's where branding actually matters. Full white-labeling of the entire internal app (custom domains, a per-tenant theme engine reachable pre-login) is a materially bigger, separate undertaking and out of scope here.
+- The existing `GET /onboarding/{token}` response gains `company_branding` (name, presigned `logo_url`, `primary_color`) and `tour_steps` — no new public endpoint, just enriching the response the public onboarding page already fetches
+- On the public onboarding page: the tour shows as a skippable, replayable stepper (Back/Next/Skip/Finish) *before* the existing password + document-upload steps, using `primary_color` as the accent on its buttons and the company logo in place of the generic "Employee Portal" header. Once dismissed it doesn't reappear on that same link (tracked client-side only, keyed by the onboarding token — no new "has seen tour" column), with a small link to replay it
+- Not an embeddable widget for a company's own external website — embedding a real auth/onboarding flow via iframe on a third-party origin is fragile in practice (`X-Frame-Options`, cross-origin cookies) and isn't how most SaaS products solve this; a company that wants this on their careers page can simply link to their own on-brand onboarding URL
+
 ## Phase 10 — Auth Expansion & AI Features
 - Google/Microsoft OAuth2 login (schema already reserved: `auth_provider`), MFA (TOTP) enforcement
 - AI features (chatbot for HR FAQs, resume parsing, timesheet suggestions, report generation) as opt-in, provider-agnostic integrations

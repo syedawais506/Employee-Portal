@@ -1,16 +1,19 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   Chip,
   CircularProgress,
   Divider,
+  MobileStepper,
   Paper,
   Stack,
   TextField,
@@ -19,7 +22,7 @@ import {
 
 import { extractApiErrorMessage } from "@/api/client";
 import { getOnboardingContext, setOnboardingPassword, uploadOnboardingDocument } from "@/api/onboarding";
-import type { DocumentType, EmployeeDocument } from "@/types";
+import type { CompanyBranding, CompanyTourStep, DocumentType, EmployeeDocument } from "@/types";
 
 const STATUS_LABEL: Record<string, string> = {
   invited: "Awaiting your submission",
@@ -28,9 +31,87 @@ const STATUS_LABEL: Record<string, string> = {
   completed: "Onboarding complete — your account is active",
 };
 
+function tourSeenKey(token: string): string {
+  return `onboarding-tour-seen-${token}`;
+}
+
 interface PasswordFormValues {
   password: string;
   confirmPassword: string;
+}
+
+function CompanyHeader({ branding }: { branding?: CompanyBranding }) {
+  return (
+    <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+      {branding?.logo_url && (
+        <Avatar variant="rounded" src={branding.logo_url} sx={{ width: 48, height: 48 }} />
+      )}
+      <Box>
+        <Typography variant="h2" sx={{ mb: 0.25 }}>
+          Welcome to {branding?.name ?? "Employee Portal"}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Complete your onboarding below.
+        </Typography>
+      </Box>
+    </Stack>
+  );
+}
+
+function CompanyTour({
+  steps,
+  accentColor,
+  onFinish,
+}: {
+  steps: CompanyTourStep[];
+  accentColor?: string | null;
+  onFinish: () => void;
+}) {
+  const [index, setIndex] = useState(0);
+  const step = steps[index];
+  const isLast = index === steps.length - 1;
+
+  return (
+    <Stack spacing={2}>
+      {step.image_url && (
+        <Box
+          component="img"
+          src={step.image_url}
+          alt={step.title}
+          sx={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 1 }}
+        />
+      )}
+      <Typography variant="h3">{step.title}</Typography>
+      <Typography variant="body1" color="text.secondary">
+        {step.body}
+      </Typography>
+      <MobileStepper
+        variant="dots"
+        steps={steps.length}
+        position="static"
+        activeStep={index}
+        sx={{ bgcolor: "transparent", px: 0 }}
+        nextButton={
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => (isLast ? onFinish() : setIndex((i) => i + 1))}
+            sx={accentColor ? { bgcolor: accentColor, "&:hover": { bgcolor: accentColor } } : undefined}
+          >
+            {isLast ? "Finish" : "Next"}
+          </Button>
+        }
+        backButton={
+          <Button size="small" startIcon={<ArrowBackIcon />} disabled={index === 0} onClick={() => setIndex((i) => i - 1)}>
+            Back
+          </Button>
+        }
+      />
+      <Button size="small" onClick={onFinish} sx={{ alignSelf: "flex-end" }}>
+        Skip tour
+      </Button>
+    </Stack>
+  );
 }
 
 function DocumentRow({
@@ -113,6 +194,7 @@ export function PublicOnboardingPage() {
   const { token } = useParams<{ token: string }>();
   const queryClient = useQueryClient();
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showingTour, setShowingTour] = useState(false);
 
   const { data: context, isLoading, isError, error } = useQuery({
     queryKey: ["onboarding-context", token],
@@ -120,6 +202,17 @@ export function PublicOnboardingPage() {
     enabled: Boolean(token),
     retry: false,
   });
+
+  useEffect(() => {
+    if (!context || !token) return;
+    const hasSeenTour = localStorage.getItem(tourSeenKey(token)) === "true";
+    setShowingTour(context.tour_steps.length > 0 && !hasSeenTour);
+  }, [context, token]);
+
+  function dismissTour() {
+    if (token) localStorage.setItem(tourSeenKey(token), "true");
+    setShowingTour(false);
+  }
 
   const { control, handleSubmit, watch } = useForm<PasswordFormValues>({
     defaultValues: { password: "", confirmPassword: "" },
@@ -135,15 +228,12 @@ export function PublicOnboardingPage() {
     queryClient.invalidateQueries({ queryKey: ["onboarding-context", token] });
   }
 
+  const accentColor = context?.company_branding.primary_color;
+
   return (
     <Box sx={{ minHeight: "100vh", display: "flex", justifyContent: "center", bgcolor: "background.default", py: 6, px: 2 }}>
       <Paper elevation={0} sx={{ width: "100%", maxWidth: 640, height: "fit-content", p: 4, border: "1px solid", borderColor: "divider" }}>
-        <Typography variant="h2" sx={{ mb: 0.5 }}>
-          Welcome to Employee Portal
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Complete your onboarding below.
-        </Typography>
+        <CompanyHeader branding={context?.company_branding} />
 
         {isLoading && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
@@ -155,15 +245,26 @@ export function PublicOnboardingPage() {
           <Alert severity="error">{extractApiErrorMessage(error, "This onboarding link is invalid or has expired.")}</Alert>
         )}
 
-        {context && (
+        {context && showingTour && (
+          <CompanyTour steps={context.tour_steps} accentColor={accentColor} onFinish={dismissTour} />
+        )}
+
+        {context && !showingTour && (
           <Stack spacing={3}>
             <Alert severity={context.employee.onboarding_status === "completed" ? "success" : "info"}>
               <b>{context.employee.company_name}</b> — {STATUS_LABEL[context.employee.onboarding_status]}
             </Alert>
 
-            <Typography variant="body1">
-              Hi {context.employee.first_name}, please set a password and upload the documents below.
-            </Typography>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography variant="body1">
+                Hi {context.employee.first_name}, please set a password and upload the documents below.
+              </Typography>
+              {context.tour_steps.length > 0 && (
+                <Button size="small" onClick={() => setShowingTour(true)}>
+                  View company tour
+                </Button>
+              )}
+            </Stack>
 
             {context.employee.onboarding_status === "completed" ? (
               <Alert severity="success" icon={<CheckCircleIcon />}>
@@ -224,7 +325,12 @@ export function PublicOnboardingPage() {
                         )}
                       />
                       <Box>
-                        <Button type="submit" variant="contained" disabled={passwordMutation.isPending}>
+                        <Button
+                          type="submit"
+                          variant="contained"
+                          disabled={passwordMutation.isPending}
+                          sx={accentColor ? { bgcolor: accentColor, "&:hover": { bgcolor: accentColor } } : undefined}
+                        >
                           Save password
                         </Button>
                       </Box>
