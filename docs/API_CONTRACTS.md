@@ -152,7 +152,7 @@ Lightweight assignment target for projects — reuses the `project.*` permission
 
 ## Timesheets — `/api/v1/timesheets` *(Phase 4)*
 
-Entries and submissions are always scoped to the caller's own employee record — there is no "edit someone else's timesheet" endpoint. Approval/dashboard/export routes act company-wide for whoever holds the relevant permission (same model as every other module — not restricted to "my direct reports").
+Entries and submissions are always scoped to the caller's own employee record — there is no "edit someone else's timesheet" endpoint. Dashboard/export/queue-listing routes act company-wide for whoever holds `timesheet.approve`/`timesheet.export` (unchanged). The actual approve/reject *action*, however, is restricted at the Manager stage: only the submitting employee's assigned manager (`employee.manager_id`) may approve/reject a `submitted` submission — anyone else holding `timesheet.approve` (a different team's Manager, HR, Finance) gets `403`, even though they can still see it in the company-wide queue. Whoever holds `timesheet.configure` (Admin by default) always retains an override, including when `manager_id` is unset. The optional second Finance stage (`manager_approved` → `approved`) is untouched by this restriction — it's a compliance step, not a reporting-line one. Since a Manager is themselves an employee, their own submissions route the same way: to whoever *their* `manager_id` points to, not to any Manager-permission holder — see docs/ROADMAP.md.
 
 Submission ranges are free-form: the caller picks the exact `period_start`/`period_end` to submit each time (not derived from `timesheet_period_config`), so a second submission for newly-logged entries never collides with one already pending for an overlapping range — `timesheet_period_config` still drives the rule engine (min/max hours per day) and the dashboard's "late" calculation, just not what a submission covers.
 
@@ -167,9 +167,9 @@ Submission ranges are free-form: the caller picks the exact `period_start`/`peri
 | `POST /timesheets/submissions` | `{period_start, period_end}` | TimesheetSubmission (201) — submits every draft/rejected entry inside the given free-form date range (not snapped to `timesheet_period_config`; the caller chooses the exact range each time) | timesheet.update (self) |
 | `GET /timesheets/submissions/mine` | `bucket?: pending\|approved\|rejected` | `[TimesheetSubmission]` — caller's own submission history, optionally filtered to one bucket (`pending` = submitted + manager_approved) | authenticated (self) |
 | `GET /timesheets/submissions` | `bucket?: pending\|approved\|rejected, page, page_size` | Page\<TimesheetSubmission\> — approval queue | timesheet.approve |
-| `POST /timesheets/submissions/{id}/approve` | — | TimesheetSubmission — advances one step (Manager, then Finance only if `require_finance_approval`) | timesheet.approve |
-| `POST /timesheets/submissions/{id}/reject` | `{reason}` | TimesheetSubmission (`status:"rejected"`) | timesheet.reject |
-| `POST /timesheets/submissions/bulk-approve` | `{submission_ids: [...]}` | `{approved: [...], failed: [{id, reason}]}` — partial failures don't abort the batch | timesheet.approve |
+| `POST /timesheets/submissions/{id}/approve` | — | TimesheetSubmission — advances one step (Manager, then Finance only if `require_finance_approval`); the Manager step also requires being this employee's assigned manager (or `timesheet.configure`) — `403` otherwise | timesheet.approve |
+| `POST /timesheets/submissions/{id}/reject` | `{reason}` | TimesheetSubmission (`status:"rejected"`) — same manager-hierarchy restriction as approve when rejecting at the Manager stage | timesheet.reject |
+| `POST /timesheets/submissions/bulk-approve` | `{submission_ids: [...]}` | `{approved: [...], failed: [{id, reason}]}` — partial failures don't abort the batch; a submission outside the caller's reporting line fails with the same reason a lone approve call would, rather than a generic error | timesheet.approve |
 | `POST /timesheets/submissions/{id}/reopen` | — | TimesheetSubmission (`status:"submitted"`) — only approved submissions can be reopened | timesheet.delete (Admin-only by default — see ROADMAP.md) |
 | `GET /timesheets/dashboard` | `date_from?, date_to?` | `{pending_count, rejected_count, late_count, billable_percentage, hours_by_project[], hours_by_employee[]}` | timesheet.approve OR timesheet.export |
 | `GET /timesheets/export` | `date_from?, date_to?, employee_id?, project_id?, location?` | `text/csv` attachment (columns incl. Employee, Location, Project, Date, Hours, Billable, Work Type, Status, Description) | timesheet.export |
@@ -179,6 +179,8 @@ Submission ranges are free-form: the caller picks the exact `period_start`/`peri
 ## Leave — `/api/v1/leave-types`, `/holidays`, `/leave-requests`, `/leave/...` *(Phase 5)*
 
 Full-day only (no half-day/hourly granularity yet — see ROADMAP.md). Broad `leave.view` is company-wide read access to leave types/holidays/settings only — anything that exposes *other employees'* requests or balances (the approval queue, company-wide balances, dashboard, export) is gated on the narrower `leave.approve`/`leave.export` instead, the same lesson the offer-letter feature was rebuilt around. That same `leave.approve` permission is reused as the signal for "may file leave on behalf of another employee," rather than inventing a separate permission for it.
+
+The approve/reject *action* is further restricted at the Manager stage: only the requester's assigned manager (`employee.manager_id`) may approve/reject a `pending` request — any other `leave.approve` holder (a different team's Manager, HR) can still see it in the company-wide queue but gets `403` on the action itself. Whoever holds `leave.configure` (Admin by default) always retains an override, including when `manager_id` is unset. The optional second HR stage (`manager_approved` → `approved`) is untouched — it's a compliance step, not a reporting-line one. A Manager is themselves an employee, so their own requests route the same way, to whoever *their* `manager_id` points to — see docs/ROADMAP.md.
 
 | Method & Path | Body | Response | Permission |
 |---|---|---|---|
@@ -199,8 +201,8 @@ Full-day only (no half-day/hourly granularity yet — see ROADMAP.md). Broad `le
 | `GET /leave-requests` | `employee_id?, leave_type_id?, status?, page, page_size` | Page\<LeaveRequest\> — approval queue | leave.approve |
 | `POST /leave-requests/{id}/cancel` | — | LeaveRequest (`status:"cancelled"`) — only while still open (pending/manager_approved/approved) | leave.update (self, or on behalf of, same as filing) |
 | `DELETE /leave-requests/{id}` | — | `204` — hard delete | leave.delete |
-| `POST /leave-requests/{id}/approve` | — | LeaveRequest — advances one step (Manager, then HR only if `require_hr_leave_approval`) | leave.approve |
-| `POST /leave-requests/{id}/reject` | `{reason}` | LeaveRequest (`status:"rejected"`) | leave.reject |
+| `POST /leave-requests/{id}/approve` | — | LeaveRequest — advances one step (Manager, then HR only if `require_hr_leave_approval`); the Manager step also requires being this employee's assigned manager (or `leave.configure`) — `403` otherwise | leave.approve |
+| `POST /leave-requests/{id}/reject` | `{reason}` | LeaveRequest (`status:"rejected"`) — same manager-hierarchy restriction as approve when rejecting at the Manager stage | leave.reject |
 | `POST /leave/carry-forward` | `{from_year, employee_id?}` | `{from_year, to_year, balances_updated}` — company-wide when `employee_id` is omitted | leave.configure |
 | `GET /leave/dashboard` | — | `{pending_count, on_leave_today_count}` | leave.approve |
 | `GET /leave/export` | `date_from?, date_to?, employee_id?, leave_type_id?, status?` | `text/csv` attachment (columns: Employee, Leave Type, Start Date, End Date, Days, Status, Reason) | leave.export |

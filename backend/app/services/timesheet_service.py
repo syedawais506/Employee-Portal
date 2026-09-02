@@ -6,8 +6,9 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ConflictError, NotFoundError, ValidationAppError
+from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationAppError
 from app.models.timesheet import TimesheetEntry, TimesheetPeriodConfig, TimesheetSubmission
+from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.project_repository import ProjectMemberRepository, ProjectRepository
 from app.repositories.timesheet_repository import (
     TimesheetEntryRepository,
@@ -17,6 +18,7 @@ from app.repositories.timesheet_repository import (
 from app.schemas.common import Page
 from app.schemas.timesheet import VALID_PERIOD_TYPES, VALID_WORK_TYPES
 from app.services.audit_service import audit_service
+from app.services.auth_service import auth_service
 from app.services.notification_service import notification_service
 from app.utils.csv_export import build_csv
 
@@ -39,6 +41,7 @@ class TimesheetService:
         self.submission_repo = TimesheetSubmissionRepository()
         self.project_repo = ProjectRepository()
         self.member_repo = ProjectMemberRepository()
+        self.employee_repo = EmployeeRepository()
 
     # -- Config -----------------------------------------------------------
 
@@ -334,6 +337,21 @@ class TimesheetService:
         items, total = self.submission_repo.search(db, company_id, statuses=statuses, skip=skip, limit=page_size)
         return Page(items=items, total=total, page=page, page_size=page_size)
 
+    def _can_act_on_manager_step(
+        self, db: Session, company_id: uuid.UUID, submission: TimesheetSubmission, actor_user_id: uuid.UUID
+    ) -> bool:
+        """The first approval stage is restricted to the employee's own
+        assigned manager (employee.manager_id) — Admin (timesheet.configure)
+        remains an override for edge cases (manager away, chain broken, no
+        manager assigned). The optional second Finance stage is intentionally
+        unrestricted by this check — it's a compliance step, not a
+        reporting-line one.
+        """
+        if "timesheet.configure" in auth_service.get_effective_permissions(db, actor_user_id):
+            return True
+        actor_employee = self.employee_repo.get_by_user_id(db, actor_user_id)
+        return actor_employee is not None and submission.employee.manager_id == actor_employee.id
+
     def approve_submission(
         self, db: Session, company_id: uuid.UUID, submission_id: uuid.UUID, *, actor_user_id: uuid.UUID
     ) -> TimesheetSubmission:
@@ -342,6 +360,8 @@ class TimesheetService:
         now = datetime.now(timezone.utc)
 
         if submission.status == "submitted":
+            if not self._can_act_on_manager_step(db, company_id, submission, actor_user_id):
+                raise PermissionDeniedError("Only this employee's manager or an Admin can approve this submission")
             submission.manager_approved_by = actor_user_id
             submission.manager_approved_at = now
             submission.status = "manager_approved" if config.require_finance_approval else "approved"
@@ -382,6 +402,10 @@ class TimesheetService:
         submission = self.get_submission(db, company_id, submission_id)
         if submission.status not in OPEN_SUBMISSION_STATUSES:
             raise ConflictError("This submission is not awaiting approval")
+        if submission.status == "submitted" and not self._can_act_on_manager_step(
+            db, company_id, submission, actor_user_id
+        ):
+            raise PermissionDeniedError("Only this employee's manager or an Admin can reject this submission")
 
         before = {"status": submission.status}
         submission.status = "rejected"
@@ -422,7 +446,7 @@ class TimesheetService:
             try:
                 self.approve_submission(db, company_id, submission_id, actor_user_id=actor_user_id)
                 approved.append(submission_id)
-            except (NotFoundError, ConflictError) as exc:
+            except (NotFoundError, ConflictError, PermissionDeniedError) as exc:
                 failed.append({"id": submission_id, "reason": exc.message})
         return {"approved": approved, "failed": failed}
 

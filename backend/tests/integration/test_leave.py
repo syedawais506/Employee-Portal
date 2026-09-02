@@ -12,6 +12,13 @@ TUESDAY = MONDAY + timedelta(days=1)
 WEDNESDAY = MONDAY + timedelta(days=2)
 
 
+def _set_manager(client, headers_admin, employee_id, manager_id):
+    response = client.patch(
+        f"/api/v1/employees/{employee_id}", headers=headers_admin, json={"manager_id": str(manager_id)}
+    )
+    assert response.status_code == 200, response.text
+
+
 def _create_leave_type(client, headers, *, name="Annual Leave", annual_quota_days=20, requires_attachment=False):
     response = client.post(
         "/api/v1/leave-types",
@@ -46,6 +53,9 @@ def test_full_lifecycle_pending_to_approved_without_hr_signoff(client, tenant_a)
     headers_admin = tenant_a.auth_headers(client, "Admin")
     headers_employee = tenant_a.auth_headers(client, "Employee")
     headers_manager = tenant_a.auth_headers(client, "Manager")
+    _, engineer, _ = tenant_a.users["Employee"]
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
     leave_type = _create_leave_type(client, headers_admin)
 
     create_response = _create_request(
@@ -68,6 +78,9 @@ def test_two_tier_approval_chain_when_company_requires_hr_signoff(client, tenant
     headers_employee = tenant_a.auth_headers(client, "Employee")
     headers_manager = tenant_a.auth_headers(client, "Manager")
     headers_hr = tenant_a.auth_headers(client, "HR")
+    _, engineer, _ = tenant_a.users["Employee"]
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
     leave_type = _create_leave_type(client, headers_admin)
 
     settings_response = client.patch(
@@ -172,6 +185,9 @@ def test_reject_flow_records_reason(client, tenant_a):
     headers_admin = tenant_a.auth_headers(client, "Admin")
     headers_employee = tenant_a.auth_headers(client, "Employee")
     headers_manager = tenant_a.auth_headers(client, "Manager")
+    _, engineer, _ = tenant_a.users["Employee"]
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
     leave_type = _create_leave_type(client, headers_admin)
 
     request = _create_request(
@@ -307,6 +323,9 @@ def test_export_returns_csv_with_employee_and_status(client, tenant_a):
     headers_admin = tenant_a.auth_headers(client, "Admin")
     headers_employee = tenant_a.auth_headers(client, "Employee")
     headers_manager = tenant_a.auth_headers(client, "Manager")
+    _, engineer, _ = tenant_a.users["Employee"]
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
     leave_type = _create_leave_type(client, headers_admin)
 
     request = _create_request(
@@ -365,6 +384,77 @@ def test_holiday_uniqueness_is_scoped_per_location(client, tenant_a):
 
     duplicate = client.post("/api/v1/holidays", headers=headers_admin, json={"date": str(MONDAY), "name": "Duplicate"})
     assert duplicate.status_code == 409
+
+
+def test_manager_step_is_restricted_to_the_employees_assigned_manager(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    headers_manager = tenant_a.auth_headers(client, "Manager")
+    headers_finance = tenant_a.auth_headers(client, "Finance")
+    leave_type = _create_leave_type(client, headers_admin)
+
+    # No manager_id has been assigned yet — a Manager-role user who isn't
+    # this specific employee's manager can't approve, even though they hold
+    # leave.approve broadly.
+    request = _create_request(
+        client, headers_employee, leave_type_id=leave_type["id"], start_date=MONDAY, end_date=MONDAY
+    ).json()
+    unauthorized = client.post(f"/api/v1/leave-requests/{request['id']}/approve", headers=headers_manager)
+    assert unauthorized.status_code == 403
+
+    # Finance doesn't even hold leave.approve, so this is blocked at the
+    # endpoint permission gate before the manager-hierarchy check runs.
+    assert client.post(f"/api/v1/leave-requests/{request['id']}/approve", headers=headers_finance).status_code == 403
+
+    # Admin retains an override regardless of manager_id.
+    admin_override = client.post(f"/api/v1/leave-requests/{request['id']}/approve", headers=headers_admin)
+    assert admin_override.status_code == 200
+    assert admin_override.json()["status"] == "approved"
+
+
+def test_manager_step_is_allowed_once_manager_is_assigned(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    headers_manager = tenant_a.auth_headers(client, "Manager")
+    _, engineer, _ = tenant_a.users["Employee"]
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
+    leave_type = _create_leave_type(client, headers_admin)
+
+    request = _create_request(
+        client, headers_employee, leave_type_id=leave_type["id"], start_date=MONDAY, end_date=MONDAY
+    ).json()
+    approved = client.post(f"/api/v1/leave-requests/{request['id']}/approve", headers=headers_manager)
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
+
+
+def test_a_managers_own_request_routes_to_their_own_manager(client, tenant_a):
+    """The Manager who approves Employee's requests is themselves an
+    employee — assigning Admin as the Manager's own manager means the
+    Manager's own leave request needs Admin, not just any leave.approve
+    holder, to approve it.
+    """
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    headers_manager = tenant_a.auth_headers(client, "Manager")
+    headers_hr = tenant_a.auth_headers(client, "HR")
+    _, manager, _ = tenant_a.users["Manager"]
+    _, admin_employee, _ = tenant_a.users["Admin"]
+    _set_manager(client, headers_admin, manager.id, admin_employee.id)
+    leave_type = _create_leave_type(client, headers_admin)
+
+    request = _create_request(
+        client, headers_manager, leave_type_id=leave_type["id"], start_date=MONDAY, end_date=MONDAY
+    ).json()
+
+    # HR holds leave.approve (passes the endpoint gate) but isn't the
+    # Manager's assigned manager and doesn't hold leave.configure, so this
+    # is blocked by the new service-layer hierarchy check specifically.
+    assert client.post(f"/api/v1/leave-requests/{request['id']}/approve", headers=headers_hr).status_code == 403
+
+    approved = client.post(f"/api/v1/leave-requests/{request['id']}/approve", headers=headers_admin)
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
 
 
 def test_holiday_location_can_be_cleared_via_update(client, tenant_a):

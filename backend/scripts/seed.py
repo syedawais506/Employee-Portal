@@ -281,7 +281,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
     timesheet_service.reject_submission(
         db, company.id, finance_submission.id,
         reason="Please split hours by task and add more detail to the description.",
-        actor_user_id=manager_employee.user_id,
+        actor_user_id=admin_employee.user_id,  # Finance's assigned manager is Admin, not Manager
     )
 
     # Leave demo: an annual/sick/unpaid leave type catalog, one holiday, and
@@ -340,7 +340,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
     leave_service.reject_request(
         db, company.id, rejected_request.id,
         reason="This overlaps with a planned client deliverable — please pick different dates.",
-        actor_user_id=manager_employee.user_id,
+        actor_user_id=admin_employee.user_id,  # Finance's assigned manager is Admin, not Manager
     )
 
     # Assets demo: a laptop/monitor catalog, one asset currently assigned

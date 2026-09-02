@@ -19,6 +19,7 @@ from app.repositories.leave_repository import (
 )
 from app.schemas.common import Page
 from app.services.audit_service import audit_service
+from app.services.auth_service import auth_service
 from app.services.notification_service import notification_service
 from app.utils.csv_export import build_csv
 from app.utils.storage import upload_document
@@ -535,6 +536,21 @@ class LeaveService:
         )
         return Page(items=items, total=total, page=page, page_size=page_size)
 
+    def _can_act_on_manager_step(
+        self, db: Session, company_id: uuid.UUID, request: LeaveRequest, actor_user_id: uuid.UUID
+    ) -> bool:
+        """The first approval stage is restricted to the employee's own
+        assigned manager (employee.manager_id) — Admin (leave.configure)
+        remains an override for edge cases (manager away, chain broken, no
+        manager assigned). The optional second HR stage is intentionally
+        unrestricted by this check — it's a compliance step, not a
+        reporting-line one.
+        """
+        if "leave.configure" in auth_service.get_effective_permissions(db, actor_user_id):
+            return True
+        actor_employee = self.employee_repo.get_by_user_id(db, actor_user_id)
+        return actor_employee is not None and request.employee.manager_id == actor_employee.id
+
     def approve_request(
         self, db: Session, company_id: uuid.UUID, request_id: uuid.UUID, *, actor_user_id: uuid.UUID
     ) -> LeaveRequest:
@@ -543,6 +559,8 @@ class LeaveService:
         now = datetime.now(timezone.utc)
 
         if request.status == "pending":
+            if not self._can_act_on_manager_step(db, company_id, request, actor_user_id):
+                raise PermissionDeniedError("Only this employee's manager or an Admin can approve this request")
             request.manager_approved_by = actor_user_id
             request.manager_approved_at = now
             request.status = "manager_approved" if require_hr else "approved"
@@ -582,6 +600,8 @@ class LeaveService:
         request = self.get_request(db, company_id, request_id)
         if request.status not in ("pending", "manager_approved"):
             raise ConflictError("This request is not awaiting approval")
+        if request.status == "pending" and not self._can_act_on_manager_step(db, company_id, request, actor_user_id):
+            raise PermissionDeniedError("Only this employee's manager or an Admin can reject this request")
         before = {"status": request.status}
         request.status = "rejected"
         request.rejected_by = actor_user_id

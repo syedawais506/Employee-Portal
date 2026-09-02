@@ -111,6 +111,9 @@ def test_leave_approval_and_rejection_notify_requester(client, tenant_a):
     headers_admin = tenant_a.auth_headers(client, "Admin")
     headers_employee = tenant_a.auth_headers(client, "Employee")
     headers_manager = tenant_a.auth_headers(client, "Manager")
+    _, engineer, _ = tenant_a.users["Employee"]
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
     leave_type = _create_leave_type(client, headers_admin)
 
     approved = _file_leave(

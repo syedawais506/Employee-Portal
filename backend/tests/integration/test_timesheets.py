@@ -9,6 +9,13 @@ MONDAY = date(2026, 6, 1)  # a fixed Monday so week-boundary math is determinist
 WEEK_END = MONDAY + timedelta(days=6)
 
 
+def _set_manager(client, headers_admin, employee_id, manager_id):
+    response = client.patch(
+        f"/api/v1/employees/{employee_id}", headers=headers_admin, json={"manager_id": str(manager_id)}
+    )
+    assert response.status_code == 200, response.text
+
+
 def _member(employee, role="member"):
     return {"employee_id": str(employee.id), "role_on_project": role}
 
@@ -44,6 +51,8 @@ def test_full_lifecycle_entry_submit_approve_locks_entries(client, tenant_a):
     _, engineer, _ = tenant_a.users["Employee"]
     headers_employee = tenant_a.auth_headers(client, "Employee")
     headers_manager = tenant_a.auth_headers(client, "Manager")
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
 
     project_id = _create_project(client, headers_admin, member_ids=[_member(engineer)])
 
@@ -122,6 +131,8 @@ def test_reject_then_resubmit_flow(client, tenant_a):
     _, engineer, _ = tenant_a.users["Employee"]
     headers_employee = tenant_a.auth_headers(client, "Employee")
     headers_manager = tenant_a.auth_headers(client, "Manager")
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
     project_id = _create_project(client, headers_admin, member_ids=[_member(engineer)])
 
     _create_entry(client, headers_employee, project_id=project_id, entry_date=MONDAY, hours="4.00")
@@ -158,6 +169,8 @@ def test_finance_approval_step_when_company_requires_it(client, tenant_a):
     headers_employee = tenant_a.auth_headers(client, "Employee")
     headers_manager = tenant_a.auth_headers(client, "Manager")
     headers_finance = tenant_a.auth_headers(client, "Finance")
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
     project_id = _create_project(client, headers_admin, member_ids=[_member(engineer)])
 
     config_response = client.patch(
@@ -205,6 +218,8 @@ def test_reopen_is_admin_only(client, tenant_a):
     _, engineer, _ = tenant_a.users["Employee"]
     headers_employee = tenant_a.auth_headers(client, "Employee")
     headers_manager = tenant_a.auth_headers(client, "Manager")
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
     project_id = _create_project(client, headers_admin, member_ids=[_member(engineer)])
 
     _create_entry(client, headers_employee, project_id=project_id, entry_date=MONDAY, hours="4.00")
@@ -319,6 +334,8 @@ def test_rejected_entry_is_picked_up_by_a_different_resubmit_range(client, tenan
     _, engineer, _ = tenant_a.users["Employee"]
     headers_employee = tenant_a.auth_headers(client, "Employee")
     headers_manager = tenant_a.auth_headers(client, "Manager")
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
     project_id = _create_project(client, headers_admin, member_ids=[_member(engineer)])
 
     _create_entry(client, headers_employee, project_id=project_id, entry_date=MONDAY, hours="4.00")
@@ -342,6 +359,8 @@ def test_my_submissions_bucket_filtering(client, tenant_a):
     _, engineer, _ = tenant_a.users["Employee"]
     headers_employee = tenant_a.auth_headers(client, "Employee")
     headers_manager = tenant_a.auth_headers(client, "Manager")
+    _, manager, _ = tenant_a.users["Manager"]
+    _set_manager(client, headers_admin, engineer.id, manager.id)
     project_id = _create_project(client, headers_admin, member_ids=[_member(engineer)])
 
     _create_entry(client, headers_employee, project_id=project_id, entry_date=MONDAY, hours="4.00")
@@ -365,3 +384,50 @@ def test_my_submissions_bucket_filtering(client, tenant_a):
         "/api/v1/timesheets/submissions", headers=headers_manager, params={"bucket": "pending"}
     )
     assert queue_pending.json()["total"] == 0
+
+
+def test_manager_step_is_restricted_to_the_employees_assigned_manager(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _, engineer, _ = tenant_a.users["Employee"]
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    headers_manager = tenant_a.auth_headers(client, "Manager")
+    headers_finance = tenant_a.auth_headers(client, "Finance")
+    project_id = _create_project(client, headers_admin, member_ids=[_member(engineer)])
+
+    _create_entry(client, headers_employee, project_id=project_id, entry_date=MONDAY, hours="4.00")
+    submission = _submit(client, headers_employee).json()
+    approve_url = f"/api/v1/timesheets/submissions/{submission['id']}/approve"
+
+    # No manager_id assigned yet — a Manager-role user who isn't this
+    # specific employee's manager can't approve, even though they hold
+    # timesheet.approve broadly.
+    assert client.post(approve_url, headers=headers_manager).status_code == 403
+
+    # Finance holds timesheet.approve too (unlike leave), so this exercises
+    # the service-layer hierarchy check specifically, not just the endpoint gate.
+    assert client.post(approve_url, headers=headers_finance).status_code == 403
+
+    # Admin retains an override regardless of manager_id.
+    admin_override = client.post(approve_url, headers=headers_admin)
+    assert admin_override.status_code == 200
+    assert admin_override.json()["status"] == "approved"
+
+
+def test_a_managers_own_timesheet_routes_to_their_own_manager(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _, manager, _ = tenant_a.users["Manager"]
+    _, admin_employee, _ = tenant_a.users["Admin"]
+    headers_manager = tenant_a.auth_headers(client, "Manager")
+    headers_finance = tenant_a.auth_headers(client, "Finance")
+    _set_manager(client, headers_admin, manager.id, admin_employee.id)
+    project_id = _create_project(client, headers_admin, member_ids=[_member(manager)])
+
+    _create_entry(client, headers_manager, project_id=project_id, entry_date=MONDAY, hours="4.00")
+    submission = _submit(client, headers_manager).json()
+    approve_url = f"/api/v1/timesheets/submissions/{submission['id']}/approve"
+
+    assert client.post(approve_url, headers=headers_finance).status_code == 403
+
+    approved = client.post(approve_url, headers=headers_admin)
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "approved"
