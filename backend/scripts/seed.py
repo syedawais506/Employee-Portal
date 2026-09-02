@@ -18,6 +18,7 @@ from app.repositories.project_repository import ClientRepository, ProjectMemberR
 from app.repositories.role_repository import RoleRepository
 from app.repositories.user_repository import UserRepository
 from app.services.asset_service import asset_service
+from app.services.attendance_service import attendance_service
 from app.services.employee_service import employee_service
 from app.services.leave_service import leave_service
 from app.services.onboarding_service import onboarding_service
@@ -335,6 +336,36 @@ def seed_company(db, *, name: str, slug: str) -> None:
         asset_type_id=laptop_type.id, asset_tag=f"{slug.upper()}-LT-002", name="Dell Latitude 5440",
         purchase_date=date(2025, 6, 1), warranty_expiry=date(2028, 6, 1),
         notes="Spare — available for the next new hire", actor_user_id=admin_employee.user_id,
+    )
+
+    # Attendance demo: two days of history (one on-time, one late-with-overtime)
+    # plus a check-in-only record for today, so My Attendance / Company
+    # Attendance / Today all have real data on first login. Backdated records
+    # can't go through attendance_service.check_in/check_out (those always
+    # operate on "today"), so this pokes the repository directly with explicit
+    # dates — same reasoning as _advance_demo_onboarding_to_submitted below.
+    yesterday = today - timedelta(days=1)
+    day_before = today - timedelta(days=2)
+    for day in (day_before, yesterday):
+        attendance_service.record_repo.create(
+            db, company.id,
+            employee_id=engineer_employee.id, attendance_date=day,
+            check_in_at=datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc).replace(hour=9, minute=5),
+            check_out_at=datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc).replace(hour=18, minute=0),
+            is_late=False, overtime_hours=Decimal("0"),
+        )
+        attendance_service.record_repo.create(
+            db, company.id,
+            employee_id=manager_employee.id, attendance_date=day,
+            check_in_at=datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc).replace(hour=9, minute=45),
+            check_out_at=datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc).replace(hour=19, minute=30),
+            is_late=True, overtime_hours=Decimal("1.50"),
+        )
+    attendance_service.record_repo.create(
+        db, company.id,
+        employee_id=admin_employee.id, attendance_date=today,
+        check_in_at=datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc).replace(hour=8, minute=55),
+        check_out_at=None, is_late=False, overtime_hours=Decimal("0"),
     )
 
     # Reporting demo: a couple of saved reports so the Reports screen isn't

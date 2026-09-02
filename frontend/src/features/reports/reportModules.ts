@@ -141,4 +141,13 @@ export const REPORT_MODULES: ReportModuleConfig[] = [
       },
     ],
   },
+  {
+    value: "attendance",
+    label: "Attendance",
+    fields: [
+      { name: "date_from", label: "Date from", type: "date" },
+      { name: "date_to", label: "Date to", type: "date" },
+      { name: "employee_id", label: "Employee", type: "select", optionsSource: "employee" },
+    ],
+  },
 ];

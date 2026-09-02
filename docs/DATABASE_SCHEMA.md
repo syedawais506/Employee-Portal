@@ -628,13 +628,38 @@ No two open (`pending`/`manager_approved`/`approved`) requests for the same empl
 
 A ledger, not a mutable "current holder" column on `asset` — same "compute from source records" approach as Leave's balance ledger and Timesheets' entry status. "Who has this asset now" is the row with `returned_at IS NULL`; "history per employee" is every row for that `employee_id`. At most one open assignment per asset at a time, enforced at the service layer (mirrors Leave's overlap-prevention check) — assigning a non-`available` asset, or returning one with no open assignment, is rejected (`409`). Unlike Timesheets/Leave, there's no approval step here: Admin/HR assign and return directly.
 
+### `attendance_shift_config` *(Phase 9a)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | one row per company, lazily created on first access — same "get-or-create" pattern as `timesheet_period_config` |
+| shift_start | time NOT NULL DEFAULT 09:00 | |
+| shift_end | time NOT NULL DEFAULT 18:00 | |
+| grace_period_minutes | int NOT NULL DEFAULT 15 | how late a check-in can be before `attendance_record.is_late` is set |
+| created_at, updated_at | timestamptz | |
+
+### `attendance_record` *(Phase 9a)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| employee_id | uuid FK → employee.id NOT NULL | `UNIQUE(employee_id, attendance_date)` — one row per employee per day |
+| attendance_date | date NOT NULL | |
+| check_in_at | timestamptz NULL | set by `POST /attendance/check-in`; the row itself is only created at check-in time |
+| check_out_at | timestamptz NULL | set by `POST /attendance/check-out` |
+| is_late | boolean NOT NULL DEFAULT false | computed at check-in against `attendance_shift_config.shift_start + grace_period_minutes` |
+| overtime_hours | numeric(4,2) NOT NULL DEFAULT 0 | computed at check-out against `shift_end` |
+| created_at, updated_at | timestamptz | |
+
+There's no "absent" status stored anywhere — absence is implicit (no row for that employee/day), not synthesized by a background job. `check_in_at`/`check_out_at` are stored as UTC-aware timestamps but compared against the plain wall-clock `shift_start`/`shift_end` with no per-company timezone conversion — there's no timezone field anywhere in this app yet (the same gap Timesheets/Leave already have), so late/overtime detection is only accurate for companies operating in UTC until one is added.
+
 ### `saved_report` *(Phase 7)*
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
 | company_id | uuid FK → company.id NOT NULL | |
 | name | varchar(150) NOT NULL | `UNIQUE(company_id, name)` |
-| module | varchar(20) NOT NULL | `employee` \| `department` \| `project` \| `timesheet` \| `leave` \| `asset` |
+| module | varchar(20) NOT NULL | `employee` \| `department` \| `project` \| `timesheet` \| `leave` \| `asset` \| `attendance` |
 | filters | jsonb NOT NULL DEFAULT '{}' | shape depends on `module` — validated against that module's Pydantic filter schema on every read/write, never trusted blindly |
 | created_by | uuid FK → user_account.id NULL | |
 | created_at, updated_at | timestamptz | |

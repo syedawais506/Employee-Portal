@@ -6,6 +6,7 @@ import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { AssetsPage } from "@/features/assets/AssetsPage";
+import { AttendancePage } from "@/features/attendance/AttendancePage";
 import { CompanyListPage } from "@/features/companies/CompanyListPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { DepartmentListPage } from "@/features/departments/DepartmentListPage";
@@ -64,6 +65,7 @@ export const router = createBrowserRouter([
               { path: "/onboarding/review/:employeeId", element: <OnboardingReviewPage /> },
             ],
           },
+          { path: "/attendance", element: <AttendancePage /> },
           { path: "/projects", element: <ProjectsEntryPage /> },
           {
             element: <RequirePermission module="project" action="view" />,

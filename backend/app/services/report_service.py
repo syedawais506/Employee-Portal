@@ -10,6 +10,7 @@ from app.models.report import SavedReport
 from app.repositories.report_repository import SavedReportRepository
 from app.schemas.report import (
     AssetReportFilters,
+    AttendanceReportFilters,
     DepartmentReportFilters,
     EmployeeReportFilters,
     LeaveReportFilters,
@@ -17,6 +18,7 @@ from app.schemas.report import (
     TimesheetReportFilters,
 )
 from app.services.asset_service import asset_service
+from app.services.attendance_service import attendance_service
 from app.services.audit_service import audit_service
 from app.services.department_service import department_service
 from app.services.employee_service import employee_service
@@ -34,6 +36,7 @@ MODULE_FILTER_SCHEMAS: dict[str, type[BaseModel]] = {
     "timesheet": TimesheetReportFilters,
     "leave": LeaveReportFilters,
     "asset": AssetReportFilters,
+    "attendance": AttendanceReportFilters,
 }
 
 
@@ -66,6 +69,8 @@ class ReportService:
             return leave_service.report_rows(db, company_id, **kwargs)
         if module == "asset":
             return asset_service.report_rows(db, company_id, **kwargs)
+        if module == "attendance":
+            return attendance_service.report_rows(db, company_id, **kwargs)
         raise ValidationAppError(f"Unknown report module: {module}")
 
     def preview(self, db: Session, company_id: uuid.UUID, *, module: str, filters: dict) -> dict:

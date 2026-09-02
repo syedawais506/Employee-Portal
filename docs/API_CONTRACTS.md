@@ -205,7 +205,7 @@ No approval step — Admin/HR assign and return directly. "Current holder" is ne
 
 ## Reports — `/api/v1/reports` *(Phase 7)*
 
-Not a generic query builder — each of the six reportable modules (`employee`, `department`, `project`, `timesheet`, `leave`, `asset`) has a fixed column set, reusing the exact `report_rows()` method that module's own Export button has called since its own phase (no duplicated SQL, no drift between what a module's own export produces and what shows up here). `filters` is a per-module shape, validated against that module's Pydantic filter schema — an unknown `module` or a filter that fails validation (e.g. a non-UUID `department_id`) returns `422`. Preview and export both run the identical unpaginated query; preview just truncates the in-memory result to 200 rows.
+Not a generic query builder — each of the seven reportable modules (`employee`, `department`, `project`, `timesheet`, `leave`, `asset`, `attendance` — the last added in Phase 9a) has a fixed column set, reusing the exact `report_rows()` method that module's own Export button has called since its own phase (no duplicated SQL, no drift between what a module's own export produces and what shows up here). `filters` is a per-module shape, validated against that module's Pydantic filter schema — an unknown `module` or a filter that fails validation (e.g. a non-UUID `department_id`) returns `422`. Preview and export both run the identical unpaginated query; preview just truncates the in-memory result to 200 rows.
 
 | Method & Path | Body | Response | Permission |
 |---|---|---|---|
@@ -252,6 +252,23 @@ Not a REST surface — a `celery-beat` scheduled task (`run_daily_digest`, daily
 
 - **Work anniversaries** — an employee whose `joining_date` month/day matches today (excluding the hire's own join year) gets a self-scoped `employee.anniversary` notification.
 - **Document expiry** — an `employee_document` with `expiry_date` exactly 7 days from today notifies every `onboarding.review` holder with a `document.expiring` notification. The match is exact-date, not a rolling window, so a given document only ever fires once rather than once per day for a week.
+
+## Attendance — `/api/v1/attendance` *(Phase 9a)*
+
+Check-in/check-out is always the caller's own employee record — there's no "check in on behalf of someone else" concept the way Leave/Timesheet support on-behalf-of filing, so `/check-in`, `/check-out`, and `/mine` need only authentication, no `attendance.*` permission (same self-scoping pattern as `/leave-requests/mine`). Company-wide visibility, export, and shift configuration are gated on a new `attendance` permission module (`view`/`export`/`configure`). Employee and Finance hold none of the company-wide grants by default — attendance has no billing angle the way Timesheets does, and every employee already gets their own record via `/mine`.
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `GET /attendance/settings` | — | AttendanceShiftConfig (`shift_start`, `shift_end`, `grace_period_minutes`) — lazily created with defaults (09:00–18:00, 15 min grace) on first access | attendance.view |
+| `PATCH /attendance/settings` | `{shift_start?, shift_end?, grace_period_minutes?}` | AttendanceShiftConfig | attendance.configure |
+| `POST /attendance/check-in` | — | AttendanceRecord (201) — `409` if already checked in today | authenticated (self) |
+| `POST /attendance/check-out` | — | AttendanceRecord — `409` if not checked in yet, or already checked out | authenticated (self) |
+| `GET /attendance/mine` | `date_from, date_to` | `[AttendanceRecord]` — caller's own | authenticated (self) |
+| `GET /attendance/today` | — | `[TodayAttendanceEntry]` — every active employee, including those with no row yet (`status: "not_checked_in"`) | attendance.view |
+| `GET /attendance` | `date_from?, date_to?, employee_id?, page, page_size` | Page\<AttendanceRecord\> | attendance.view |
+| `GET /attendance/export` | `date_from?, date_to?, employee_id?` | `text/csv` attachment | attendance.export |
+
+`is_late` is computed once, at check-in, against `shift_start + grace_period_minutes`; `overtime_hours` is computed once, at check-out, against `shift_end`. Both are stored on the row rather than computed on read, so changing shift settings later never retroactively changes past records' late/overtime status. Attendance is also a 7th reportable module in the Reports hub (`POST /reports/preview`/`/reports/export` with `module: "attendance"`), reusing the same `report_rows()` pattern every other module already follows.
 
 ## Health
 

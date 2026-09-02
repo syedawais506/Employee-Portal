@@ -21,6 +21,7 @@ PERMISSION_CATALOG: dict[str, list[str]] = {
     "leave": ["view", "create", "update", "delete", "approve", "reject", "export", "configure"],
     "asset": ["view", "create", "update", "delete", "export"],
     "report": ["view", "export", "configure"],
+    "attendance": ["view", "export", "configure"],
 }
 
 DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
@@ -38,6 +39,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "leave.approve", "leave.reject", "leave.export", "leave.configure",
         "asset.view", "asset.create", "asset.update", "asset.delete", "asset.export",
         "report.view", "report.export", "report.configure",
+        "attendance.view", "attendance.export", "attendance.configure",
     ],
     "HR": [
         "employee.view", "employee.create", "employee.update", "employee.export",
@@ -47,6 +49,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "leave.view", "leave.create", "leave.update", "leave.approve", "leave.reject", "leave.export",
         "asset.view", "asset.create", "asset.update", "asset.export",
         "report.view",
+        "attendance.view", "attendance.export",
     ],
     "Manager": [
         "employee.view",
@@ -56,6 +59,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         "leave.view", "leave.create", "leave.update", "leave.approve", "leave.reject",
         "asset.view",
         "report.view",
+        "attendance.view",
     ],
     "Employee": [
         "employee.view",

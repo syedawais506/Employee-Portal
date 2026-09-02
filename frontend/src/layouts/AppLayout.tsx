@@ -23,6 +23,7 @@ import ApartmentIcon from "@mui/icons-material/Apartment";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import BadgeIcon from "@mui/icons-material/Badge";
 import BeachAccessIcon from "@mui/icons-material/BeachAccess";
+import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import DashboardIcon from "@mui/icons-material/Dashboard";
@@ -76,6 +77,13 @@ const NAV_ITEMS: NavItem[] = [
     to: "/projects",
     icon: <WorkOutlineIcon fontSize="small" />,
     match: (p) => p.startsWith("/projects"),
+    visible: ({ isSuperAdmin }) => !isSuperAdmin,
+  },
+  {
+    label: "Attendance",
+    to: "/attendance",
+    icon: <EventAvailableIcon fontSize="small" />,
+    match: (p) => p.startsWith("/attendance"),
     visible: ({ isSuperAdmin }) => !isSuperAdmin,
   },
   {

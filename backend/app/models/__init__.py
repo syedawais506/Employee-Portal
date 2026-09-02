@@ -1,4 +1,5 @@
 from app.models.asset import Asset, AssetAssignment, AssetType
+from app.models.attendance import AttendanceRecord, AttendanceShiftConfig
 from app.models.audit_log import AuditLog
 from app.models.company import Company
 from app.models.department import Department
@@ -16,6 +17,8 @@ __all__ = [
     "Asset",
     "AssetAssignment",
     "AssetType",
+    "AttendanceRecord",
+    "AttendanceShiftConfig",
     "AuditLog",
     "Client",
     "Company",

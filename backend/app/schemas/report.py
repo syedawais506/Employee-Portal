@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.common import ORMModel
 
-ReportModule = Literal["employee", "department", "project", "timesheet", "leave", "asset"]
+ReportModule = Literal["employee", "department", "project", "timesheet", "leave", "asset", "attendance"]
 
 
 class EmployeeReportFilters(BaseModel):
@@ -55,6 +55,12 @@ class LeaveReportFilters(BaseModel):
 class AssetReportFilters(BaseModel):
     asset_type_id: uuid.UUID | None = None
     status: str | None = None
+
+
+class AttendanceReportFilters(BaseModel):
+    date_from: _date | None = None
+    date_to: _date | None = None
+    employee_id: uuid.UUID | None = None
 
 
 class RunReportRequest(BaseModel):

@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     assets,
+    attendance,
     auth,
     clients,
     companies,
@@ -35,3 +36,4 @@ api_router.include_router(assets.router)
 api_router.include_router(reports.router)
 api_router.include_router(notifications.router)
 api_router.include_router(integrations.router)
+api_router.include_router(attendance.router)

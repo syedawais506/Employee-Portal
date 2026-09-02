@@ -285,6 +285,35 @@ export interface IntegrationSettings {
   slack_webhook_url: string | null;
 }
 
+export interface AttendanceShiftConfig {
+  shift_start: string;
+  shift_end: string;
+  grace_period_minutes: number;
+}
+
+export type AttendanceStatus = "checked_in" | "checked_out" | "not_checked_in";
+
+export interface AttendanceRecord {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  attendance_date: string;
+  check_in_at: string | null;
+  check_out_at: string | null;
+  is_late: boolean;
+  overtime_hours: string;
+  status: AttendanceStatus;
+}
+
+export interface TodayAttendanceEntry {
+  employee_id: string;
+  employee_name: string;
+  check_in_at: string | null;
+  check_out_at: string | null;
+  is_late: boolean;
+  status: AttendanceStatus;
+}
+
 export interface LeaveBalance {
   employee_id: string | null;
   employee_name: string | null;
@@ -364,7 +393,7 @@ export interface AssetSummary {
   damaged: number;
 }
 
-export type ReportModule = "employee" | "department" | "project" | "timesheet" | "leave" | "asset";
+export type ReportModule = "employee" | "department" | "project" | "timesheet" | "leave" | "asset" | "attendance";
 
 export interface ReportPreview {
   header: string[];
