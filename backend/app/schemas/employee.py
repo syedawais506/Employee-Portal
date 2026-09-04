@@ -17,6 +17,7 @@ class EmployeeCreateRequest(BaseModel):
     employment_type: str = "full_time"
     location: str | None = None
     joining_date: date | None = None
+    birth_date: date | None = None
     role_ids: list[uuid.UUID] = []
 
 
@@ -30,6 +31,7 @@ class EmployeeUpdateRequest(BaseModel):
     employment_type: str | None = None
     location: str | None = None
     status: str | None = None
+    birth_date: date | None = None
 
 
 class EmployeeSelfUpdateRequest(BaseModel):
@@ -67,6 +69,8 @@ class EmployeeSummaryResponse(ORMModel):
     employment_type: str
     location: str | None
     onboarding_status: str
+    joining_date: date | None
+    birth_date: date | None
 
 
 class EmployeeDetailResponse(ORMModel):
@@ -82,6 +86,7 @@ class EmployeeDetailResponse(ORMModel):
     employment_type: str
     location: str | None
     joining_date: date | None
+    birth_date: date | None
     status: str
     onboarding_status: str
     roles: list[RoleRef]

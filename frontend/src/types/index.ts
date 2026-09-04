@@ -83,6 +83,8 @@ export interface EmployeeSummary {
   employment_type: string;
   location: string | null;
   onboarding_status: string;
+  joining_date: string | null;
+  birth_date: string | null;
 }
 
 export interface EmployeeDetail {
@@ -98,6 +100,7 @@ export interface EmployeeDetail {
   employment_type: string;
   location: string | null;
   joining_date: string | null;
+  birth_date: string | null;
   status: string;
   onboarding_status: string;
   roles: RoleRef[];
@@ -234,6 +237,8 @@ export interface TimesheetPeriodConfig {
   require_description: boolean;
   warn_on_weekend: boolean;
   require_finance_approval: boolean;
+  reminder_enabled: boolean;
+  reminder_after_days: number;
 }
 
 export interface TimesheetEntry {

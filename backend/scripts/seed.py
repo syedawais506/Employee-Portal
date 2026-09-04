@@ -96,6 +96,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
         last_name: str,
         manager_id=None,
         location: str = "United States",
+        birth_date=None,
     ):
         email = f"{role_name.lower()}@{slug}-demo.com"
         user = user_repo.create(
@@ -120,6 +121,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
             employment_type="full_time",
             location=location,
             joining_date=date(2024, 1, 15),
+            birth_date=birth_date,
             status="active",
         )
         credentials.append((f"{name} — {role_name}", email, DEMO_PASSWORD))
@@ -133,9 +135,14 @@ def seed_company(db, *, name: str, slug: str) -> None:
         role_name="Manager", department_id=engineering.id, designation="Engineering Manager",
         first_name="Morgan", last_name="Manager", manager_id=admin_employee.id,
     )
+    # Birth year is fixed to 1992 (a leap year) so date(1992, month, day) is
+    # always valid even when seeded on Feb 29 — only month/day drives the
+    # "Birthdays This Week" dashboard widget, the year itself is never shown.
+    today = date.today()
     engineer_employee = make_user_and_employee(
         role_name="Employee", department_id=engineering.id, designation="Software Engineer",
         first_name="Riley", last_name="Employee", manager_id=manager_employee.id, location="India",
+        birth_date=date(1992, today.month, today.day),
     )
     make_user_and_employee(
         role_name="HR", department_id=hr_dept.id, designation="HR Generalist",
@@ -241,7 +248,6 @@ def seed_company(db, *, name: str, slug: str) -> None:
     # Timesheets demo: a submitted (pending), an approved, and a rejected
     # period so the My Timesheet / Approvals / Dashboard screens all have
     # real data on first login rather than empty states.
-    today = date.today()
     monday = today - timedelta(days=today.weekday())
 
     for day_offset, hours in ((0, Decimal("4.00")), (1, Decimal("4.50"))):
@@ -282,6 +288,13 @@ def seed_company(db, *, name: str, slug: str) -> None:
         db, company.id, finance_submission.id,
         reason="Please split hours by task and add more detail to the description.",
         actor_user_id=admin_employee.user_id,  # Finance's assigned manager is Admin, not Manager
+    )
+
+    # Enabled only for Acme (not Globex), so the two demo companies contrast —
+    # same reasoning as the differing branding colors. Manually trigger
+    # run_daily_digest to see a reminder fire without waiting reminder_after_days.
+    timesheet_service.update_config(
+        db, company.id, actor_user_id=admin_employee.user_id, reminder_enabled=(slug == "acme"), reminder_after_days=3
     )
 
     # Leave demo: an annual/sick/unpaid leave type catalog, one holiday, and

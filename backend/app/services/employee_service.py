@@ -88,6 +88,7 @@ class EmployeeService:
         joining_date: date | None,
         role_ids: list[uuid.UUID],
         actor_user_id: uuid.UUID | None,
+        birth_date: date | None = None,
     ) -> Employee:
         if self.user_repo.get_by_email(db, email) is not None:
             raise ConflictError("A user with this email already exists")
@@ -121,6 +122,7 @@ class EmployeeService:
             employment_type=employment_type,
             location=location,
             joining_date=joining_date,
+            birth_date=birth_date,
             status="active",
             onboarding_status="invited",
         )

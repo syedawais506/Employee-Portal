@@ -415,6 +415,7 @@ erDiagram
 | employment_type | varchar(30) NOT NULL DEFAULT 'full_time' | full_time / part_time / contract / intern |
 | location | varchar(100) NULL | free text, not a DB enum (same pattern as employment_type/status) — UI offers "United States" / "India" as presets; set at employee creation, used to filter timesheet exports across a multi-country workforce *(migration 0006)* |
 | joining_date | date NULL | |
+| birth_date | date NULL | optional; month/day drives the "Birthdays This Week" dashboard widget *(migration 0016)* |
 | status | varchar(20) NOT NULL DEFAULT 'active' | active / on_leave / exited |
 | onboarding_status | varchar(20) NOT NULL DEFAULT 'completed' | invited / submitted / hr_approved / completed — `'completed'` default backfills pre-Phase-2 rows and lets seed/admin-created rows opt out of the invite flow |
 | created_at, updated_at | timestamptz | |
@@ -516,6 +517,8 @@ A pure join table — no `company_id` of its own, same pattern as `role_permissi
 | require_description | boolean NOT NULL DEFAULT false | project is always required structurally; this only gates description *(renamed + default flipped in migration 0005 — employees log time and submit later, so a mandatory description up front didn't fit that flow)* |
 | warn_on_weekend | boolean NOT NULL DEFAULT true | UI-only flag (`TimesheetEntry.is_weekend`), not a hard block |
 | require_finance_approval | boolean NOT NULL DEFAULT false | adds the optional second approval step |
+| reminder_enabled | boolean NOT NULL DEFAULT false | opt-in; when on, `run_daily_digest` re-fires a "please submit your timesheet" notification + email every day the condition below holds — NOT exactly-once like the anniversary/document-expiry digests *(migration 0016)* |
+| reminder_after_days | int NOT NULL DEFAULT 3 | days since an employee's last submission (or since `joining_date` if they've never submitted) before the reminder starts *(migration 0016)* |
 | created_at, updated_at | timestamptz | |
 
 ### `timesheet_submission` *(Phase 4)*

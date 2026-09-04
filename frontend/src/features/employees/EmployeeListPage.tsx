@@ -87,6 +87,7 @@ export function EmployeeListPage() {
         employment_type: values.employment_type,
         location: values.location || null,
         joining_date: values.joining_date || null,
+        birth_date: values.birth_date || null,
         role_ids: values.role_ids,
       }),
     onSuccess: () => {

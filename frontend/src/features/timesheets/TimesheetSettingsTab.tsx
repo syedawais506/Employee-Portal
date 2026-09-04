@@ -34,6 +34,8 @@ interface FormValues {
   require_description: boolean;
   warn_on_weekend: boolean;
   require_finance_approval: boolean;
+  reminder_enabled: boolean;
+  reminder_after_days: number;
 }
 
 export function TimesheetSettingsTab() {
@@ -51,6 +53,8 @@ export function TimesheetSettingsTab() {
       require_description: false,
       warn_on_weekend: true,
       require_finance_approval: false,
+      reminder_enabled: false,
+      reminder_after_days: 3,
     },
   });
 
@@ -64,6 +68,8 @@ export function TimesheetSettingsTab() {
       require_description: config.require_description,
       warn_on_weekend: config.warn_on_weekend,
       require_finance_approval: config.require_finance_approval,
+      reminder_enabled: config.reminder_enabled,
+      reminder_after_days: config.reminder_after_days,
     });
   }, [config, reset]);
 
@@ -87,6 +93,8 @@ export function TimesheetSettingsTab() {
       require_description: values.require_description,
       warn_on_weekend: values.warn_on_weekend,
       require_finance_approval: values.require_finance_approval,
+      reminder_enabled: values.reminder_enabled,
+      reminder_after_days: Number(values.reminder_after_days),
     });
   }
 
@@ -184,6 +192,44 @@ export function TimesheetSettingsTab() {
               <FormControlLabel
                 control={<Checkbox {...field} checked={field.value} />}
                 label="Require a Finance sign-off after Manager approval"
+              />
+            )}
+          />
+        </Grid>
+      </Grid>
+
+      <Typography variant="h3" sx={{ mt: 4, mb: 1 }}>
+        Submission Reminders
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        When enabled, anyone whose most recent submission has gone stale past the threshold below gets an email and
+        an in-app reminder every day until they submit again — not just once.
+      </Typography>
+      <Grid container spacing={2}>
+        <Grid item xs={12}>
+          <Controller
+            name="reminder_enabled"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={<Checkbox {...field} checked={field.value} />}
+                label="Remind employees who haven't submitted a timesheet recently"
+              />
+            )}
+          />
+        </Grid>
+        <Grid item xs={6}>
+          <Controller
+            name="reminder_after_days"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                type="number"
+                label="Remind after (days)"
+                fullWidth
+                inputProps={{ min: 1, max: 90 }}
+                helperText="Days since their last submission before the reminder starts"
               />
             )}
           />

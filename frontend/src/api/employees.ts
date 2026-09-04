@@ -21,6 +21,7 @@ export interface EmployeeInput {
   employment_type: string;
   location?: string | null;
   joining_date?: string | null;
+  birth_date?: string | null;
   role_ids?: string[];
 }
 

@@ -40,6 +40,7 @@ class Employee(UUIDPkMixin, TimestampMixin, SoftDeleteMixin, Base):
     employment_type: Mapped[str] = mapped_column(String(30), default="full_time", nullable=False)
     location: Mapped[str | None] = mapped_column(String(100), nullable=True)
     joining_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
     onboarding_status: Mapped[str] = mapped_column(String(20), default="completed", nullable=False)
 

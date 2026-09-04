@@ -28,6 +28,8 @@ export interface TimesheetConfigUpdateInput {
   require_description?: boolean;
   warn_on_weekend?: boolean;
   require_finance_approval?: boolean;
+  reminder_enabled?: boolean;
+  reminder_after_days?: number;
 }
 
 export async function getTimesheetConfig(): Promise<TimesheetPeriodConfig> {

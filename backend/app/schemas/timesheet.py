@@ -19,6 +19,8 @@ class TimesheetPeriodConfigResponse(ORMModel):
     require_description: bool
     warn_on_weekend: bool
     require_finance_approval: bool
+    reminder_enabled: bool
+    reminder_after_days: int
 
 
 class TimesheetPeriodConfigUpdateRequest(BaseModel):
@@ -29,6 +31,8 @@ class TimesheetPeriodConfigUpdateRequest(BaseModel):
     require_description: bool | None = None
     warn_on_weekend: bool | None = None
     require_finance_approval: bool | None = None
+    reminder_enabled: bool | None = None
+    reminder_after_days: int | None = Field(default=None, ge=1, le=90)
 
 
 class TimesheetEntryCreateRequest(BaseModel):

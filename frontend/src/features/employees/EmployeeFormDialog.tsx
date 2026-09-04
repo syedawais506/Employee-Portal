@@ -29,6 +29,7 @@ export interface EmployeeFormValues {
   employment_type: string;
   location: string;
   joining_date: string;
+  birth_date: string;
   status: string;
   role_ids: string[];
 }
@@ -75,6 +76,7 @@ export function EmployeeFormDialog({
       employment_type: "full_time",
       location: "",
       joining_date: "",
+      birth_date: "",
       status: "active",
       role_ids: [],
     },
@@ -93,6 +95,7 @@ export function EmployeeFormDialog({
         employment_type: initial?.employment_type ?? "full_time",
         location: initial?.location ?? "",
         joining_date: initial?.joining_date ?? "",
+        birth_date: initial?.birth_date ?? "",
         status: initial?.status ?? "active",
         role_ids: initial?.roles.map((role) => role.id) ?? [],
       });
@@ -250,6 +253,22 @@ export function EmployeeFormDialog({
                 )}
               />
             )}
+          </Grid>
+          <Grid item xs={6}>
+            <Controller
+              name="birth_date"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  type="date"
+                  label="Birthday (optional)"
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Shown in the Birthdays This Week dashboard widget — leave blank to opt out"
+                />
+              )}
+            />
           </Grid>
 
           {canManageRoles && roles.length > 0 && (

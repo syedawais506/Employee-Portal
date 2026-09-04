@@ -26,6 +26,8 @@ class TimesheetPeriodConfig(UUIDPkMixin, TimestampMixin, Base):
     require_description: Mapped[bool] = mapped_column(default=False, nullable=False)
     warn_on_weekend: Mapped[bool] = mapped_column(default=True, nullable=False)
     require_finance_approval: Mapped[bool] = mapped_column(default=False, nullable=False)
+    reminder_enabled: Mapped[bool] = mapped_column(default=False, nullable=False)
+    reminder_after_days: Mapped[int] = mapped_column(default=3, nullable=False)
 
 
 class TimesheetSubmission(UUIDPkMixin, TimestampMixin, Base):

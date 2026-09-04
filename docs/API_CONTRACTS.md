@@ -60,9 +60,9 @@ Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI)
 | Method & Path | Body | Response | Permission |
 |---|---|---|---|
 | `GET /employees` | `search, department_id, status, manager_id, page, page_size` | Page<EmployeeSummary> | employee.view |
-| `POST /employees` | `{email, first_name, last_name, department_id?, designation?, manager_id?, employment_type, location?, joining_date, role_ids[]}` | Employee (201) — creates `user_account` (deactivated) + `employee` (`onboarding_status="invited"`) + queues an onboarding invite email (see Onboarding below) | employee.create |
-| `GET /employees/{id}` | — | EmployeeDetail (incl. `onboarding_status`, `roles:[{id,name}]`) | employee.view |
-| `PATCH /employees/{id}` | `{first_name?, last_name?, phone?, department_id?, designation?, manager_id?, employment_type?, location?, status?}` | EmployeeDetail | employee.update |
+| `POST /employees` | `{email, first_name, last_name, department_id?, designation?, manager_id?, employment_type, location?, joining_date, birth_date?, role_ids[]}` | Employee (201) — creates `user_account` (deactivated) + `employee` (`onboarding_status="invited"`) + queues an onboarding invite email (see Onboarding below) | employee.create |
+| `GET /employees/{id}` | — | EmployeeDetail (incl. `onboarding_status`, `birth_date`, `roles:[{id,name}]`) | employee.view |
+| `PATCH /employees/{id}` | `{first_name?, last_name?, phone?, department_id?, designation?, manager_id?, employment_type?, location?, birth_date?, status?}` | EmployeeDetail | employee.update |
 | `PUT /employees/{id}/roles` | `{role_ids:[...]}` — full replacement of this employee's role set, not additive | EmployeeDetail (updated `roles[]`) — `422` if any `role_id` isn't in this company, or if the update would remove the company's last remaining Admin | **role.update** (not `employee.update` — see below) |
 | `DELETE /employees/{id}` | — | `204` (soft delete + deactivate user) | employee.delete |
 | `GET /employees/me` | — | EmployeeDetail (caller's own) | self |
@@ -70,6 +70,8 @@ Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI)
 | `GET /employees/export` | `search?, department_id?, status?, manager_id?, employment_type?, location?, joining_date_from?, joining_date_to?` | `text/csv` attachment | employee.export |
 
 `role_ids` was originally accepted only at creation time (`POST /employees`), with no way to change an existing employee's role(s) afterward — e.g. to grant the Admin role to a specific existing employee. `PUT /employees/{id}/roles` closes that gap. It's deliberately gated on `role.update` rather than `employee.update`: HR holds `employee.update` (to edit phone/department/etc.) but not `role.*` by default, and granting Admin rights is a materially more sensitive action than editing a profile field — reusing the broader permission would let HR silently promote anyone to Admin. The update is a full replace of the employee's role set (an employee can hold multiple roles at once; the underlying `user_role` table always has supported this, it just had no way to be edited post-creation), and is blocked with `422` if it would leave the company with zero users holding the Admin role, so an Admin can't accidentally lock everyone out.
+
+`birth_date` is optional (nullable) — set at creation or later via `PATCH`, and cleared by sending `null`. It only drives the "Birthdays This Week" dashboard widget; `EmployeeSummary` (the `GET /employees` list shape) also carries `joining_date`/`birth_date` now so the dashboard can compute its "New Hires"/"Birthdays" widgets from the employee list it already fetches, with no dedicated dashboard endpoint.
 
 ## Document Types — `/api/v1/document-types` *(Phase 2)*
 
@@ -162,7 +164,7 @@ Submission ranges are free-form: the caller picks the exact `period_start`/`peri
 | Method & Path | Body | Response | Permission |
 |---|---|---|---|
 | `GET /timesheets/config` | — | TimesheetPeriodConfig (auto-created with defaults on first access) | timesheet.view |
-| `PATCH /timesheets/config` | `{period_type?, week_start_day?, min_hours_per_day?, max_hours_per_day?, require_description?, warn_on_weekend?, require_finance_approval?}` | TimesheetPeriodConfig | timesheet.configure |
+| `PATCH /timesheets/config` | `{period_type?, week_start_day?, min_hours_per_day?, max_hours_per_day?, require_description?, warn_on_weekend?, require_finance_approval?, reminder_enabled?, reminder_after_days?}` | TimesheetPeriodConfig | timesheet.configure |
 | `GET /timesheets/entries` | `date_from, date_to` | `[TimesheetEntry]` — caller's own | timesheet.view (self) |
 | `POST /timesheets/entries` | `{project_id, entry_date, hours, is_billable, work_type, description?}` | TimesheetEntry (201) | timesheet.create (self) |
 | `PATCH /timesheets/entries/{id}` | `{hours?, is_billable?, work_type?, description?, project_id?}` | TimesheetEntry | timesheet.update (self; 404 if not the caller's own) |
@@ -178,6 +180,8 @@ Submission ranges are free-form: the caller picks the exact `period_start`/`peri
 | `GET /timesheets/export` | `date_from?, date_to?, employee_id?, project_id?, location?` | `text/csv` attachment (columns incl. Employee, Location, Project, Date, Hours, Billable, Work Type, Status, Description) | timesheet.export |
 
 `project_id` on entry creation is validated against the caller's own `project_member` rows — logging time against a project you're not assigned to returns `422`. A duplicate `(employee, date, project)` entry returns `409`, as does creating/editing an entry inside an already-approved (locked) period.
+
+`reminder_enabled`/`reminder_after_days` (off by default, 3 days) configure an opt-in check added to the existing daily digest job (Phase 7c's `run_daily_digest`): for every active employee who is a member of at least one project (so has something to log time against), if `today - last_submission.submitted_at` (or `today - joining_date` when they've never submitted) reaches `reminder_after_days`, they get an in-app notification (`type:"timesheet.reminder"`, auto-forwarded to Slack/Teams if configured — same as every other notification type) plus an email. Unlike the anniversary/document-expiry digest checks, which fire exactly once at a precise threshold, this one intentionally **re-fires every day** the condition still holds — it keeps nagging until the employee submits again, per the explicit "remind until resolved" requirement it was built for.
 
 ## Leave — `/api/v1/leave-types`, `/holidays`, `/leave-requests`, `/leave/...` *(Phase 5)*
 

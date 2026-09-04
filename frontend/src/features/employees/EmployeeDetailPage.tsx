@@ -64,6 +64,7 @@ export function EmployeeDetailPage() {
         manager_id: values.manager_id || null,
         employment_type: values.employment_type,
         location: values.location || null,
+        birth_date: values.birth_date || null,
         status: values.status,
       });
       const currentRoleIds = employee?.roles.map((role) => role.id).sort() ?? [];
