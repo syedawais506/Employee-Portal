@@ -26,8 +26,22 @@ class TimesheetPeriodConfig(UUIDPkMixin, TimestampMixin, Base):
     require_description: Mapped[bool] = mapped_column(default=False, nullable=False)
     warn_on_weekend: Mapped[bool] = mapped_column(default=True, nullable=False)
     require_finance_approval: Mapped[bool] = mapped_column(default=False, nullable=False)
-    reminder_enabled: Mapped[bool] = mapped_column(default=False, nullable=False)
-    reminder_after_days: Mapped[int] = mapped_column(default=3, nullable=False)
+
+
+class TimesheetReminderRule(UUIDPkMixin, TimestampMixin, Base):
+    __tablename__ = "timesheet_reminder_rule"
+    __table_args__ = (
+        UniqueConstraint("company_id", "location", name="uq_timesheet_reminder_rule_company_location"),
+    )
+
+    company_id: Mapped[uuid.UUID] = company_fk(nullable=False)
+    # Null = the default rule, applied to any employee whose location matches
+    # no more specific rule (or who has no location set) — same nullable
+    # convention as HolidayCalendar.location.
+    location: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    enabled: Mapped[bool] = mapped_column(default=False, nullable=False)
+    cadence: Mapped[str] = mapped_column(String(20), default="weekly", nullable=False)  # weekly / monthly
+    grace_days: Mapped[int] = mapped_column(default=0, nullable=False)
 
 
 class TimesheetSubmission(UUIDPkMixin, TimestampMixin, Base):

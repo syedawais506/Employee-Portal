@@ -4,6 +4,8 @@ import type {
   TimesheetDashboard,
   TimesheetEntry,
   TimesheetPeriodConfig,
+  TimesheetReminderCadence,
+  TimesheetReminderRule,
   TimesheetSubmission,
   TimesheetWorkType,
 } from "@/types";
@@ -28,8 +30,6 @@ export interface TimesheetConfigUpdateInput {
   require_description?: boolean;
   warn_on_weekend?: boolean;
   require_finance_approval?: boolean;
-  reminder_enabled?: boolean;
-  reminder_after_days?: number;
 }
 
 export async function getTimesheetConfig(): Promise<TimesheetPeriodConfig> {
@@ -40,6 +40,39 @@ export async function getTimesheetConfig(): Promise<TimesheetPeriodConfig> {
 export async function updateTimesheetConfig(payload: TimesheetConfigUpdateInput): Promise<TimesheetPeriodConfig> {
   const response = await apiClient.patch<TimesheetPeriodConfig>("/timesheets/config", payload);
   return response.data;
+}
+
+export interface TimesheetReminderRuleInput {
+  location: string | null;
+  enabled: boolean;
+  cadence: TimesheetReminderCadence;
+  grace_days: number;
+}
+
+export type TimesheetReminderRuleUpdateInput = Partial<Omit<TimesheetReminderRuleInput, "location">>;
+
+export async function listTimesheetReminderRules(): Promise<TimesheetReminderRule[]> {
+  const response = await apiClient.get<TimesheetReminderRule[]>("/timesheets/reminder-rules");
+  return response.data;
+}
+
+export async function createTimesheetReminderRule(
+  payload: TimesheetReminderRuleInput,
+): Promise<TimesheetReminderRule> {
+  const response = await apiClient.post<TimesheetReminderRule>("/timesheets/reminder-rules", payload);
+  return response.data;
+}
+
+export async function updateTimesheetReminderRule(
+  id: string,
+  payload: TimesheetReminderRuleUpdateInput,
+): Promise<TimesheetReminderRule> {
+  const response = await apiClient.patch<TimesheetReminderRule>(`/timesheets/reminder-rules/${id}`, payload);
+  return response.data;
+}
+
+export async function deleteTimesheetReminderRule(id: string): Promise<void> {
+  await apiClient.delete(`/timesheets/reminder-rules/${id}`);
 }
 
 export async function listMyTimesheetEntries(dateFrom: string, dateTo: string): Promise<TimesheetEntry[]> {

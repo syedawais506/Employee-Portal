@@ -12,7 +12,7 @@ from app.models.company import Company
 from app.models.employee import Employee
 from app.models.onboarding import EmployeeDocument
 from app.models.project import Project, ProjectMember
-from app.models.timesheet import TimesheetPeriodConfig, TimesheetSubmission
+from app.models.timesheet import TimesheetPeriodConfig, TimesheetReminderRule, TimesheetSubmission
 from app.services.notification_service import notification_service
 from app.tasks.celery_app import celery_app
 from app.tasks.email_tasks import send_timesheet_reminder_email
@@ -89,19 +89,49 @@ def _notify_expiring_documents(db: Session, company_id: uuid.UUID, today: date) 
         )
 
 
-def _notify_stale_timesheets(db: Session, company_id: uuid.UUID, today: date) -> None:
-    """Unlike the other two digest checks, this one is intentionally NOT
-    exactly-once: it re-fires every day a submission stays stale past the
-    configured threshold, so the reminder keeps nagging until the employee
-    actually submits again — per the admin-configurable "remind until
-    resolved" behavior this was built for, opt-in via
-    TimesheetPeriodConfig.reminder_enabled (off by default).
+def _last_completed_week(today: date, week_start_day: int) -> tuple[date, date]:
+    """The most recent fully-elapsed week, using the company's configured
+    `week_start_day` (0=Monday..6=Sunday) — same convention as
+    TimesheetPeriodConfig.week_start_day.
     """
+    current_week_start = today - timedelta(days=(today.weekday() - week_start_day) % 7)
+    last_week_start = current_week_start - timedelta(days=7)
+    last_week_end = current_week_start - timedelta(days=1)
+    return last_week_start, last_week_end
+
+
+def _last_completed_month(today: date) -> tuple[date, date]:
+    """The most recent fully-elapsed calendar month — always the month
+    before whatever month `today` falls in, since the current month is
+    never "complete" until it ends.
+    """
+    first_of_this_month = today.replace(day=1)
+    last_month_end = first_of_this_month - timedelta(days=1)
+    last_month_start = last_month_end.replace(day=1)
+    return last_month_start, last_month_end
+
+
+def _notify_stale_timesheets(db: Session, company_id: uuid.UUID, today: date) -> None:
+    """Reminders are per-location (TimesheetReminderRule, location=None is the
+    default/fallback rule — same nullable convention as HolidayCalendar) and
+    calendar-anchored: "weekly" checks whether the most recently fully-elapsed
+    week has a submission overlapping it, "monthly" the most recently
+    fully-elapsed calendar month. Unlike the other two digest checks, this one
+    is intentionally NOT exactly-once — the digest re-evaluates the same
+    (still-uncovered) period every day past `grace_days`, so it keeps nagging
+    until a submission overlapping that period actually gets created.
+    """
+    rules = db.execute(
+        select(TimesheetReminderRule).where(TimesheetReminderRule.company_id == company_id)
+    ).scalars().all()
+    if not rules:
+        return
+    rules_by_location = {rule.location: rule for rule in rules}
+
     config = db.execute(
         select(TimesheetPeriodConfig).where(TimesheetPeriodConfig.company_id == company_id)
     ).scalar_one_or_none()
-    if config is None or not config.reminder_enabled:
-        return
+    week_start_day = config.week_start_day if config is not None else 0
 
     member_employee_ids = set(
         db.execute(
@@ -120,31 +150,38 @@ def _notify_stale_timesheets(db: Session, company_id: uuid.UUID, today: date) ->
         if employee.id not in member_employee_ids:
             continue  # can't log time against any project, so nothing to remind about
 
-        last_submission = db.execute(
-            select(TimesheetSubmission)
-            .where(TimesheetSubmission.company_id == company_id, TimesheetSubmission.employee_id == employee.id)
-            .order_by(TimesheetSubmission.submitted_at.desc())
-            .limit(1)
-        ).scalar_one_or_none()
-
-        if last_submission is not None:
-            reference_date = last_submission.submitted_at.date()
-        elif employee.joining_date is not None:
-            reference_date = employee.joining_date
-        else:
-            continue  # nothing to measure staleness against
-
-        days_stale = (today - reference_date).days
-        if days_stale < config.reminder_after_days:
+        rule = rules_by_location.get(employee.location) or rules_by_location.get(None)
+        if rule is None or not rule.enabled:
             continue
 
-        if last_submission is not None:
-            body = (
-                f"It's been {days_stale} day(s) since your last timesheet submission "
-                f"({last_submission.period_start.isoformat()} – {last_submission.period_end.isoformat()})."
-            )
+        if rule.cadence == "weekly":
+            period_start, period_end = _last_completed_week(today, week_start_day)
+            period_label = f"the week of {period_start.isoformat()} – {period_end.isoformat()}"
         else:
-            body = f"You haven't submitted a timesheet yet — it's been {days_stale} day(s) since you joined."
+            period_start, period_end = _last_completed_month(today)
+            period_label = period_end.strftime("%B %Y")
+
+        if employee.joining_date is not None:
+            period_start = max(period_start, employee.joining_date)
+        if period_start > period_end:
+            continue  # employee wasn't employed yet during this period
+
+        nag_start = period_end + timedelta(days=1 + rule.grace_days)
+        if today < nag_start:
+            continue
+
+        overlapping_submission = db.execute(
+            select(TimesheetSubmission)
+            .where(
+                TimesheetSubmission.company_id == company_id,
+                TimesheetSubmission.employee_id == employee.id,
+                TimesheetSubmission.period_start <= period_end,
+                TimesheetSubmission.period_end >= period_start,
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+        if overlapping_submission is not None:
+            continue  # already covered — nothing to nag about for this period
 
         notification_service.notify(
             db,
@@ -152,8 +189,8 @@ def _notify_stale_timesheets(db: Session, company_id: uuid.UUID, today: date) ->
             employee.user_id,
             type="timesheet.reminder",
             title="Please submit your timesheet",
-            body=body,
+            body=f"You haven't submitted a timesheet for {period_label} yet.",
             entity_type="employee",
             entity_id=employee.id,
         )
-        send_timesheet_reminder_email.delay(employee.email, employee.first_name, days_stale)
+        send_timesheet_reminder_email.delay(employee.email, employee.first_name, period_label)

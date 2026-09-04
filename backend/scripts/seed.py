@@ -290,12 +290,23 @@ def seed_company(db, *, name: str, slug: str) -> None:
         actor_user_id=admin_employee.user_id,  # Finance's assigned manager is Admin, not Manager
     )
 
-    # Enabled only for Acme (not Globex), so the two demo companies contrast —
-    # same reasoning as the differing branding colors. Manually trigger
-    # run_daily_digest to see a reminder fire without waiting reminder_after_days.
-    timesheet_service.update_config(
-        db, company.id, actor_user_id=admin_employee.user_id, reminder_enabled=(slug == "acme"), reminder_after_days=3
-    )
+    # Reminder rules only for Acme (not Globex), so the two demo companies
+    # contrast — same reasoning as the differing branding colors. US
+    # employees (Admin, Manager) get a weekly-cadence reminder; India
+    # employees (Riley, Casey) get a monthly one — the exact "different
+    # cadence per location" scenario this feature was built for. Manually
+    # trigger run_daily_digest (or call _notify_stale_timesheets directly
+    # with a future `today`) to see a reminder fire without waiting for a
+    # real week/month to elapse.
+    if slug == "acme":
+        timesheet_service.create_reminder_rule(
+            db, company.id, location="United States", enabled=True, cadence="weekly", grace_days=1,
+            actor_user_id=admin_employee.user_id,
+        )
+        timesheet_service.create_reminder_rule(
+            db, company.id, location="India", enabled=True, cadence="monthly", grace_days=2,
+            actor_user_id=admin_employee.user_id,
+        )
 
     # Leave demo: an annual/sick/unpaid leave type catalog, one holiday, and
     # a pending, an approved, and a rejected request so the My Leave /

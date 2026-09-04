@@ -7,16 +7,17 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationAppError
-from app.models.timesheet import TimesheetEntry, TimesheetPeriodConfig, TimesheetSubmission
+from app.models.timesheet import TimesheetEntry, TimesheetPeriodConfig, TimesheetReminderRule, TimesheetSubmission
 from app.repositories.employee_repository import EmployeeRepository
 from app.repositories.project_repository import ProjectMemberRepository, ProjectRepository
 from app.repositories.timesheet_repository import (
     TimesheetEntryRepository,
     TimesheetPeriodConfigRepository,
+    TimesheetReminderRuleRepository,
     TimesheetSubmissionRepository,
 )
 from app.schemas.common import Page
-from app.schemas.timesheet import VALID_PERIOD_TYPES, VALID_WORK_TYPES
+from app.schemas.timesheet import VALID_PERIOD_TYPES, VALID_REMINDER_CADENCES, VALID_WORK_TYPES
 from app.services.audit_service import audit_service
 from app.services.auth_service import auth_service
 from app.services.notification_service import notification_service
@@ -37,6 +38,7 @@ BUCKET_STATUSES: dict[str, list[str]] = {
 class TimesheetService:
     def __init__(self) -> None:
         self.config_repo = TimesheetPeriodConfigRepository()
+        self.reminder_rule_repo = TimesheetReminderRuleRepository()
         self.entry_repo = TimesheetEntryRepository()
         self.submission_repo = TimesheetSubmissionRepository()
         self.project_repo = ProjectRepository()
@@ -84,6 +86,88 @@ class TimesheetService:
         )
         db.commit()
         return self.get_config(db, company_id)
+
+    # -- Reminder rules (per-location, see docs/ROADMAP.md) ---------------
+
+    def list_reminder_rules(self, db: Session, company_id: uuid.UUID) -> list[TimesheetReminderRule]:
+        return self.reminder_rule_repo.list_for_company(db, company_id)
+
+    def create_reminder_rule(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        location: str | None,
+        enabled: bool,
+        cadence: str,
+        grace_days: int,
+        actor_user_id: uuid.UUID,
+    ) -> TimesheetReminderRule:
+        if cadence not in VALID_REMINDER_CADENCES:
+            raise ValidationAppError(f"Invalid cadence: {cadence}")
+        if self.reminder_rule_repo.get_by_location(db, company_id, location) is not None:
+            raise ConflictError("A reminder rule already exists for this location")
+        rule = self.reminder_rule_repo.create(
+            db, company_id, location=location, enabled=enabled, cadence=cadence, grace_days=grace_days
+        )
+        audit_service.record(
+            db,
+            company_id=company_id,
+            actor_user_id=actor_user_id,
+            entity_type="timesheet_reminder_rule",
+            entity_id=rule.id,
+            action="create",
+            after={"location": location, "enabled": enabled, "cadence": cadence, "grace_days": grace_days},
+        )
+        db.commit()
+        return rule
+
+    def update_reminder_rule(
+        self, db: Session, company_id: uuid.UUID, rule_id: uuid.UUID, *, actor_user_id: uuid.UUID, **updates
+    ) -> TimesheetReminderRule:
+        rule = self.reminder_rule_repo.get(db, company_id, rule_id)
+        if rule is None:
+            raise NotFoundError("Reminder rule not found")
+        cadence = updates.get("cadence")
+        if cadence is not None and cadence not in VALID_REMINDER_CADENCES:
+            raise ValidationAppError(f"Invalid cadence: {cadence}")
+
+        before = {"enabled": rule.enabled, "cadence": rule.cadence, "grace_days": rule.grace_days}
+        for field, value in updates.items():
+            if value is not None:
+                setattr(rule, field, value)
+        db.flush()
+
+        audit_service.record(
+            db,
+            company_id=company_id,
+            actor_user_id=actor_user_id,
+            entity_type="timesheet_reminder_rule",
+            entity_id=rule.id,
+            action="update",
+            before=before,
+            after={"enabled": rule.enabled, "cadence": rule.cadence, "grace_days": rule.grace_days},
+        )
+        db.commit()
+        return rule
+
+    def delete_reminder_rule(
+        self, db: Session, company_id: uuid.UUID, rule_id: uuid.UUID, *, actor_user_id: uuid.UUID
+    ) -> None:
+        rule = self.reminder_rule_repo.get(db, company_id, rule_id)
+        if rule is None:
+            raise NotFoundError("Reminder rule not found")
+        self.reminder_rule_repo.delete(db, company_id, rule_id)
+        audit_service.record(
+            db,
+            company_id=company_id,
+            actor_user_id=actor_user_id,
+            entity_type="timesheet_reminder_rule",
+            entity_id=rule_id,
+            action="delete",
+            before={"location": rule.location},
+        )
+        db.commit()
 
     # -- Entries (always self-scoped to the acting employee) --------------
 

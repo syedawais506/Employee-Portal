@@ -237,8 +237,16 @@ export interface TimesheetPeriodConfig {
   require_description: boolean;
   warn_on_weekend: boolean;
   require_finance_approval: boolean;
-  reminder_enabled: boolean;
-  reminder_after_days: number;
+}
+
+export type TimesheetReminderCadence = "weekly" | "monthly";
+
+export interface TimesheetReminderRule {
+  id: string;
+  location: string | null;
+  enabled: boolean;
+  cadence: TimesheetReminderCadence;
+  grace_days: number;
 }
 
 export interface TimesheetEntry {

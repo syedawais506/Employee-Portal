@@ -18,6 +18,9 @@ from app.schemas.timesheet import (
     TimesheetPeriodConfigResponse,
     TimesheetPeriodConfigUpdateRequest,
     TimesheetRejectRequest,
+    TimesheetReminderRuleCreateRequest,
+    TimesheetReminderRuleResponse,
+    TimesheetReminderRuleUpdateRequest,
     TimesheetSubmissionResponse,
     TimesheetSubmitRequest,
 )
@@ -49,6 +52,55 @@ def update_config(
 ):
     updates = payload.model_dump(exclude_unset=True)
     return timesheet_service.update_config(db, company_id, actor_user_id=current_user.id, **updates)
+
+
+@router.get("/reminder-rules", response_model=list[TimesheetReminderRuleResponse])
+def list_reminder_rules(
+    company_id: uuid.UUID = Depends(get_current_company_id),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("timesheet", "view")),
+):
+    return timesheet_service.list_reminder_rules(db, company_id)
+
+
+@router.post("/reminder-rules", response_model=TimesheetReminderRuleResponse, status_code=201)
+def create_reminder_rule(
+    payload: TimesheetReminderRuleCreateRequest,
+    company_id: uuid.UUID = Depends(get_current_company_id),
+    current_user: User = Depends(require_permission("timesheet", "configure")),
+    db: Session = Depends(get_db),
+):
+    return timesheet_service.create_reminder_rule(
+        db,
+        company_id,
+        location=payload.location,
+        enabled=payload.enabled,
+        cadence=payload.cadence,
+        grace_days=payload.grace_days,
+        actor_user_id=current_user.id,
+    )
+
+
+@router.patch("/reminder-rules/{rule_id}", response_model=TimesheetReminderRuleResponse)
+def update_reminder_rule(
+    rule_id: uuid.UUID,
+    payload: TimesheetReminderRuleUpdateRequest,
+    company_id: uuid.UUID = Depends(get_current_company_id),
+    current_user: User = Depends(require_permission("timesheet", "configure")),
+    db: Session = Depends(get_db),
+):
+    updates = payload.model_dump(exclude_unset=True)
+    return timesheet_service.update_reminder_rule(db, company_id, rule_id, actor_user_id=current_user.id, **updates)
+
+
+@router.delete("/reminder-rules/{rule_id}", status_code=204)
+def delete_reminder_rule(
+    rule_id: uuid.UUID,
+    company_id: uuid.UUID = Depends(get_current_company_id),
+    current_user: User = Depends(require_permission("timesheet", "configure")),
+    db: Session = Depends(get_db),
+):
+    timesheet_service.delete_reminder_rule(db, company_id, rule_id, actor_user_id=current_user.id)
 
 
 @router.get("/entries", response_model=list[TimesheetEntryResponse])

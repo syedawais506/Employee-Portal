@@ -42,14 +42,14 @@ def send_onboarding_invite_email(to_email: str, token: str) -> None:
 
 
 @celery_app.task(name="send_timesheet_reminder_email")
-def send_timesheet_reminder_email(to_email: str, employee_name: str, days_stale: int) -> None:
+def send_timesheet_reminder_email(to_email: str, employee_name: str, period_label: str) -> None:
     link = f"{settings.frontend_base_url}/timesheets"
     send_email(
         to=to_email,
         subject="Reminder: please submit your timesheet",
         html_body=(
-            f"<p>Hi {employee_name}, it's been {days_stale} day(s) since your last timesheet "
-            f'submission. Please submit it as soon as you can <a href="{link}">here</a>. '
+            f"<p>Hi {employee_name}, you haven't submitted a timesheet for {period_label} yet. "
+            f'Please submit it as soon as you can <a href="{link}">here</a>. '
             "You'll keep receiving this reminder daily until it's submitted.</p>"
         ),
     )

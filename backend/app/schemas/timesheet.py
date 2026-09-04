@@ -8,6 +8,7 @@ from app.schemas.common import ORMModel
 
 VALID_PERIOD_TYPES = {"daily", "weekly", "monthly"}
 VALID_WORK_TYPES = {"office", "remote", "client_site"}
+VALID_REMINDER_CADENCES = {"weekly", "monthly"}
 
 
 class TimesheetPeriodConfigResponse(ORMModel):
@@ -19,8 +20,6 @@ class TimesheetPeriodConfigResponse(ORMModel):
     require_description: bool
     warn_on_weekend: bool
     require_finance_approval: bool
-    reminder_enabled: bool
-    reminder_after_days: int
 
 
 class TimesheetPeriodConfigUpdateRequest(BaseModel):
@@ -31,8 +30,27 @@ class TimesheetPeriodConfigUpdateRequest(BaseModel):
     require_description: bool | None = None
     warn_on_weekend: bool | None = None
     require_finance_approval: bool | None = None
-    reminder_enabled: bool | None = None
-    reminder_after_days: int | None = Field(default=None, ge=1, le=90)
+
+
+class TimesheetReminderRuleResponse(ORMModel):
+    id: uuid.UUID
+    location: str | None
+    enabled: bool
+    cadence: str
+    grace_days: int
+
+
+class TimesheetReminderRuleCreateRequest(BaseModel):
+    location: str | None = None
+    enabled: bool = False
+    cadence: str = "weekly"
+    grace_days: int = Field(default=0, ge=0, le=30)
+
+
+class TimesheetReminderRuleUpdateRequest(BaseModel):
+    enabled: bool | None = None
+    cadence: str | None = None
+    grace_days: int | None = Field(default=None, ge=0, le=30)
 
 
 class TimesheetEntryCreateRequest(BaseModel):

@@ -517,9 +517,20 @@ A pure join table — no `company_id` of its own, same pattern as `role_permissi
 | require_description | boolean NOT NULL DEFAULT false | project is always required structurally; this only gates description *(renamed + default flipped in migration 0005 — employees log time and submit later, so a mandatory description up front didn't fit that flow)* |
 | warn_on_weekend | boolean NOT NULL DEFAULT true | UI-only flag (`TimesheetEntry.is_weekend`), not a hard block |
 | require_finance_approval | boolean NOT NULL DEFAULT false | adds the optional second approval step |
-| reminder_enabled | boolean NOT NULL DEFAULT false | opt-in; when on, `run_daily_digest` re-fires a "please submit your timesheet" notification + email every day the condition below holds — NOT exactly-once like the anniversary/document-expiry digests *(migration 0016)* |
-| reminder_after_days | int NOT NULL DEFAULT 3 | days since an employee's last submission (or since `joining_date` if they've never submitted) before the reminder starts *(migration 0016)* |
 | created_at, updated_at | timestamptz | |
+
+### `timesheet_reminder_rule` *(migration 0017, replaced the flat `reminder_enabled`/`reminder_after_days` fields migration 0016 had briefly added to `timesheet_period_config`)*
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| company_id | uuid FK → company.id NOT NULL | |
+| location | varchar(100) NULL | `UNIQUE(company_id, location)` — null = the default/fallback rule, applied to any employee whose location matches no more specific rule (or who has no location set); same nullable convention as `holiday_calendar.location` |
+| enabled | boolean NOT NULL DEFAULT false | opt-in per rule |
+| cadence | varchar(20) NOT NULL DEFAULT 'weekly' | weekly / monthly — calendar-anchored, not a rolling day count: "weekly" checks the most recently fully-elapsed week (per `timesheet_period_config.week_start_day`), "monthly" the most recently fully-elapsed calendar month |
+| grace_days | int NOT NULL DEFAULT 0 | days after the period ends before the reminder starts nagging; once past it, `run_daily_digest` re-fires a "please submit your timesheet" notification + email every day the period stays uncovered — NOT exactly-once like the anniversary/document-expiry digests |
+| created_at, updated_at | timestamptz | |
+
+An employee's location picks their rule (`location == employee.location`, falling back to the `location IS NULL` default rule). An employee whose location matches no rule, with no default rule configured either, never gets reminded — same as a company with no rules at all.
 
 ### `timesheet_submission` *(Phase 4)*
 | Column | Type | Notes |
@@ -739,8 +750,9 @@ CREATE POLICY tenant_isolation ON employee
 -- (Phase 4) timesheet_period_config, timesheet_submission, timesheet_entry,
 -- (Phase 5) leave_type, holiday_calendar, leave_balance, leave_request, and
 -- (Phase 6) asset_type, asset, asset_assignment,
--- (Phase 7) saved_report, and
--- (Phase 7b) notification
+-- (Phase 7) saved_report,
+-- (Phase 7b) notification, and
+-- (Phase 1, post-ship) timesheet_reminder_rule
 ```
 
 Applied to every tenant-scoped table as defense-in-depth behind the repository-layer enforcement described in [LLD.md §4](./LLD.md#4-multi-tenant-enforcement--tenantscopedrepository). See [HLD.md §4](./HLD.md#4-multi-tenancy-strategy) for the caveat that this is currently inert in the local Docker Compose setup (superuser Postgres role) and needs a dedicated non-superuser app role to act as a real second layer in production.

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.employee import Employee
 from app.models.project import Project
-from app.models.timesheet import TimesheetEntry, TimesheetPeriodConfig, TimesheetSubmission
+from app.models.timesheet import TimesheetEntry, TimesheetPeriodConfig, TimesheetReminderRule, TimesheetSubmission
 from app.repositories.base import TenantScopedRepository
 
 
@@ -18,6 +18,25 @@ class TimesheetPeriodConfigRepository(TenantScopedRepository[TimesheetPeriodConf
 
     def get_for_company(self, db: Session, company_id: uuid.UUID) -> TimesheetPeriodConfig | None:
         stmt = select(TimesheetPeriodConfig).where(TimesheetPeriodConfig.company_id == company_id)
+        return db.execute(stmt).scalar_one_or_none()
+
+
+class TimesheetReminderRuleRepository(TenantScopedRepository[TimesheetReminderRule]):
+    model = TimesheetReminderRule
+
+    def list_for_company(self, db: Session, company_id: uuid.UUID) -> list[TimesheetReminderRule]:
+        stmt = select(TimesheetReminderRule).where(TimesheetReminderRule.company_id == company_id)
+        return list(db.execute(stmt).scalars().all())
+
+    def get_by_location(
+        self, db: Session, company_id: uuid.UUID, location: str | None
+    ) -> TimesheetReminderRule | None:
+        stmt = select(TimesheetReminderRule).where(
+            TimesheetReminderRule.company_id == company_id,
+            TimesheetReminderRule.location.is_(None)
+            if location is None
+            else TimesheetReminderRule.location == location,
+        )
         return db.execute(stmt).scalar_one_or_none()
 
 
