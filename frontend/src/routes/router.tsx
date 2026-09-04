@@ -23,7 +23,7 @@ import { ProjectsEntryPage } from "@/features/projects/ProjectsEntryPage";
 import { ReportsPage } from "@/features/reports/ReportsPage";
 import { RoleListPage } from "@/features/roles/RoleListPage";
 import { TimesheetsPage } from "@/features/timesheets/TimesheetsPage";
-import { ProtectedRoute, RequirePermission, RequireSuperAdmin } from "@/routes/ProtectedRoute";
+import { ProtectedRoute, RequireNotSuperAdmin, RequirePermission, RequireSuperAdmin } from "@/routes/ProtectedRoute";
 
 export const router = createBrowserRouter([
   { path: "/onboarding/:token", element: <PublicOnboardingPage /> },
@@ -65,8 +65,14 @@ export const router = createBrowserRouter([
               { path: "/onboarding/review/:employeeId", element: <OnboardingReviewPage /> },
             ],
           },
-          { path: "/attendance", element: <AttendancePage /> },
-          { path: "/projects", element: <ProjectsEntryPage /> },
+          {
+            element: <RequireNotSuperAdmin />,
+            children: [
+              { path: "/attendance", element: <AttendancePage /> },
+              { path: "/projects", element: <ProjectsEntryPage /> },
+              { path: "/assets", element: <AssetsPage /> },
+            ],
+          },
           {
             element: <RequirePermission module="project" action="view" />,
             children: [{ path: "/projects/:id", element: <ProjectDetailPage /> }],
@@ -79,7 +85,6 @@ export const router = createBrowserRouter([
             element: <RequirePermission module="leave" action="view" />,
             children: [{ path: "/leave", element: <LeavePage /> }],
           },
-          { path: "/assets", element: <AssetsPage /> },
           {
             element: <RequirePermission module="report" action="view" />,
             children: [{ path: "/reports", element: <ReportsPage /> }],
