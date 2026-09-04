@@ -61,6 +61,11 @@ export interface DepartmentRef {
   name: string;
 }
 
+export interface RoleRef {
+  id: string;
+  name: string;
+}
+
 export interface ManagerRef {
   id: string;
   first_name: string;
@@ -95,6 +100,7 @@ export interface EmployeeDetail {
   joining_date: string | null;
   status: string;
   onboarding_status: string;
+  roles: RoleRef[];
 }
 
 // Not a hard enum server-side (employee.location is a plain nullable string,

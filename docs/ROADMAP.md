@@ -17,6 +17,8 @@ SRS, HLD, LLD, ER diagram, API contracts, roadmap. No code.
 - Seed script: 2 demo companies, users per role, departments
 - Backend unit + integration tests incl. a dedicated cross-tenant-isolation test suite
 
+**Role reassignment for existing employees (added post-ship, direct user request)**: `role_ids` was only ever accepted at employee-creation time — there was no way for an Admin to change which role(s) an *existing* employee holds afterward (e.g. to grant the Admin role to a specific employee), even though the underlying `user_role` join table always supported a user holding multiple roles at once. Added `PUT /employees/{id}/roles` (full replace, not additive) gated on `role.update` specifically — not the broader `employee.update` HR also holds, since granting Admin rights is materially more sensitive than editing a profile field. Guards against removing the company's last remaining Admin (`422`, not a silent lockout). The existing Roles checkbox UI on the Employee form (previously create-only) now also appears in edit mode, gated on the same `role.update` permission.
+
 ## Phase 2 — Onboarding & Documents *(shipped)*
 - `document_type` (per-company configurable checklist), `employee_document`, `onboarding_invite` tables; `employee.onboarding_status` (`invited → submitted → hr_approved → completed`)
 - Admin-configurable document checklist (required/optional, ordered) — no code changes needed to add a document type

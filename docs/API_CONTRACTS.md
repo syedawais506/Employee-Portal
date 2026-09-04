@@ -61,12 +61,15 @@ Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI)
 |---|---|---|---|
 | `GET /employees` | `search, department_id, status, manager_id, page, page_size` | Page<EmployeeSummary> | employee.view |
 | `POST /employees` | `{email, first_name, last_name, department_id?, designation?, manager_id?, employment_type, location?, joining_date, role_ids[]}` | Employee (201) — creates `user_account` (deactivated) + `employee` (`onboarding_status="invited"`) + queues an onboarding invite email (see Onboarding below) | employee.create |
-| `GET /employees/{id}` | — | EmployeeDetail (incl. `onboarding_status`) | employee.view |
+| `GET /employees/{id}` | — | EmployeeDetail (incl. `onboarding_status`, `roles:[{id,name}]`) | employee.view |
 | `PATCH /employees/{id}` | `{first_name?, last_name?, phone?, department_id?, designation?, manager_id?, employment_type?, location?, status?}` | EmployeeDetail | employee.update |
+| `PUT /employees/{id}/roles` | `{role_ids:[...]}` — full replacement of this employee's role set, not additive | EmployeeDetail (updated `roles[]`) — `422` if any `role_id` isn't in this company, or if the update would remove the company's last remaining Admin | **role.update** (not `employee.update` — see below) |
 | `DELETE /employees/{id}` | — | `204` (soft delete + deactivate user) | employee.delete |
 | `GET /employees/me` | — | EmployeeDetail (caller's own) | self |
 | `PATCH /employees/me` | `{phone?, address?}` (self-editable subset only) | EmployeeDetail | self |
 | `GET /employees/export` | `search?, department_id?, status?, manager_id?, employment_type?, location?, joining_date_from?, joining_date_to?` | `text/csv` attachment | employee.export |
+
+`role_ids` was originally accepted only at creation time (`POST /employees`), with no way to change an existing employee's role(s) afterward — e.g. to grant the Admin role to a specific existing employee. `PUT /employees/{id}/roles` closes that gap. It's deliberately gated on `role.update` rather than `employee.update`: HR holds `employee.update` (to edit phone/department/etc.) but not `role.*` by default, and granting Admin rights is a materially more sensitive action than editing a profile field — reusing the broader permission would let HR silently promote anyone to Admin. The update is a full replace of the employee's role set (an employee can hold multiple roles at once; the underlying `user_role` table always has supported this, it just had no way to be edited post-creation), and is blocked with `422` if it would leave the company with zero users holding the Admin role, so an Admin can't accidentally lock everyone out.
 
 ## Document Types — `/api/v1/document-types` *(Phase 2)*
 

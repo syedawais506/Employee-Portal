@@ -50,6 +50,11 @@ export async function deleteEmployee(id: string): Promise<void> {
   await apiClient.delete(`/employees/${id}`);
 }
 
+export async function setEmployeeRoles(id: string, roleIds: string[]): Promise<EmployeeDetail> {
+  const response = await apiClient.put<EmployeeDetail>(`/employees/${id}/roles`, { role_ids: roleIds });
+  return response.data;
+}
+
 export async function getMyProfile(): Promise<EmployeeDetail> {
   const response = await apiClient.get<EmployeeDetail>("/employees/me");
   return response.data;

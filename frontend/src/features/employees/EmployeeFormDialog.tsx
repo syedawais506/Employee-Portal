@@ -40,6 +40,7 @@ interface EmployeeFormDialogProps {
   departments: Department[];
   managers: EmployeeSummary[];
   roles: Role[];
+  canManageRoles?: boolean;
   errorMessage?: string | null;
   submitting?: boolean;
   onClose: () => void;
@@ -56,6 +57,7 @@ export function EmployeeFormDialog({
   departments,
   managers,
   roles,
+  canManageRoles = mode === "create",
   errorMessage,
   submitting,
   onClose,
@@ -92,7 +94,7 @@ export function EmployeeFormDialog({
         location: initial?.location ?? "",
         joining_date: initial?.joining_date ?? "",
         status: initial?.status ?? "active",
-        role_ids: [],
+        role_ids: initial?.roles.map((role) => role.id) ?? [],
       });
     }
   }, [open, initial, reset]);
@@ -250,11 +252,16 @@ export function EmployeeFormDialog({
             )}
           </Grid>
 
-          {mode === "create" && roles.length > 0 && (
+          {canManageRoles && roles.length > 0 && (
             <Grid item xs={12}>
               <Typography variant="body2" sx={{ mb: 0.5 }}>
                 Roles
               </Typography>
+              {mode === "edit" && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                  Granting the Admin role gives this employee full access to this company's data and settings.
+                </Typography>
+              )}
               <Controller
                 name="role_ids"
                 control={control}

@@ -11,11 +11,13 @@ from app.schemas.common import Page
 from app.schemas.employee import (
     EmployeeCreateRequest,
     EmployeeDetailResponse,
+    EmployeeRoleAssignmentRequest,
     EmployeeSelfUpdateRequest,
     EmployeeSummaryResponse,
     EmployeeUpdateRequest,
 )
 from app.services.employee_service import employee_service
+from app.services.role_service import role_service
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 
@@ -137,6 +139,21 @@ def update_employee(
 ):
     updates = payload.model_dump(exclude_unset=True)
     return employee_service.update_employee(db, company_id, employee_id, actor_user_id=current_user.id, **updates)
+
+
+@router.put("/{employee_id}/roles", response_model=EmployeeDetailResponse)
+def set_employee_roles(
+    employee_id: uuid.UUID,
+    payload: EmployeeRoleAssignmentRequest,
+    company_id: uuid.UUID = Depends(get_current_company_id),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("role", "update")),
+):
+    employee = employee_service.get_employee(db, company_id, employee_id)
+    role_service.set_user_roles(
+        db, company_id, employee.user_id, role_ids=payload.role_ids, actor_user_id=current_user.id
+    )
+    return employee_service.get_employee(db, company_id, employee_id)
 
 
 @router.delete("/{employee_id}", status_code=204)

@@ -36,6 +36,10 @@ class EmployeeSelfUpdateRequest(BaseModel):
     phone: str | None = None
 
 
+class EmployeeRoleAssignmentRequest(BaseModel):
+    role_ids: list[uuid.UUID]
+
+
 class DepartmentRef(ORMModel):
     id: uuid.UUID
     name: str
@@ -80,3 +84,4 @@ class EmployeeDetailResponse(ORMModel):
     joining_date: date | None
     status: str
     onboarding_status: str
+    roles: list[RoleRef]

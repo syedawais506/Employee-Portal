@@ -5,6 +5,8 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.employee import Employee
+from app.models.role import UserRole
+from app.models.user import User
 from app.repositories.base import TenantScopedRepository
 
 
@@ -14,14 +16,24 @@ class EmployeeRepository(TenantScopedRepository[Employee]):
     def get(self, db: Session, company_id: uuid.UUID, id: uuid.UUID) -> Employee | None:
         stmt = (
             select(Employee)
-            .options(joinedload(Employee.department), joinedload(Employee.manager), joinedload(Employee.user))
+            .options(
+                joinedload(Employee.department),
+                joinedload(Employee.manager),
+                joinedload(Employee.user).joinedload(User.roles).joinedload(UserRole.role),
+            )
             .where(Employee.id == id, Employee.company_id == company_id)
         )
         return db.execute(stmt).unique().scalar_one_or_none()
 
     def get_by_user_id(self, db: Session, user_id: uuid.UUID) -> Employee | None:
-        stmt = select(Employee).options(joinedload(Employee.department), joinedload(Employee.manager)).where(
-            Employee.user_id == user_id
+        stmt = (
+            select(Employee)
+            .options(
+                joinedload(Employee.department),
+                joinedload(Employee.manager),
+                joinedload(Employee.user).joinedload(User.roles).joinedload(UserRole.role),
+            )
+            .where(Employee.user_id == user_id)
         )
         return db.execute(stmt).unique().scalar_one_or_none()
 

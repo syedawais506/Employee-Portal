@@ -12,6 +12,7 @@ from app.models.mixins import SoftDeleteMixin, TimestampMixin, UUIDPkMixin, comp
 if TYPE_CHECKING:
     from app.models.company import Company
     from app.models.department import Department
+    from app.models.role import Role
     from app.models.user import User
 
 
@@ -54,3 +55,7 @@ class Employee(UUIDPkMixin, TimestampMixin, SoftDeleteMixin, Base):
     @property
     def email(self) -> str:
         return self.user.email
+
+    @property
+    def roles(self) -> list["Role"]:
+        return [user_role.role for user_role in self.user.roles]

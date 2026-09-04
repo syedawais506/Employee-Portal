@@ -6,6 +6,7 @@ from app.core.exceptions import ConflictError, NotFoundError, ValidationAppError
 from app.models.role import Role
 from app.repositories.role_repository import RoleRepository
 from app.services import permission_cache
+from app.services.audit_service import audit_service
 
 # (module, action) catalog — the single source of truth for what can be granted.
 # Modules beyond employee/department/role are reserved for future phases per docs/ROADMAP.md
@@ -137,6 +138,39 @@ class RoleService:
         db.commit()
         self._invalidate_users_with_role(db, role_id)
         return self.get_role(db, company_id, role_id)
+
+    def set_user_roles(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        user_id: uuid.UUID,
+        *,
+        role_ids: list[uuid.UUID],
+        actor_user_id: uuid.UUID,
+    ) -> None:
+        roles = self.role_repo.list_roles(db, company_id)
+        valid_ids = {role.id for role in roles}
+        if not set(role_ids).issubset(valid_ids):
+            raise ValidationAppError("One or more roles do not belong to this company")
+
+        admin_role = next((role for role in roles if role.name == "Admin"), None)
+        if admin_role is not None and admin_role.id not in role_ids:
+            current_admin_ids = set(self.role_repo.list_user_ids_with_role(db, admin_role.id))
+            if user_id in current_admin_ids and len(current_admin_ids) <= 1:
+                raise ValidationAppError("Cannot remove the last Admin from this company")
+
+        self.role_repo.set_user_roles(db, user_id, role_ids)
+        permission_cache.invalidate(user_id)
+        audit_service.record(
+            db,
+            company_id=company_id,
+            actor_user_id=actor_user_id,
+            entity_type="user_role",
+            entity_id=user_id,
+            action="update",
+            after={"role_ids": [str(role_id) for role_id in role_ids]},
+        )
+        db.commit()
 
     def delete_role(self, db: Session, company_id: uuid.UUID, role_id: uuid.UUID) -> None:
         role = self.get_role(db, company_id, role_id)

@@ -7,10 +7,12 @@ import { Box, Button, Card, CardContent, Chip, CircularProgress, Grid, IconButto
 
 import { extractApiErrorMessage } from "@/api/client";
 import { listDepartments } from "@/api/departments";
-import { getEmployee, listEmployees, updateEmployee } from "@/api/employees";
+import { getEmployee, listEmployees, setEmployeeRoles, updateEmployee } from "@/api/employees";
+import { listRoles } from "@/api/roles";
 import { PageHeader } from "@/components/PageHeader";
 import { PermissionGate } from "@/components/PermissionGate";
 import { EmployeeFormDialog, type EmployeeFormValues } from "@/features/employees/EmployeeFormDialog";
+import { useAuthStore } from "@/store/authStore";
 
 const ONBOARDING_STATUS_LABEL: Record<string, string> = {
   invited: "Onboarding: Invited",
@@ -36,6 +38,7 @@ export function EmployeeDetailPage() {
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const canManageRoles = useAuthStore((state) => state.hasPermission("role", "update"));
 
   const { data: employee, isLoading } = useQuery({
     queryKey: ["employees", id],
@@ -48,10 +51,11 @@ export function EmployeeDetailPage() {
     queryKey: ["employees", "managers"],
     queryFn: () => listEmployees({ page: 1, page_size: 100 }),
   });
+  const { data: roles } = useQuery({ queryKey: ["roles"], queryFn: listRoles, enabled: canManageRoles });
 
   const updateMutation = useMutation({
-    mutationFn: (values: EmployeeFormValues) =>
-      updateEmployee(id as string, {
+    mutationFn: async (values: EmployeeFormValues) => {
+      await updateEmployee(id as string, {
         first_name: values.first_name,
         last_name: values.last_name,
         phone: values.phone || null,
@@ -61,7 +65,13 @@ export function EmployeeDetailPage() {
         employment_type: values.employment_type,
         location: values.location || null,
         status: values.status,
-      }),
+      });
+      const currentRoleIds = employee?.roles.map((role) => role.id).sort() ?? [];
+      const nextRoleIds = [...values.role_ids].sort();
+      if (canManageRoles && JSON.stringify(currentRoleIds) !== JSON.stringify(nextRoleIds)) {
+        await setEmployeeRoles(id as string, values.role_ids);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees", id] });
       queryClient.invalidateQueries({ queryKey: ["employees"] });
@@ -140,6 +150,18 @@ export function EmployeeDetailPage() {
             <Grid item xs={12} sm={6}>
               <Field label="Joining Date" value={employee.joining_date ?? ""} />
             </Grid>
+            <Grid item xs={12}>
+              <Typography variant="caption" color="text.secondary">
+                Roles
+              </Typography>
+              <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                {employee.roles.length > 0 ? (
+                  employee.roles.map((role) => <Chip key={role.id} label={role.name} size="small" />)
+                ) : (
+                  <Typography variant="body1">—</Typography>
+                )}
+              </Stack>
+            </Grid>
           </Grid>
         </CardContent>
       </Card>
@@ -150,7 +172,8 @@ export function EmployeeDetailPage() {
         initial={employee}
         departments={departments?.items ?? []}
         managers={managers?.items ?? []}
-        roles={[]}
+        roles={roles ?? []}
+        canManageRoles={canManageRoles}
         errorMessage={errorMessage}
         submitting={updateMutation.isPending}
         onClose={() => setEditOpen(false)}

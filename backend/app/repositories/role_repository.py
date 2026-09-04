@@ -45,6 +45,16 @@ class RoleRepository:
             db.add(RolePermission(role_id=role_id, permission_id=permission_id))
         db.flush()
 
+    def set_user_roles(self, db: Session, user_id: uuid.UUID, role_ids: list[uuid.UUID]) -> None:
+        db.query(UserRole).filter(UserRole.user_id == user_id).delete()
+        for role_id in role_ids:
+            db.add(UserRole(user_id=user_id, role_id=role_id))
+        db.flush()
+
+    def list_user_ids_with_role(self, db: Session, role_id: uuid.UUID) -> list[uuid.UUID]:
+        stmt = select(UserRole.user_id).where(UserRole.role_id == role_id)
+        return list(db.execute(stmt).scalars().all())
+
     def get_effective_permission_codes(self, db: Session, user_id: uuid.UUID) -> set[str]:
         stmt = (
             select(Permission.module, Permission.action)
