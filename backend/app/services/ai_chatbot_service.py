@@ -18,13 +18,25 @@ from app.services.leave_service import leave_service
 GEMINI_MODEL = "gemini-3.6-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
-SYSTEM_PROMPT = """You are the HR FAQ assistant for {company_name}, embedded in an employee portal.
-Answer ONLY questions about this company's leave policy, holiday calendar, and the asking
-employee's own leave balances, using the CONTEXT below. Be concise (2-4 sentences).
-If asked something outside that scope, or something the context doesn't cover, say so plainly
-and suggest the employee check the relevant page in the portal (Leave, Timesheets, etc.) or
-contact HR directly — never guess or make up a policy or number that isn't in the context.
-Never reveal or speculate about any other employee's personal data.
+EMPLOYEE_SYSTEM_PROMPT = """You are the HR FAQ assistant for {company_name}, embedded in an employee portal.
+You are answering {employee_name}, an EMPLOYEE — not an Admin. Answer ONLY questions about this
+company's leave policy, holiday calendar, and {employee_name}'s own leave balances, using the
+CONTEXT below. Be concise (2-4 sentences). If asked something outside that scope, or something
+the context doesn't cover, say so plainly and suggest checking the relevant page in the portal or
+contacting HR directly — never guess or make up a policy or number that isn't in the context.
+The context below intentionally contains no other employee's personal data — if asked about
+someone else, say that information isn't available to you and only an Admin can see it.
+
+CONTEXT:
+{context}
+"""
+
+ADMIN_SYSTEM_PROMPT = """You are the HR FAQ assistant for {company_name}, embedded in an employee portal.
+You are answering {employee_name}, an ADMIN — you may share company-wide, cross-employee leave
+data (every employee's balance, the full pending-request queue, who's on leave) in addition to
+policy questions, using the CONTEXT below. Be concise (2-4 sentences) unless the question genuinely
+needs a list. If asked something outside this scope, or something the context doesn't cover, say
+so plainly rather than guessing or making up a number that isn't in the context.
 
 CONTEXT:
 {context}
@@ -65,7 +77,7 @@ class AIChatbotService:
         db.commit()
         return company.ai_chatbot_enabled
 
-    def _build_context(self, db: Session, company_id: uuid.UUID, employee: Employee) -> str:
+    def _build_context(self, db: Session, company_id: uuid.UUID, employee: Employee, *, is_admin: bool) -> str:
         lines: list[str] = []
 
         lines.append("Leave types:")
@@ -85,12 +97,13 @@ class AIChatbotService:
         upcoming_holidays = [
             h
             for h in self.holiday_repo.list_all(db, company_id, year=today.year)
-            if h.date >= today and (h.location is None or h.location == employee.location)
+            if h.date >= today and (is_admin or h.location is None or h.location == employee.location)
         ]
         lines.append("\nUpcoming holidays:")
         if upcoming_holidays:
             for holiday in upcoming_holidays[:10]:
-                lines.append(f"- {holiday.date.isoformat()}: {holiday.name}")
+                scope = "" if holiday.location is None else f" ({holiday.location} only)"
+                lines.append(f"- {holiday.date.isoformat()}: {holiday.name}{scope}")
         else:
             lines.append("- None scheduled for the rest of this year.")
 
@@ -101,8 +114,16 @@ class AIChatbotService:
             f"{', followed by a required HR sign-off,' if hr_sign_off else ','} before it's final."
         )
 
-        lines.append(f"\n{employee.full_name}'s own leave balances for {today.year}:")
-        balances = leave_service.list_my_balances(db, company_id, employee.id, today.year)
+        if is_admin:
+            lines.append(self._company_wide_leave_section(db, company_id, today.year))
+        else:
+            lines.append(self._own_balance_section(db, company_id, employee, today.year))
+
+        return "\n".join(lines)
+
+    def _own_balance_section(self, db: Session, company_id: uuid.UUID, employee: Employee, year: int) -> str:
+        lines = [f"\n{employee.full_name}'s own leave balances for {year} — no other employee's data is visible here:"]
+        balances = leave_service.list_my_balances(db, company_id, employee.id, year)
         for balance in balances:
             if balance["available"] is None:
                 lines.append(f"- {balance['leave_type_name']}: unlimited (used {balance['used']} so far)")
@@ -112,6 +133,41 @@ class AIChatbotService:
                     f"(granted {balance['granted']}, carried forward {balance['carried_forward']}, "
                     f"used {balance['used']})"
                 )
+        return "\n".join(lines)
+
+    def _company_wide_leave_section(self, db: Session, company_id: uuid.UUID, year: int) -> str:
+        lines = [f"\nCompany-wide leave balances for {year} (every active employee):"]
+        balances = leave_service.list_company_balances(db, company_id, year=year, employee_id=None)
+        by_employee: dict[str, list[dict]] = {}
+        for balance in balances:
+            by_employee.setdefault(balance["employee_name"], []).append(balance)
+        for employee_name, employee_balances in by_employee.items():
+            parts = []
+            for balance in employee_balances:
+                if balance["available"] is None:
+                    parts.append(f"{balance['leave_type_name']}: unlimited (used {balance['used']})")
+                else:
+                    parts.append(f"{balance['leave_type_name']}: {balance['available']} available")
+            lines.append(f"- {employee_name} — {', '.join(parts)}")
+
+        dashboard = leave_service.get_dashboard(db, company_id)
+        lines.append(
+            f"\nCompany-wide today: {dashboard['pending_count']} request(s) awaiting approval, "
+            f"{dashboard['on_leave_today_count']} employee(s) on leave today."
+        )
+
+        pending = leave_service.list_requests(
+            db, company_id, employee_id=None, leave_type_id=None, status="pending", page=1, page_size=50
+        )
+        lines.append("\nFull pending leave request queue:")
+        if pending.items:
+            for request in pending.items:
+                lines.append(
+                    f"- {request.employee.full_name}: {request.leave_type.name}, "
+                    f"{request.start_date.isoformat()} – {request.end_date.isoformat()} ({request.days_count} day(s))"
+                )
+        else:
+            lines.append("- None pending.")
 
         return "\n".join(lines)
 
@@ -123,6 +179,7 @@ class AIChatbotService:
         *,
         message: str,
         history: list[ChatMessage],
+        is_admin: bool,
     ) -> str:
         if not self.is_enabled(db, company_id):
             raise ValidationAppError("The HR assistant is not enabled for your company")
@@ -131,8 +188,11 @@ class AIChatbotService:
 
         company = self.company_repo.get(db, company_id)
         company_name = company.name if company else "your company"
-        context = self._build_context(db, company_id, employee)
-        system_instruction = SYSTEM_PROMPT.format(company_name=company_name, context=context)
+        context = self._build_context(db, company_id, employee, is_admin=is_admin)
+        prompt_template = ADMIN_SYSTEM_PROMPT if is_admin else EMPLOYEE_SYSTEM_PROMPT
+        system_instruction = prompt_template.format(
+            company_name=company_name, employee_name=employee.full_name, context=context
+        )
 
         contents = []
         for turn in history:
