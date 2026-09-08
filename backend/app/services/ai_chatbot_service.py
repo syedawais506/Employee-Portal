@@ -12,8 +12,11 @@ from app.models.employee import Employee
 from app.repositories.company_repository import CompanyRepository
 from app.repositories.leave_repository import HolidayRepository, LeaveTypeRepository
 from app.schemas.ai import ChatMessage
+from app.services.asset_service import asset_service
+from app.services.attendance_service import attendance_service
 from app.services.audit_service import audit_service
 from app.services.leave_service import leave_service
+from app.services.timesheet_service import timesheet_service
 
 GEMINI_MODEL = "gemini-3.6-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
@@ -31,12 +34,14 @@ CONTEXT:
 {context}
 """
 
-ADMIN_SYSTEM_PROMPT = """You are the HR FAQ assistant for {company_name}, embedded in an employee portal.
-You are answering {employee_name}, an ADMIN — you may share company-wide, cross-employee leave
-data (every employee's balance, the full pending-request queue, who's on leave) in addition to
-policy questions, using the CONTEXT below. Be concise (2-4 sentences) unless the question genuinely
-needs a list. If asked something outside this scope, or something the context doesn't cover, say
-so plainly rather than guessing or making up a number that isn't in the context.
+ADMIN_SYSTEM_PROMPT = """You are the full HR/operations assistant for {company_name}, embedded in an
+employee portal. You are answering {employee_name}, an ADMIN — unlike a regular employee, you may
+share full company-wide, cross-employee data end to end: leave (every employee's balance, the full
+pending-request queue, who's on leave), timesheets (pending/rejected/late submissions by employee),
+attendance (today's check-in status for every employee), and assets (inventory counts and exactly
+who currently holds which asset) — using the CONTEXT below. Be concise (2-4 sentences) unless the
+question genuinely needs a list. If asked something outside this scope, or something the context
+doesn't cover, say so plainly rather than guessing or making up a number that isn't in the context.
 
 CONTEXT:
 {context}
@@ -116,6 +121,9 @@ class AIChatbotService:
 
         if is_admin:
             lines.append(self._company_wide_leave_section(db, company_id, today.year))
+            lines.append(self._company_wide_timesheet_section(db, company_id))
+            lines.append(self._company_wide_attendance_section(db, company_id))
+            lines.append(self._company_wide_asset_section(db, company_id))
         else:
             lines.append(self._own_balance_section(db, company_id, employee, today.year))
 
@@ -168,6 +176,66 @@ class AIChatbotService:
                 )
         else:
             lines.append("- None pending.")
+
+        return "\n".join(lines)
+
+    def _company_wide_timesheet_section(self, db: Session, company_id: uuid.UUID) -> str:
+        lines = ["\nCompany-wide timesheet status:"]
+        dashboard = timesheet_service.get_dashboard(db, company_id, date_from=None, date_to=None)
+        lines.append(
+            f"- {dashboard['pending_count']} submission(s) awaiting approval, "
+            f"{dashboard['rejected_count']} rejected, {dashboard['late_count']} late, "
+            f"{dashboard['billable_percentage']:.0f}% billable overall."
+        )
+
+        pending = timesheet_service.list_submissions(db, company_id, bucket="pending", page=1, page_size=50)
+        lines.append("\nPending timesheet submissions:")
+        if pending.items:
+            for submission in pending.items:
+                lines.append(
+                    f"- {submission.employee_name}: {submission.period_start.isoformat()} – "
+                    f"{submission.period_end.isoformat()}, {submission.total_hours}h, status: {submission.status}"
+                )
+        else:
+            lines.append("- None pending.")
+
+        return "\n".join(lines)
+
+    def _company_wide_attendance_section(self, db: Session, company_id: uuid.UUID) -> str:
+        lines = ["\nToday's attendance (every active employee):"]
+        today_entries = attendance_service.today_dashboard(db, company_id)
+        if today_entries:
+            for entry in today_entries:
+                if entry.status == "not_checked_in":
+                    lines.append(f"- {entry.employee_name}: not checked in yet")
+                else:
+                    late = " (late)" if entry.is_late else ""
+                    checkout = ""
+                    if entry.check_out_at is not None:
+                        checkout = f", checked out {entry.check_out_at.isoformat()}"
+                    check_in_at = entry.check_in_at.isoformat() if entry.check_in_at else "unknown time"
+                    lines.append(f"- {entry.employee_name}: checked in {check_in_at}{late}{checkout}")
+        else:
+            lines.append("- No employees found.")
+        return "\n".join(lines)
+
+    def _company_wide_asset_section(self, db: Session, company_id: uuid.UUID) -> str:
+        lines = ["\nAsset inventory:"]
+        summary = asset_service.get_summary(db, company_id)
+        lines.append(
+            f"- {summary['total']} total: {summary['available']} available, {summary['assigned']} assigned, "
+            f"{summary['retired']} retired, {summary['lost']} lost, {summary['damaged']} damaged."
+        )
+
+        assigned = asset_service.list_assets(
+            db, company_id, asset_type_id=None, status="assigned", page=1, page_size=50
+        )
+        lines.append("\nCurrently assigned assets:")
+        if assigned.items:
+            for asset in assigned.items:
+                lines.append(f"- {asset.name} ({asset.asset_tag}) — held by {asset.current_employee_name}")
+        else:
+            lines.append("- None currently assigned.")
 
         return "\n".join(lines)
 

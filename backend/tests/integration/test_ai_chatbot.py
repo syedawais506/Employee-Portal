@@ -261,6 +261,39 @@ def test_employee_chat_context_never_includes_other_employees_names(client, tena
     assert "Company-wide leave balances" not in system_prompt
 
 
+def test_admin_chat_context_includes_timesheets_attendance_and_assets(client, tenant_a, monkeypatch):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _enable(client, headers_admin)
+
+    captured = _mock_gemini(monkeypatch)
+    response = client.post(
+        "/api/v1/ai/chat", headers=headers_admin, json={"message": "Give me the full company status."}
+    )
+    assert response.status_code == 200, response.text
+
+    system_prompt = captured.calls[0]["json"]["system_instruction"]["parts"][0]["text"]
+    assert "Company-wide timesheet status" in system_prompt
+    assert "Pending timesheet submissions" in system_prompt
+    assert "Today's attendance" in system_prompt
+    assert "Asset inventory" in system_prompt
+    assert "Currently assigned assets" in system_prompt
+
+
+def test_employee_chat_context_excludes_timesheets_attendance_and_assets(client, tenant_a, monkeypatch):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _enable(client, headers_admin)
+
+    captured = _mock_gemini(monkeypatch)
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    response = client.post("/api/v1/ai/chat", headers=headers_employee, json={"message": "Hi"})
+    assert response.status_code == 200, response.text
+
+    system_prompt = captured.calls[0]["json"]["system_instruction"]["parts"][0]["text"]
+    assert "Company-wide timesheet status" not in system_prompt
+    assert "Today's attendance" not in system_prompt
+    assert "Asset inventory" not in system_prompt
+
+
 def test_manager_hr_and_finance_get_employee_scoped_context_not_admin(client, tenant_a, monkeypatch):
     headers_admin = tenant_a.auth_headers(client, "Admin")
     _enable(client, headers_admin)
