@@ -17,6 +17,7 @@ from app.repositories.onboarding_repository import DocumentTypeRepository, Onboa
 from app.repositories.project_repository import ClientRepository, ProjectMemberRepository, ProjectRepository
 from app.repositories.role_repository import RoleRepository
 from app.repositories.user_repository import UserRepository
+from app.services.ai_chatbot_service import ai_chatbot_service
 from app.services.asset_service import asset_service
 from app.services.attendance_service import attendance_service
 from app.services.company_tour_service import company_tour_service
@@ -307,6 +308,10 @@ def seed_company(db, *, name: str, slug: str) -> None:
             db, company.id, location="India", enabled=True, cadence="monthly", grace_days=2,
             actor_user_id=admin_employee.user_id,
         )
+        # Enabled only for Acme, same contrast as everything else above —
+        # requires GEMINI_API_KEY to actually answer (see docs/ROADMAP.md
+        # Phase 13); the toggle itself doesn't depend on the key being set.
+        ai_chatbot_service.set_enabled(db, company.id, enabled=True, actor_user_id=admin_employee.user_id)
 
     # Leave demo: an annual/sick/unpaid leave type catalog, one holiday, and
     # a pending, an approved, and a rejected request so the My Leave /

@@ -370,6 +370,7 @@ erDiagram
 | slack_webhook_url | varchar(500) NULL | *(Phase 7c)* Admin-configured Slack incoming-webhook or Teams connector URL; when set, every event that already triggers an in-app notification also posts a plain-text message here |
 | logo_key | varchar(512) NULL | *(Phase 9c)* S3/MinIO object key for the company's logo — same private-bucket-plus-presigned-URL pattern as employee documents, not a public URL stored directly |
 | primary_color | varchar(20) NULL | *(Phase 9c)* hex accent color (e.g. `#4F46E5`) applied to the public onboarding link's buttons |
+| ai_chatbot_enabled | boolean NOT NULL DEFAULT false | *(Phase 13, migration 0018)* Admin opt-in for the "Ask HR" chatbot; the platform's single `GEMINI_API_KEY` (env var, not per-company) still needs to be configured server-side for it to actually answer — see `docs/ROADMAP.md` |
 | created_at, updated_at | timestamptz | |
 | deleted_at | timestamptz NULL | soft delete |
 

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    ai,
     assets,
     attendance,
     auth,
@@ -41,3 +42,4 @@ api_router.include_router(integrations.router)
 api_router.include_router(attendance.router)
 api_router.include_router(branding.router)
 api_router.include_router(company_tour.router)
+api_router.include_router(ai.router)

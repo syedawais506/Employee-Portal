@@ -77,6 +77,9 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME:-employee-portal}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:8080}
+      # Ask HR chatbot (Phase 13) — free tier key from aistudio.google.com/apikey.
+      # Leave unset to keep the feature dark even for companies that enable it.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

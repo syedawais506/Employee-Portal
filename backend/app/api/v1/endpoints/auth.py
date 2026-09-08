@@ -15,6 +15,7 @@ from app.schemas.auth import (
     TokenResponse,
     VerifyEmailRequest,
 )
+from app.services.ai_chatbot_service import ai_chatbot_service
 from app.services.auth_service import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -90,6 +91,9 @@ def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
 def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     permissions = auth_service.get_effective_permissions(db, current_user.id)
     employee = employee_repo.get_by_user_id(db, current_user.id) if current_user.company_id else None
+    ai_chatbot_enabled = (
+        ai_chatbot_service.is_enabled(db, current_user.company_id) if current_user.company_id else False
+    )
     return CurrentUserResponse(
         id=current_user.id,
         email=current_user.email,
@@ -99,4 +103,5 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
         permissions=sorted(permissions),
         employee_id=employee.id if employee else None,
         full_name=employee.full_name if employee else None,
+        ai_chatbot_enabled=ai_chatbot_enabled,
     )

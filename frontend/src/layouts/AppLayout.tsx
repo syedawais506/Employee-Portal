@@ -36,6 +36,7 @@ import InventoryIcon from "@mui/icons-material/Inventory";
 import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import SecurityIcon from "@mui/icons-material/Security";
+import SmartToyIcon from "@mui/icons-material/SmartToy";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
 
 import { logout as logoutRequest } from "@/api/auth";
@@ -50,7 +51,11 @@ interface NavItem {
   to: string;
   icon: React.ReactNode;
   match: (pathname: string) => boolean;
-  visible: (opts: { isSuperAdmin: boolean; hasPermission: (m: string, a: string) => boolean }) => boolean;
+  visible: (opts: {
+    isSuperAdmin: boolean;
+    hasPermission: (m: string, a: string) => boolean;
+    aiChatbotEnabled: boolean;
+  }) => boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -111,6 +116,13 @@ const NAV_ITEMS: NavItem[] = [
     visible: ({ isSuperAdmin }) => !isSuperAdmin,
   },
   {
+    label: "Ask HR",
+    to: "/ask-hr",
+    icon: <SmartToyIcon fontSize="small" />,
+    match: (p) => p.startsWith("/ask-hr"),
+    visible: ({ isSuperAdmin, aiChatbotEnabled }) => !isSuperAdmin && aiChatbotEnabled,
+  },
+  {
     label: "Onboarding",
     to: "/onboarding",
     icon: <HowToRegIcon fontSize="small" />,
@@ -166,7 +178,8 @@ export function AppLayout() {
 
   const breadcrumbLabel = useBreadcrumbLabel(location.pathname);
   const isSuperAdmin = user?.is_super_admin ?? false;
-  const visibleNavItems = NAV_ITEMS.filter((item) => item.visible({ isSuperAdmin, hasPermission }));
+  const aiChatbotEnabled = user?.ai_chatbot_enabled ?? false;
+  const visibleNavItems = NAV_ITEMS.filter((item) => item.visible({ isSuperAdmin, hasPermission, aiChatbotEnabled }));
 
   async function handleLogout() {
     setMenuAnchor(null);

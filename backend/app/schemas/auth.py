@@ -48,3 +48,4 @@ class CurrentUserResponse(ORMModel):
     permissions: list[str] = []
     employee_id: uuid.UUID | None = None
     full_name: str | None = None
+    ai_chatbot_enabled: bool = False

@@ -21,7 +21,9 @@ Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI)
 | `POST /auth/forgot-password` | `{email}` | `202` (always, no user-enumeration) | public |
 | `POST /auth/reset-password` | `{token, new_password}` | `204` | public |
 | `POST /auth/verify-email` | `{token}` | `204` | public |
-| `GET /auth/me` | — | `{id, email, company_id, is_super_admin, employee, permissions[]}` | authenticated |
+| `GET /auth/me` | — | `{id, email, company_id, is_super_admin, employee, permissions[], ai_chatbot_enabled}` | authenticated |
+
+`ai_chatbot_enabled` *(Phase 13)* is `company.ai_chatbot_enabled` piggybacked onto the already-fetched-once `/auth/me` response — the frontend nav item for "Ask HR" is the first nav item ever gated on a data-driven company setting rather than a permission, and this avoids introducing a second auth-adjacent fetch just for one sidebar link. It only refreshes on next login/page reload, not live — acceptable since flipping this Admin-side setting isn't a time-sensitive operation.
 
 ## Companies — `/api/v1/companies` (Super Admin only)
 
@@ -281,8 +283,22 @@ Admin-only, self-scoped to the caller's own company — distinct from `/companie
 | `GET /integrations/slack` | — | `{slack_webhook_url}` | company.configure |
 | `PATCH /integrations/slack` | `{slack_webhook_url}` | `{slack_webhook_url}` | company.configure |
 | `POST /integrations/slack/test` | — | `{sent}` — `false` if no URL is configured yet | company.configure |
+| `GET /integrations/ai` | — | `{enabled}` *(Phase 13)* | company.configure |
+| `PATCH /integrations/ai` | `{enabled}` | `{enabled}` *(Phase 13)* | company.configure |
 
 When `slack_webhook_url` is set, every event that already triggers an in-app notification (Leave, Timesheet, Assets, Onboarding, plus the two daily digest reminders below) also enqueues a fire-and-forget Celery task that `POST`s `{"text": "..."}` to that URL — the plain-text format both Slack incoming webhooks and Teams connectors accept. A fan-out event (e.g. onboarding submission notifying every `onboarding.review` holder) posts exactly one webhook message per event, not one per recipient. A dead or slow webhook URL never blocks or fails the request that triggered it — the in-app notification is created and pushed independently either way.
+
+`enabled` toggles `company.ai_chatbot_enabled` (see `/ai/chat` below) — same get/set shape and permission as the Slack webhook, just a boolean instead of a URL.
+
+## AI — `/api/v1/ai` *(Phase 13)*
+
+The "Ask HR" chatbot. Fully stateless — the endpoint takes the whole conversation so far on every call and returns one reply; nothing is persisted server-side (conversation history lives in the browser only, resets on reload).
+
+| Method & Path | Body | Response | Permission |
+|---|---|---|---|
+| `POST /ai/chat` | `{message, history: [{role: "user"\|"assistant", content}]}` | `{reply}` | authenticated (self-scoped) |
+
+Two independent failure modes, returned as distinct errors rather than conflated into one: `422` if the company hasn't enabled it (`company.ai_chatbot_enabled = false`), `503` if the company has it enabled but the platform has no `GEMINI_API_KEY` configured at all (or the upstream Gemini call itself fails/times out). Context sent to the LLM on every call: the company's leave types, holiday calendar (company-wide plus any scoped to the caller's own `employee.location`), whether HR sign-off is required in addition to Manager approval, and the caller's own current-year leave balances (reusing `LeaveService.list_my_balances` — never another employee's data). The system prompt scopes the assistant to these topics only and instructs it to decline rather than guess outside that scope. Provider is Google Gemini (`gemini-2.0-flash`, plain REST call over `httpx`) — a single platform-wide key shared by every opted-in company, not a per-tenant "bring your own key."
 
 ## Digest Reminders *(Phase 7c)*
 

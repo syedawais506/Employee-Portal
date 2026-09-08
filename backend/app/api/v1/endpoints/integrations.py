@@ -6,10 +6,13 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_company_id, get_db, require_permission
 from app.models.user import User
 from app.schemas.company import (
+    AIChatbotSettingsResponse,
+    AIChatbotSettingsUpdateRequest,
     IntegrationSettingsResponse,
     IntegrationSettingsUpdateRequest,
     WebhookTestResponse,
 )
+from app.services.ai_chatbot_service import ai_chatbot_service
 from app.services.integration_service import integration_service
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
@@ -44,3 +47,25 @@ def test_slack_integration(
     _: User = Depends(require_permission("company", "configure")),
 ):
     return WebhookTestResponse(sent=integration_service.send_test_message(db, company_id))
+
+
+@router.get("/ai", response_model=AIChatbotSettingsResponse)
+def get_ai_integration(
+    company_id: uuid.UUID = Depends(get_current_company_id),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("company", "configure")),
+):
+    return AIChatbotSettingsResponse(enabled=ai_chatbot_service.is_enabled(db, company_id))
+
+
+@router.patch("/ai", response_model=AIChatbotSettingsResponse)
+def update_ai_integration(
+    payload: AIChatbotSettingsUpdateRequest,
+    company_id: uuid.UUID = Depends(get_current_company_id),
+    current_user: User = Depends(require_permission("company", "configure")),
+    db: Session = Depends(get_db),
+):
+    enabled = ai_chatbot_service.set_enabled(
+        db, company_id, enabled=payload.enabled, actor_user_id=current_user.id
+    )
+    return AIChatbotSettingsResponse(enabled=enabled)

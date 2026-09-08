@@ -22,6 +22,7 @@ export interface CurrentUser {
   permissions: string[];
   employee_id: string | null;
   full_name: string | null;
+  ai_chatbot_enabled: boolean;
 }
 
 export interface Company {
@@ -318,6 +319,17 @@ export interface LeaveSettings {
 
 export interface IntegrationSettings {
   slack_webhook_url: string | null;
+}
+
+export interface AIChatbotSettings {
+  enabled: boolean;
+}
+
+export type ChatRole = "user" | "assistant";
+
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
 }
 
 export interface AttendanceShiftConfig {

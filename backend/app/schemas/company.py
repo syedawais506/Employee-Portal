@@ -37,6 +37,14 @@ class WebhookTestResponse(BaseModel):
     sent: bool
 
 
+class AIChatbotSettingsResponse(BaseModel):
+    enabled: bool
+
+
+class AIChatbotSettingsUpdateRequest(BaseModel):
+    enabled: bool
+
+
 class CompanyBrandingResponse(BaseModel):
     name: str
     logo_url: str | None

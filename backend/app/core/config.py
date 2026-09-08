@@ -49,6 +49,11 @@ class Settings(BaseSettings):
 
     auth_rate_limit: str = "5/minute"
 
+    # Platform-wide key shared by every company that opts into the HR FAQ
+    # chatbot (company.ai_chatbot_enabled) — no per-tenant "bring your own
+    # key" yet, see docs/ROADMAP.md Phase 13.
+    gemini_api_key: str | None = None
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

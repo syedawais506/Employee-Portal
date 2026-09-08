@@ -42,6 +42,11 @@ class TokenError(AppError):
     code = "TOKEN_INVALID"
 
 
+class ExternalServiceError(AppError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    code = "EXTERNAL_SERVICE_ERROR"
+
+
 async def app_exception_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,

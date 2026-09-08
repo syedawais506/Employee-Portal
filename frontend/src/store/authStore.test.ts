@@ -13,6 +13,7 @@ function buildUser(overrides: Partial<CurrentUser> = {}): CurrentUser {
     permissions: ["employee.view", "employee.create"],
     employee_id: "employee-1",
     full_name: "Alex Admin",
+    ai_chatbot_enabled: false,
     ...overrides,
   };
 }

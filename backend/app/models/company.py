@@ -22,6 +22,7 @@ class Company(UUIDPkMixin, TimestampMixin, SoftDeleteMixin, Base):
     slack_webhook_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     logo_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     primary_color: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    ai_chatbot_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     departments: Mapped[list["Department"]] = relationship(
         back_populates="company", cascade="all, delete-orphan"

@@ -5,6 +5,7 @@ import { AuthLayout } from "@/layouts/AuthLayout";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
+import { AskHRPage } from "@/features/ai/AskHRPage";
 import { AssetsPage } from "@/features/assets/AssetsPage";
 import { AttendancePage } from "@/features/attendance/AttendancePage";
 import { CompanyListPage } from "@/features/companies/CompanyListPage";
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
               { path: "/attendance", element: <AttendancePage /> },
               { path: "/projects", element: <ProjectsEntryPage /> },
               { path: "/assets", element: <AssetsPage /> },
+              { path: "/ask-hr", element: <AskHRPage /> },
             ],
           },
           {
