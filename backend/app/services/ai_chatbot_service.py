@@ -15,7 +15,7 @@ from app.schemas.ai import ChatMessage
 from app.services.audit_service import audit_service
 from app.services.leave_service import leave_service
 
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.6-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 SYSTEM_PROMPT = """You are the HR FAQ assistant for {company_name}, embedded in an employee portal.
@@ -148,7 +148,7 @@ class AIChatbotService:
                     "system_instruction": {"parts": [{"text": system_instruction}]},
                     "contents": contents,
                 },
-                timeout=20.0,
+                timeout=45.0,
             )
             response.raise_for_status()
         except httpx.HTTPError as exc:
