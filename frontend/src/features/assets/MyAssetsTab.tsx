@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Chip, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
+import { Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 
 import { listMyAssets } from "@/api/assets";
 import { PageHeader } from "@/components/PageHeader";
@@ -11,6 +11,7 @@ export function MyAssetsTab() {
     <>
       <PageHeader title="My Assets" subtitle="Equipment currently or previously assigned to you." />
       <Paper variant="outlined">
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
@@ -44,6 +45,7 @@ export function MyAssetsTab() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
     </>
   );

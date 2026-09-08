@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Chip, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
+import { Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 
 import { getOnboardingQueue } from "@/api/onboarding";
 
@@ -22,6 +22,7 @@ export function OnboardingQueuePage() {
 
   return (
     <Paper variant="outlined">
+      <TableContainer>
       <Table>
         <TableHead>
           <TableRow>
@@ -51,6 +52,7 @@ export function OnboardingQueuePage() {
           )}
         </TableBody>
       </Table>
+      </TableContainer>
     </Paper>
   );
 }

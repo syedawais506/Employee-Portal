@@ -6,6 +6,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -63,6 +64,7 @@ export function BalancesTab() {
         My Balances
       </Typography>
       <Paper variant="outlined" sx={{ mb: 4 }}>
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
@@ -94,6 +96,7 @@ export function BalancesTab() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
 
       {canViewCompanyBalances && (
@@ -117,6 +120,7 @@ export function BalancesTab() {
             ))}
           </TextField>
           <Paper variant="outlined">
+            <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
@@ -148,6 +152,7 @@ export function BalancesTab() {
                 )}
               </TableBody>
             </Table>
+            </TableContainer>
           </Paper>
         </>
       )}

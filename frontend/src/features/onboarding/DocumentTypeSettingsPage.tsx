@@ -19,6 +19,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -98,40 +99,42 @@ export function DocumentTypeSettingsPage() {
         New hires must upload every document marked "Required" before their onboarding can be submitted for review.
       </Typography>
 
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell>Required</TableCell>
-            <TableCell align="right">Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {(documentTypes ?? []).map((dt) => (
-            <TableRow key={dt.id} hover>
-              <TableCell>{dt.name}</TableCell>
-              <TableCell>
-                <Switch
-                  checked={dt.is_required}
-                  onChange={(event) => toggleRequiredMutation.mutate({ id: dt.id, is_required: event.target.checked })}
-                />
-              </TableCell>
-              <TableCell align="right">
-                <IconButton size="small" onClick={() => setPendingDelete(dt)}>
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-              </TableCell>
-            </TableRow>
-          ))}
-          {(documentTypes ?? []).length === 0 && (
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
             <TableRow>
-              <TableCell colSpan={3} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                No document types configured yet.
-              </TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Required</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
-          )}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {(documentTypes ?? []).map((dt) => (
+              <TableRow key={dt.id} hover>
+                <TableCell>{dt.name}</TableCell>
+                <TableCell>
+                  <Switch
+                    checked={dt.is_required}
+                    onChange={(event) => toggleRequiredMutation.mutate({ id: dt.id, is_required: event.target.checked })}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => setPendingDelete(dt)}>
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+            {(documentTypes ?? []).length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                  No document types configured yet.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Add Document Type</DialogTitle>

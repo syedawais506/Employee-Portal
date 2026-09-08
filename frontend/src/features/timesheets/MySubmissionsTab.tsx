@@ -1,6 +1,19 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Alert, Chip, Paper, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Typography } from "@mui/material";
+import {
+  Alert,
+  Chip,
+  Paper,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tabs,
+  Typography,
+} from "@mui/material";
 
 import { listMyTimesheetSubmissions, type TimesheetBucket } from "@/api/timesheets";
 import { PageHeader } from "@/components/PageHeader";
@@ -38,6 +51,7 @@ export function MySubmissionsTab() {
       </Tabs>
 
       <Paper variant="outlined">
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
@@ -75,6 +89,7 @@ export function MySubmissionsTab() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
 
       {bucket === "rejected" && (submissions ?? []).length > 0 && (

@@ -14,6 +14,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   Tabs,
@@ -202,6 +203,7 @@ export function MyLeaveTab() {
       </Tabs>
 
       <Paper variant="outlined">
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
@@ -247,6 +249,7 @@ export function MyLeaveTab() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
 
       <LeaveRequestFormDialog

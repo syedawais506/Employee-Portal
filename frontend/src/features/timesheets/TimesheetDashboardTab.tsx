@@ -12,6 +12,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -193,29 +194,31 @@ export function TimesheetDashboardTab() {
             <Typography variant="h3" sx={{ mb: 1.5 }}>
               Hours by Project
             </Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Project</TableCell>
-                  <TableCell align="right">Hours</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {(data?.hours_by_project ?? []).map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>{row.name}</TableCell>
-                    <TableCell align="right">{row.hours}</TableCell>
-                  </TableRow>
-                ))}
-                {(data?.hours_by_project ?? []).length === 0 && (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
                   <TableRow>
-                    <TableCell colSpan={2} align="center" sx={{ color: "text.secondary" }}>
-                      No hours logged yet.
-                    </TableCell>
+                    <TableCell>Project</TableCell>
+                    <TableCell align="right">Hours</TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {(data?.hours_by_project ?? []).map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.name}</TableCell>
+                      <TableCell align="right">{row.hours}</TableCell>
+                    </TableRow>
+                  ))}
+                  {(data?.hours_by_project ?? []).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={2} align="center" sx={{ color: "text.secondary" }}>
+                        No hours logged yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Paper>
         </Grid>
         <Grid item xs={12} md={6}>
@@ -223,29 +226,31 @@ export function TimesheetDashboardTab() {
             <Typography variant="h3" sx={{ mb: 1.5 }}>
               Hours by Employee
             </Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Employee</TableCell>
-                  <TableCell align="right">Hours</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {(data?.hours_by_employee ?? []).map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>{row.name}</TableCell>
-                    <TableCell align="right">{row.hours}</TableCell>
-                  </TableRow>
-                ))}
-                {(data?.hours_by_employee ?? []).length === 0 && (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
                   <TableRow>
-                    <TableCell colSpan={2} align="center" sx={{ color: "text.secondary" }}>
-                      No hours logged yet.
-                    </TableCell>
+                    <TableCell>Employee</TableCell>
+                    <TableCell align="right">Hours</TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {(data?.hours_by_employee ?? []).map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.name}</TableCell>
+                      <TableCell align="right">{row.hours}</TableCell>
+                    </TableRow>
+                  ))}
+                  {(data?.hours_by_employee ?? []).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={2} align="center" sx={{ color: "text.secondary" }}>
+                        No hours logged yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Paper>
         </Grid>
       </Grid>

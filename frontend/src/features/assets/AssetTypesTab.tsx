@@ -3,7 +3,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import { Alert, Button, IconButton, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
+import {
+  Alert,
+  Button,
+  IconButton,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+} from "@mui/material";
 
 import { extractApiErrorMessage } from "@/api/client";
 import { createAssetType, deleteAssetType, listAssetTypes, updateAssetType } from "@/api/assets";
@@ -63,6 +75,7 @@ export function AssetTypesTab() {
       )}
 
       <Paper variant="outlined">
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
@@ -99,6 +112,7 @@ export function AssetTypesTab() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
 
       <AssetTypeFormDialog

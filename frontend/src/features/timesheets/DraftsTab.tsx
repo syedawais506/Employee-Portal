@@ -13,6 +13,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -192,6 +193,7 @@ export function DraftsTab() {
       )}
 
       <Paper variant="outlined">
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
@@ -236,6 +238,7 @@ export function DraftsTab() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
 
       <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>

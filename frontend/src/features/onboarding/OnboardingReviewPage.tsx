@@ -22,6 +22,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -172,57 +173,59 @@ export function OnboardingReviewPage() {
           <Typography variant="h3" sx={{ mb: 2 }}>
             Submitted Documents
           </Typography>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Document</TableCell>
-                <TableCell>File</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Expires</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(documents ?? []).map((doc) => (
-                <TableRow key={doc.id} hover>
-                  <TableCell>{doc.document_type_name}</TableCell>
-                  <TableCell>{doc.original_filename}</TableCell>
-                  <TableCell>
-                    <Chip label={doc.status} size="small" color={STATUS_COLOR[doc.status]} />
-                  </TableCell>
-                  <TableCell>{doc.expiry_date ?? "—"}</TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => handleDownload(doc.id)}>
-                      <DownloadIcon fontSize="small" />
-                    </IconButton>
-                    <PermissionGate module="onboarding" action="review">
-                      <IconButton
-                        size="small"
-                        color="success"
-                        onClick={() => {
-                          setApproveExpiryDate(doc.expiry_date ?? "");
-                          setApproving(doc);
-                        }}
-                        disabled={doc.status === "approved"}
-                      >
-                        <CheckIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => setRejecting(doc)}>
-                        <CloseIcon fontSize="small" />
-                      </IconButton>
-                    </PermissionGate>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {(documents ?? []).length === 0 && (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                    No documents uploaded yet.
-                  </TableCell>
+                  <TableCell>Document</TableCell>
+                  <TableCell>File</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Expires</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {(documents ?? []).map((doc) => (
+                  <TableRow key={doc.id} hover>
+                    <TableCell>{doc.document_type_name}</TableCell>
+                    <TableCell>{doc.original_filename}</TableCell>
+                    <TableCell>
+                      <Chip label={doc.status} size="small" color={STATUS_COLOR[doc.status]} />
+                    </TableCell>
+                    <TableCell>{doc.expiry_date ?? "—"}</TableCell>
+                    <TableCell align="right">
+                      <IconButton size="small" onClick={() => handleDownload(doc.id)}>
+                        <DownloadIcon fontSize="small" />
+                      </IconButton>
+                      <PermissionGate module="onboarding" action="review">
+                        <IconButton
+                          size="small"
+                          color="success"
+                          onClick={() => {
+                            setApproveExpiryDate(doc.expiry_date ?? "");
+                            setApproving(doc);
+                          }}
+                          disabled={doc.status === "approved"}
+                        >
+                          <CheckIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={() => setRejecting(doc)}>
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </PermissionGate>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {(documents ?? []).length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                      No documents uploaded yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </CardContent>
       </Card>
 

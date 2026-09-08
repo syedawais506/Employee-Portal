@@ -109,7 +109,7 @@ export function ProjectListPage() {
         </PermissionGate>
       </Stack>
 
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: "wrap", rowGap: 2 }}>
         <TextField
           select
           size="small"

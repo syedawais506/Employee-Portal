@@ -10,6 +10,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   Typography,
@@ -121,6 +122,7 @@ export function MyAttendanceTab() {
         Last 14 Days
       </Typography>
       <Paper variant="outlined">
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
@@ -154,6 +156,7 @@ export function MyAttendanceTab() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
     </>
   );

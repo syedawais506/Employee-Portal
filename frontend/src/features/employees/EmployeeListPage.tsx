@@ -161,7 +161,7 @@ export function EmployeeListPage() {
         }
       />
 
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: "wrap", rowGap: 2 }}>
         <TextField
           placeholder="Search by name or employee code"
           size="small"
@@ -170,7 +170,7 @@ export function EmployeeListPage() {
             setSearch(event.target.value);
             setPage(0);
           }}
-          sx={{ minWidth: 280 }}
+          sx={{ minWidth: 280, flexGrow: { xs: 1, sm: 0 } }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">

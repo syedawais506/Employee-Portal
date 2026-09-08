@@ -17,6 +17,8 @@ import {
   MenuItem,
   Toolbar,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import ApartmentIcon from "@mui/icons-material/Apartment";
@@ -32,6 +34,7 @@ import HowToRegIcon from "@mui/icons-material/HowToReg";
 import IntegrationInstructionsIcon from "@mui/icons-material/IntegrationInstructions";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import LogoutIcon from "@mui/icons-material/Logout";
+import MenuIcon from "@mui/icons-material/Menu";
 import SecurityIcon from "@mui/icons-material/Security";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
 
@@ -157,6 +160,9 @@ export function AppLayout() {
   const clearSession = useAuthStore((state) => state.clearSession);
   const { mode, toggleMode } = useThemeStore();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const breadcrumbLabel = useBreadcrumbLabel(location.pathname);
   const isSuperAdmin = user?.is_super_admin ?? false;
@@ -172,12 +178,50 @@ export function AppLayout() {
     }
   }
 
+  const navList = (
+    <>
+      <Toolbar sx={{ px: 3 }}>
+        <Typography variant="h3" sx={{ color: "sidebar.text" }}>
+          Employee Portal
+        </Typography>
+      </Toolbar>
+      <Divider sx={{ borderColor: "rgba(255,255,255,0.08)" }} />
+      <List sx={{ px: 1.5, py: 2 }}>
+        {visibleNavItems.map((item) => {
+          const active = item.match(location.pathname);
+          return (
+            <ListItemButton
+              key={item.to}
+              component={RouterLink}
+              to={item.to}
+              selected={active}
+              onClick={() => setMobileNavOpen(false)}
+              sx={{
+                borderRadius: 2,
+                mb: 0.5,
+                color: "sidebar.text",
+                "&.Mui-selected": { bgcolor: "primary.main", color: "#fff" },
+                "&.Mui-selected:hover": { bgcolor: "primary.dark" },
+              }}
+            >
+              <ListItemIcon sx={{ color: "inherit", minWidth: 36 }}>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.label} />
+            </ListItemButton>
+          );
+        })}
+      </List>
+    </>
+  );
+
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", overflowX: "hidden" }}>
       <Drawer
-        variant="permanent"
+        variant={isMobile ? "temporary" : "permanent"}
+        open={isMobile ? mobileNavOpen : true}
+        onClose={() => setMobileNavOpen(false)}
+        ModalProps={{ keepMounted: true }}
         sx={{
-          width: DRAWER_WIDTH,
+          width: isMobile ? 0 : DRAWER_WIDTH,
           flexShrink: 0,
           "& .MuiDrawer-paper": {
             width: DRAWER_WIDTH,
@@ -188,35 +232,7 @@ export function AppLayout() {
           },
         }}
       >
-        <Toolbar sx={{ px: 3 }}>
-          <Typography variant="h3" sx={{ color: "sidebar.text" }}>
-            Employee Portal
-          </Typography>
-        </Toolbar>
-        <Divider sx={{ borderColor: "rgba(255,255,255,0.08)" }} />
-        <List sx={{ px: 1.5, py: 2 }}>
-          {visibleNavItems.map((item) => {
-            const active = item.match(location.pathname);
-            return (
-              <ListItemButton
-                key={item.to}
-                component={RouterLink}
-                to={item.to}
-                selected={active}
-                sx={{
-                  borderRadius: 2,
-                  mb: 0.5,
-                  color: "sidebar.text",
-                  "&.Mui-selected": { bgcolor: "primary.main", color: "#fff" },
-                  "&.Mui-selected:hover": { bgcolor: "primary.dark" },
-                }}
-              >
-                <ListItemIcon sx={{ color: "inherit", minWidth: 36 }}>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} />
-              </ListItemButton>
-            );
-          })}
-        </List>
+        {navList}
       </Drawer>
 
       <Box sx={{ flexGrow: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
@@ -226,13 +242,26 @@ export function AppLayout() {
           elevation={0}
           sx={{ bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}
         >
-          <Toolbar sx={{ justifyContent: "space-between" }}>
-            <Breadcrumbs>
-              <Link component={RouterLink} to="/" underline="hover" color="text.secondary">
-                Home
-              </Link>
-              <Typography color="text.primary">{breadcrumbLabel}</Typography>
-            </Breadcrumbs>
+          <Toolbar sx={{ justifyContent: "space-between", gap: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+              <IconButton
+                onClick={() => setMobileNavOpen(true)}
+                size="small"
+                aria-label="Open navigation menu"
+                sx={{ display: { xs: "inline-flex", md: "none" } }}
+              >
+                <MenuIcon fontSize="small" />
+              </IconButton>
+              <Breadcrumbs sx={{ display: { xs: "none", sm: "flex" } }}>
+                <Link component={RouterLink} to="/" underline="hover" color="text.secondary">
+                  Home
+                </Link>
+                <Typography color="text.primary">{breadcrumbLabel}</Typography>
+              </Breadcrumbs>
+              <Typography color="text.primary" sx={{ display: { xs: "block", sm: "none" } }} noWrap>
+                {breadcrumbLabel}
+              </Typography>
+            </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <IconButton onClick={toggleMode} size="small" aria-label="Toggle color mode">
@@ -268,7 +297,7 @@ export function AppLayout() {
           </Toolbar>
         </AppBar>
 
-        <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: 4 }}>
+        <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, sm: 3, md: 4 } }}>
           <Outlet />
         </Box>
       </Box>

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Chip, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
+import { Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 
 import { listMyProjects } from "@/api/projects";
 import { PageHeader } from "@/components/PageHeader";
@@ -18,6 +18,7 @@ export function MyProjectsPage() {
     <>
       <PageHeader title="My Projects" subtitle="Projects you're currently assigned to." />
       <Paper variant="outlined">
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
@@ -49,6 +50,7 @@ export function MyProjectsPage() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
     </>
   );

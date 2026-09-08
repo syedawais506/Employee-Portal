@@ -184,7 +184,7 @@ export function ProjectDetailPage() {
           </Stack>
 
           <PermissionGate module="project" action="update">
-            <Stack direction="row" spacing={2} alignItems="center">
+            <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
               <TextField
                 select
                 size="small"

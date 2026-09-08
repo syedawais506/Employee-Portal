@@ -15,6 +15,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -189,6 +190,7 @@ export function LeaveSettingsTab() {
         </Button>
       </Stack>
       <Paper variant="outlined" sx={{ mb: 4 }}>
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
@@ -227,6 +229,7 @@ export function LeaveSettingsTab() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
 
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
@@ -236,6 +239,7 @@ export function LeaveSettingsTab() {
         </Button>
       </Stack>
       <Paper variant="outlined">
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
@@ -270,6 +274,7 @@ export function LeaveSettingsTab() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
 
       <LeaveTypeFormDialog

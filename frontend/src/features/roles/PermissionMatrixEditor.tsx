@@ -10,6 +10,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   Typography,
@@ -76,41 +77,43 @@ export function PermissionMatrixEditor({ role, catalog }: PermissionMatrixEditor
       {mutation.isError && <Alert severity="error" sx={{ mb: 2 }}>{extractApiErrorMessage(mutation.error)}</Alert>}
       {mutation.isSuccess && <Alert severity="success" sx={{ mb: 2 }}>Permissions updated.</Alert>}
 
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Module</TableCell>
-            {["view", "create", "update", "delete", "approve", "reject", "export", "import"].map((action) => (
-              <TableCell key={action} align="center">
-                {action}
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {catalog.map((entry) => (
-            <TableRow key={entry.module} hover>
-              <TableCell sx={{ textTransform: "capitalize" }}>{entry.module}</TableCell>
-              {["view", "create", "update", "delete", "approve", "reject", "export", "import"].map((action) => {
-                const supported = entry.actions.includes(action);
-                return (
-                  <TableCell key={action} align="center">
-                    {supported ? (
-                      <Checkbox
-                        size="small"
-                        checked={grants.has(`${entry.module}.${action}`)}
-                        onChange={() => toggle(entry.module, action)}
-                      />
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
-                );
-              })}
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Module</TableCell>
+              {["view", "create", "update", "delete", "approve", "reject", "export", "import"].map((action) => (
+                <TableCell key={action} align="center">
+                  {action}
+                </TableCell>
+              ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {catalog.map((entry) => (
+              <TableRow key={entry.module} hover>
+                <TableCell sx={{ textTransform: "capitalize" }}>{entry.module}</TableCell>
+                {["view", "create", "update", "delete", "approve", "reject", "export", "import"].map((action) => {
+                  const supported = entry.actions.includes(action);
+                  return (
+                    <TableCell key={action} align="center">
+                      {supported ? (
+                        <Checkbox
+                          size="small"
+                          checked={grants.has(`${entry.module}.${action}`)}
+                          onChange={() => toggle(entry.module, action)}
+                        />
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </Box>
   );
 }

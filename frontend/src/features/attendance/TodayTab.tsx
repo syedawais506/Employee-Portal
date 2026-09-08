@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Chip, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
+import { Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 
 import { getTodayAttendance } from "@/api/attendance";
 import type { AttendanceStatus } from "@/types";
@@ -30,6 +30,7 @@ export function TodayTab() {
         Every active employee, whether or not they've checked in yet today.
       </Typography>
       <Paper variant="outlined">
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
@@ -61,6 +62,7 @@ export function TodayTab() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
     </>
   );

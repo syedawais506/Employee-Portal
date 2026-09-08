@@ -1,4 +1,4 @@
-import { Alert, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
+import { Alert, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 
 import type { ReportPreview } from "@/types";
 
@@ -23,31 +23,33 @@ export function ReportPreviewTable({ preview }: ReportPreviewTableProps) {
         </Alert>
       )}
       <Paper variant="outlined" sx={{ width: "100%", maxWidth: "100%", overflowX: "auto" }}>
-        <Table size="small" sx={{ "& td, & th": { whiteSpace: "nowrap", px: 1.5, py: 0.75 } }}>
-          <TableHead>
-            <TableRow>
-              {preview.header.map((column) => (
-                <TableCell key={column}>{column}</TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {preview.rows.map((row, rowIndex) => (
-              <TableRow key={rowIndex} hover>
-                {row.map((cell, cellIndex) => (
-                  <TableCell key={cellIndex}>{cell}</TableCell>
+        <TableContainer>
+          <Table size="small" sx={{ "& td, & th": { whiteSpace: "nowrap", px: 1.5, py: 0.75 } }}>
+            <TableHead>
+              <TableRow>
+                {preview.header.map((column) => (
+                  <TableCell key={column}>{column}</TableCell>
                 ))}
               </TableRow>
-            ))}
-            {preview.rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={preview.header.length} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                  No rows match these filters.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {preview.rows.map((row, rowIndex) => (
+                <TableRow key={rowIndex} hover>
+                  {row.map((cell, cellIndex) => (
+                    <TableCell key={cellIndex}>{cell}</TableCell>
+                  ))}
+                </TableRow>
+              ))}
+              {preview.rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={preview.header.length} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                    No rows match these filters.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
     </>
   );

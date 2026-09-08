@@ -19,6 +19,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -139,46 +140,48 @@ export function ClientsTab() {
         </Stack>
       </Stack>
 
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell>Contact</TableCell>
-            <TableCell>Email</TableCell>
-            <TableCell>Phone</TableCell>
-            <TableCell align="right">Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {(clients ?? []).map((client) => (
-            <TableRow key={client.id} hover>
-              <TableCell>{client.name}</TableCell>
-              <TableCell>{client.contact_name ?? "—"}</TableCell>
-              <TableCell>{client.contact_email ?? "—"}</TableCell>
-              <TableCell>{client.contact_phone ?? "—"}</TableCell>
-              <TableCell align="right">
-                <PermissionGate module="project" action="update">
-                  <IconButton size="small" onClick={() => openEdit(client)}>
-                    <EditOutlinedIcon fontSize="small" />
-                  </IconButton>
-                </PermissionGate>
-                <PermissionGate module="project" action="delete">
-                  <IconButton size="small" onClick={() => setPendingDelete(client)}>
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
-                </PermissionGate>
-              </TableCell>
-            </TableRow>
-          ))}
-          {(clients ?? []).length === 0 && (
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
             <TableRow>
-              <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                No clients yet.
-              </TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Contact</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Phone</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
-          )}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {(clients ?? []).map((client) => (
+              <TableRow key={client.id} hover>
+                <TableCell>{client.name}</TableCell>
+                <TableCell>{client.contact_name ?? "—"}</TableCell>
+                <TableCell>{client.contact_email ?? "—"}</TableCell>
+                <TableCell>{client.contact_phone ?? "—"}</TableCell>
+                <TableCell align="right">
+                  <PermissionGate module="project" action="update">
+                    <IconButton size="small" onClick={() => openEdit(client)}>
+                      <EditOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </PermissionGate>
+                  <PermissionGate module="project" action="delete">
+                    <IconButton size="small" onClick={() => setPendingDelete(client)}>
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </PermissionGate>
+                </TableCell>
+              </TableRow>
+            ))}
+            {(clients ?? []).length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                  No clients yet.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       <Dialog open={formState.open} onClose={() => setFormState({ open: false, editing: null })} maxWidth="xs" fullWidth>
         <DialogTitle>{formState.editing ? "Edit Client" : "New Client"}</DialogTitle>
