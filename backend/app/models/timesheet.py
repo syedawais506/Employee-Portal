@@ -56,7 +56,7 @@ class TimesheetSubmission(UUIDPkMixin, TimestampMixin, Base):
     )
     period_start: Mapped[date] = mapped_column(Date, nullable=False)
     period_end: Mapped[date] = mapped_column(Date, nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="submitted", nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="submitted", nullable=False, index=True)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     manager_approved_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True

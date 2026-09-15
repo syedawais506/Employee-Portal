@@ -308,12 +308,55 @@ class LeaveService:
     ) -> list[dict]:
         if employee_id is not None:
             return self.list_my_balances(db, company_id, employee_id, year)
+
+        # Company-wide view: batch-fetch existing balance rows and used-days
+        # once each (2 queries total) instead of the 2-per-(employee, leave
+        # type) pattern list_my_balances/_balance_summary use for a single
+        # employee — that pattern is O(employees x leave_types) queries here,
+        # which is the actual hot path behind both the Admin Balances tab and
+        # every admin Ask HR message. A balance row that doesn't exist yet is
+        # computed inline from the leave type's quota (same values
+        # _get_or_create_balance would produce) rather than lazily inserted —
+        # it still gets created for real the first time that one employee's
+        # own balance is read via list_my_balances.
         leave_types = self.type_repo.list_all(db, company_id)
         employees = self.employee_repo.list(db, company_id, limit=1000)[0]
+        existing_balances = {
+            (b.employee_id, b.leave_type_id): b for b in self.balance_repo.list_for_company_year(db, company_id, year)
+        }
+        used_by_pair = self.request_repo.sum_days_for_year_grouped(db, company_id, year, statuses=("approved",))
+
         summaries = []
         for emp in employees:
             for lt in leave_types:
-                summary = self._balance_summary(db, company_id, emp.id, lt, year)
+                used = used_by_pair.get((emp.id, lt.id), 0)
+                if lt.annual_quota_days is None:
+                    summary = {
+                        "leave_type_id": lt.id,
+                        "leave_type_name": lt.name,
+                        "year": year,
+                        "granted": None,
+                        "carried_forward": "0",
+                        "adjustment": "0",
+                        "used": str(used),
+                        "available": None,
+                    }
+                else:
+                    existing = existing_balances.get((emp.id, lt.id))
+                    granted = existing.granted if existing else Decimal(lt.annual_quota_days)
+                    carried_forward = existing.carried_forward if existing else Decimal("0")
+                    adjustment = existing.adjustment if existing else Decimal("0")
+                    available = granted + carried_forward + adjustment - Decimal(used)
+                    summary = {
+                        "leave_type_id": lt.id,
+                        "leave_type_name": lt.name,
+                        "year": year,
+                        "granted": str(granted),
+                        "carried_forward": str(carried_forward),
+                        "adjustment": str(adjustment),
+                        "used": str(used),
+                        "available": str(available),
+                    }
                 summaries.append({**summary, "employee_id": emp.id, "employee_name": emp.full_name})
         return summaries
 
@@ -391,11 +434,11 @@ class LeaveService:
         attachment_file_key = None
         attachment_original_filename = None
         if attachment is not None:
-            content, filename, content_type = attachment
+            content, filename, _content_type = attachment
             attachment_file_key = (
                 f"{company_id}/employees/{employee_id}/leave-requests/{uuid.uuid4().hex}_{filename}"
             )
-            upload_document(key=attachment_file_key, content=content, content_type=content_type)
+            upload_document(key=attachment_file_key, content=content)
             attachment_original_filename = filename
 
         request = self.request_repo.create(

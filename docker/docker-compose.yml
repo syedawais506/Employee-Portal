@@ -2,12 +2,23 @@ name: employee-portal
 
 services:
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: postgres/Dockerfile
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-portal}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portal}
+      # No insecure fallback here on purpose — a well-known default password
+      # is one env file away from being the real credential on a public host.
+      # Set a real value in docker/.env (see docker/.env.example).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in docker/.env}
       POSTGRES_DB: ${POSTGRES_DB:-employee_portal}
+      # Read by docker/postgres-initdb/01-create-app-role.sh (below) — the
+      # restricted, non-superuser role the app actually connects as, so RLS
+      # policies aren't bypassed. Only used on first-ever init of an empty
+      # postgres_data volume, same as POSTGRES_PASSWORD above.
+      APP_DB_USER: ${APP_DB_USER:-app_runtime}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in docker/.env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -30,11 +41,18 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+      # Same "no insecure fallback" reasoning as POSTGRES_PASSWORD above.
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in docker/.env}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in docker/.env}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      # Bound to loopback by default — nginx is the only service meant to be
+      # reachable from outside this host (see the nginx service below); a
+      # browser on the SAME machine still reaches MinIO fine via localhost
+      # for presigned URLs (see S3_PUBLIC_ENDPOINT_URL). Override S3_HOST_BIND
+      # to 0.0.0.0 only if you deliberately want MinIO reachable directly
+      # from other machines (e.g. browsers hitting a remote server).
+      - "${S3_HOST_BIND:-127.0.0.1}:9000:9000"
+      - "${S3_HOST_BIND:-127.0.0.1}:9001:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -55,11 +73,18 @@ services:
       target: production
     restart: unless-stopped
     environment:
-      APP_ENV: production
+      APP_ENV: ${APP_ENV:-production}
       DEBUG: "false"
-      SECRET_KEY: ${SECRET_KEY}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in docker/.env}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-portal}:${POSTGRES_PASSWORD:-portal}@postgres:5432/${POSTGRES_DB:-employee_portal}
+      # Restricted, non-superuser role — see docker/postgres-initdb — so RLS
+      # policies actually constrain what this process can read/write.
+      DATABASE_URL: postgresql+psycopg://${APP_DB_USER:-app_runtime}:${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in docker/.env}@postgres:5432/${POSTGRES_DB:-employee_portal}
+      # Migrations need DDL/ownership privileges the restricted role above
+      # deliberately doesn't have — only alembic (run via `docker exec
+      # backend alembic upgrade head`) should ever use this. See
+      # backend/alembic/env.py.
+      MIGRATION_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-portal}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in docker/.env}@postgres:5432/${POSTGRES_DB:-employee_portal}
       REDIS_URL: redis://redis:6379/0
       SMTP_HOST: ${SMTP_HOST:-mailhog}
       SMTP_PORT: ${SMTP_PORT:-1025}
@@ -73,8 +98,8 @@ services:
       # (the internal Docker hostname) — see storage.py for why. Override if
       # MinIO is reachable at a different host/port from your machine.
       S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-http://localhost:9000}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in docker/.env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in docker/.env}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME:-employee-portal}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:8080}
       # Ask HR chatbot (Phase 13) — free tier key from aistudio.google.com/apikey.
@@ -91,11 +116,14 @@ services:
       context: ../backend
       target: production
     restart: unless-stopped
-    command: celery -A app.tasks.celery_app worker --loglevel=info
+    # Explicit concurrency — left unset, celery defaults to os.cpu_count(),
+    # which on a bigger production host could multiply DB_POOL_SIZE far
+    # beyond what Postgres' max_connections allows (see app/core/config.py).
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
     environment:
-      APP_ENV: production
-      SECRET_KEY: ${SECRET_KEY}
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-portal}:${POSTGRES_PASSWORD:-portal}@postgres:5432/${POSTGRES_DB:-employee_portal}
+      APP_ENV: ${APP_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in docker/.env}
+      DATABASE_URL: postgresql+psycopg://${APP_DB_USER:-app_runtime}:${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in docker/.env}@postgres:5432/${POSTGRES_DB:-employee_portal}
       REDIS_URL: redis://redis:6379/0
       SMTP_HOST: ${SMTP_HOST:-mailhog}
       SMTP_PORT: ${SMTP_PORT:-1025}
@@ -118,9 +146,9 @@ services:
     restart: unless-stopped
     command: celery -A app.tasks.celery_app beat --loglevel=info --schedule=/app/celerybeat-data/celerybeat-schedule
     environment:
-      APP_ENV: production
-      SECRET_KEY: ${SECRET_KEY}
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-portal}:${POSTGRES_PASSWORD:-portal}@postgres:5432/${POSTGRES_DB:-employee_portal}
+      APP_ENV: ${APP_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in docker/.env}
+      DATABASE_URL: postgresql+psycopg://${APP_DB_USER:-app_runtime}:${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in docker/.env}@postgres:5432/${POSTGRES_DB:-employee_portal}
       REDIS_URL: redis://redis:6379/0
       SMTP_HOST: ${SMTP_HOST:-mailhog}
       SMTP_PORT: ${SMTP_PORT:-1025}

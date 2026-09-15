@@ -7,6 +7,15 @@ os.environ.setdefault(
     "DATABASE_URL", "postgresql+psycopg://portal:portal@localhost:5432/employee_portal_test"
 )
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
+# slowapi's Limiter is constructed once at import time against real Redis
+# (not the fakeredis swap-in below, which only covers app.core.redis_client's
+# own lazily-constructed client) and its counters persist for the whole test
+# session — hundreds of logins across the suite would trip a real "5/minute"
+# well before the session ends. The rate-limiting code path itself is
+# exercised directly against a real endpoint in a live/manual smoke test
+# instead, same as forgot-password's pre-existing limit was never covered by
+# an automated 429 test either.
+os.environ.setdefault("AUTH_RATE_LIMIT", "10000/minute")
 
 import fakeredis
 import pytest

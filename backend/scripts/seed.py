@@ -354,7 +354,7 @@ def seed_company(db, *, name: str, slug: str) -> None:
         caller_employee_id=manager_employee.id, requested_employee_id=None, can_act_for_others=False,
         leave_type_id=sick_leave.id, start_date=leave_week2, end_date=leave_week2,
         reason="Medical appointment",
-        attachment=(b"Demo medical certificate content.", "medical_certificate.pdf", "application/pdf"),
+        attachment=(b"%PDF-1.4 Demo medical certificate content.", "medical_certificate.pdf", "application/pdf"),
         actor_user_id=manager_employee.user_id,
     )
     leave_service.approve_request(db, company.id, approved_request.id, actor_user_id=admin_employee.user_id)
@@ -457,7 +457,8 @@ def _advance_demo_onboarding_to_submitted(db, *, company_id, employee, document_
         if not doc_type.is_required:
             continue
         key = f"seed/{company_id}/{employee.id}/{doc_type.id}.pdf"
-        upload_document(key=key, content=b"Demo document content for seeding.", content_type="application/pdf")
+        content = b"%PDF-1.4 Demo document content for seeding."
+        upload_document(key=key, content=content)
         onboarding_service.employee_document_repo.upsert(
             db,
             company_id=company_id,
@@ -466,7 +467,7 @@ def _advance_demo_onboarding_to_submitted(db, *, company_id, employee, document_
             file_key=key,
             original_filename=f"{doc_type.name}.pdf",
             content_type="application/pdf",
-            size_bytes=35,
+            size_bytes=len(content),
         )
 
     employee.onboarding_status = "submitted"

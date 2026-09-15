@@ -74,7 +74,7 @@ class BrandingService:
 
         company = self._get_company(db, company_id)
         key = build_branding_logo_key(company_id=company_id, filename=filename)
-        upload_document(key=key, content=content, content_type=content_type)
+        upload_document(key=key, content=content)
         company.logo_key = key
         db.flush()
         audit_service.record(

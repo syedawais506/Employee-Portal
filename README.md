@@ -40,7 +40,7 @@ Requires Docker and Docker Compose.
 ./scripts/dev-up.sh
 ```
 
-This copies `docker/.env.example` to `docker/.env` (edit it first if you want non-default secrets), builds and starts every service, runs migrations, and seeds demo data. When it finishes:
+This copies `docker/.env.example` to `docker/.env` on first run (auto-generating a real random value for every secret placeholder in it), builds and starts every service, runs migrations, and seeds demo data. When it finishes:
 
 | URL | What |
 |---|---|
@@ -263,7 +263,13 @@ The backend test suite includes a dedicated cross-tenant-isolation suite (`backe
 ## Security Notes for Deployment
 
 - Rotate `SECRET_KEY` and every demo password before exposing this beyond local development.
-- Postgres Row-Level Security is enabled on tenant tables as defense-in-depth behind the repository-layer tenant scoping, but RLS only constrains non-superuser, non-`BYPASSRLS` roles — see [docs/HLD.md §4](docs/HLD.md#4-multi-tenancy-strategy) for what's required in production for RLS to be a genuine second layer rather than a no-op.
+- Postgres Row-Level Security is enabled on tenant tables as defense-in-depth behind the repository-layer tenant scoping, and is real enforcement, not a no-op: `docker-compose.yml` provisions a dedicated non-superuser, non-`BYPASSRLS` role (`APP_DB_USER`) that the app connects as at runtime, distinct from the superuser role (`POSTGRES_USER`) migrations run as — see [docs/HLD.md §4](docs/HLD.md#4-multi-tenancy-strategy) for the full mechanism, including the one deliberate RLS exemption (`onboarding_invite`, looked up by token before a company context exists).
+- `docker-compose.yml` refuses to start without `POSTGRES_PASSWORD`, `SECRET_KEY`, `APP_DB_PASSWORD`, `S3_ACCESS_KEY`, and `S3_SECRET_KEY` set to real values in `docker/.env` (no insecure fallback default) — see `docker/.env.example` for the full list, including `MIGRATION_DATABASE_URL` (superuser, migrations only) vs. `DATABASE_URL` (restricted role, app runtime).
+- MinIO's ports (9000 API, 9001 console) are bound to `127.0.0.1` by default, not every network interface — only nginx is meant to be reachable from outside the host. Set `S3_HOST_BIND=0.0.0.0` only if you deliberately want MinIO reachable directly from other machines.
+- `/docs` and `/openapi.json` are automatically disabled (`404`) when `APP_ENV=production`, which `docker-compose.yml` always sets — don't rely on Swagger UI being reachable in that environment; see `docs/API_CONTRACTS.md` for the maintained contract reference instead.
+- `/auth/login` is rate-limited (`AUTH_RATE_LIMIT`, default 5/minute per IP) and `/ai/chat` is rate-limited per-user (`AI_CHAT_RATE_LIMIT_PER_MINUTE`, default 10/minute) — see `docs/API_CONTRACTS.md`.
+- File uploads (branding logo, company tour images, onboarding documents, leave attachments) are validated by actual file-signature bytes, not the client-declared content type, which is trivially spoofable.
+- Outbound webhook URLs (Slack/Teams integration) are validated against SSRF at both save time and delivery time — must be `https://` and must not resolve to a private/loopback/link-local/reserved address.
 - `CORS_ORIGINS`, `SMTP_*`, and `S3_*` in `docker/.env` / `backend/.env` all need real values outside local dev.
 - TLS termination is not configured in the provided Nginx configs — add it (or terminate TLS at a load balancer in front of this stack) before serving real traffic.
 

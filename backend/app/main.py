@@ -25,18 +25,24 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     connection_manager.loop = asyncio.get_running_loop()
+    connection_manager.start_redis_listener()
     try:
         ensure_bucket_exists()
     except Exception:
         logger.warning("s3_bucket_bootstrap_failed", bucket=settings.s3_bucket_name)
     yield
+    connection_manager.stop_redis_listener()
 
 
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
-    docs_url="/docs",
-    openapi_url="/openapi.json",
+    # Swagger UI and the raw OpenAPI schema hand an attacker a full map of
+    # every endpoint, request shape, and auth scheme — fine in dev, not
+    # something to expose publicly in production.
+    docs_url="/docs" if settings.app_env != "production" else None,
+    redoc_url="/redoc" if settings.app_env != "production" else None,
+    openapi_url="/openapi.json" if settings.app_env != "production" else None,
     lifespan=lifespan,
 )
 
@@ -67,6 +73,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        if request.url.path not in ("/docs", "/redoc"):
+            # This backend is a JSON API with no legitimate reason to load
+            # scripts/styles/frames of its own. /docs and /redoc (dev-only —
+            # disabled entirely in production above) are the only routes that
+            # render real HTML and need their CDN-hosted Swagger/ReDoc assets.
+            response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
         if settings.app_env != "development":
             response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         return response

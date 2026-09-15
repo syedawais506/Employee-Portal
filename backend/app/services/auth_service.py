@@ -1,5 +1,6 @@
 import uuid
 from datetime import timedelta
+from typing import cast
 
 from sqlalchemy.orm import Session
 
@@ -23,6 +24,11 @@ from app.tasks.email_tasks import send_password_reset_email, send_verification_e
 REFRESH_TOKEN_PREFIX = "refresh_jti:"
 RESET_TOKEN_PREFIX = "reset_jti:"
 VERIFY_TOKEN_PREFIX = "verify_jti:"
+REFRESH_USER_INDEX_PREFIX = "refresh_user:"
+# Longer than the longest possible refresh-token TTL (30-day remember-me) so
+# the per-user jti index outlives every token it could ever need to track;
+# refreshed on every touch so an active user's index never actually expires.
+REFRESH_USER_INDEX_TTL_SECONDS = 31 * 24 * 60 * 60
 
 
 class AuthService:
@@ -52,7 +58,11 @@ class AuthService:
         refresh_token, refresh_jti, ttl = create_refresh_token(
             user_id=str(user.id), remember_me=remember_me
         )
-        get_redis().setex(f"{REFRESH_TOKEN_PREFIX}{refresh_jti}", ttl, str(user.id))
+        redis_client = get_redis()
+        redis_client.setex(f"{REFRESH_TOKEN_PREFIX}{refresh_jti}", ttl, str(user.id))
+        user_index_key = f"{REFRESH_USER_INDEX_PREFIX}{user.id}"
+        redis_client.sadd(user_index_key, refresh_jti)
+        redis_client.expire(user_index_key, REFRESH_USER_INDEX_TTL_SECONDS)
         return access_token, expires_in, refresh_token, ttl
 
     def refresh_access_token(self, db: Session, refresh_token: str):
@@ -76,6 +86,7 @@ class AuthService:
             raise TokenError("Refresh token is no longer valid")
 
         redis_client.delete(key)  # rotate: old jti can never be used again
+        redis_client.srem(f"{REFRESH_USER_INDEX_PREFIX}{user_id}", jti)
 
         user = self.user_repo.get_by_id(db, uuid.UUID(user_id))
         if user is None or not user.is_active:
@@ -89,13 +100,30 @@ class AuthService:
             payload = decode_token(refresh_token)
         except ValueError:
             return
-        get_redis().delete(f"{REFRESH_TOKEN_PREFIX}{payload['jti']}")
+        jti = payload["jti"]
+        user_id = payload.get("sub")
+        redis_client = get_redis()
+        redis_client.delete(f"{REFRESH_TOKEN_PREFIX}{jti}")
+        if user_id:
+            redis_client.srem(f"{REFRESH_USER_INDEX_PREFIX}{user_id}", jti)
 
     def revoke_all_refresh_tokens(self, user_id: str) -> None:
-        # Refresh tokens are tracked individually by jti with no per-user index
-        # in this minimal implementation; a production system would maintain
-        # a per-user set of active jtis to revoke in bulk here.
-        pass
+        """Reuse-detection safety net: a replayed/stolen refresh token means
+        every other still-active token for this user is suspect too, so all
+        of them are invalidated, not just the one caught being reused.
+        Requires every issued token's jti to have been added to this user's
+        index at issue time (see issue_token_pair) — nothing here relies on
+        enumerating Redis globally.
+        """
+        redis_client = get_redis()
+        index_key = f"{REFRESH_USER_INDEX_PREFIX}{user_id}"
+        # smembers() is typed as Union[Awaitable[Set], Set] in redis-py's shared
+        # sync/async mixin even on this sync client — cast to the concrete
+        # sync return type so mypy allows iterating over it below.
+        jtis = cast("set[str]", redis_client.smembers(index_key))
+        if jtis:
+            redis_client.delete(*(f"{REFRESH_TOKEN_PREFIX}{jti}" for jti in jtis))
+        redis_client.delete(index_key)
 
     def request_password_reset(self, db: Session, email: str) -> None:
         user = self.user_repo.get_by_email(db, email)

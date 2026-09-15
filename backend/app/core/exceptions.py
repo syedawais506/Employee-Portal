@@ -47,6 +47,11 @@ class ExternalServiceError(AppError):
     code = "EXTERNAL_SERVICE_ERROR"
 
 
+class RateLimitExceededError(AppError):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    code = "RATE_LIMIT_EXCEEDED"
+
+
 async def app_exception_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,

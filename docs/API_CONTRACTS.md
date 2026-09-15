@@ -1,6 +1,6 @@
 # API Contracts — Phase 1 (`/api/v1`)
 
-Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI) and `GET /openapi.json`. This document is the human-reviewable source contract these endpoints implement.
+Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI) and `GET /openapi.json`. This document is the human-reviewable source contract these endpoints implement. Both routes are disabled (`404`) when `APP_ENV=production` — a full endpoint/schema map isn't something to hand an unauthenticated caller on a real deployment; this document remains the contract reference in that environment.
 
 **Conventions**
 - All requests/responses are JSON. All timestamps are ISO-8601 UTC.
@@ -15,7 +15,7 @@ Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI)
 
 | Method & Path | Body | Response | Permission |
 |---|---|---|---|
-| `POST /auth/login` | `{email, password, remember_me}` | `{access_token, expires_in, user}` (+ `Set-Cookie: refresh_token`) | public |
+| `POST /auth/login` | `{email, password, remember_me}` | `{access_token, expires_in, user}` (+ `Set-Cookie: refresh_token`) | public, rate-limited (`AUTH_RATE_LIMIT`, default 5/minute per IP) |
 | `POST /auth/refresh` | *(refresh cookie)* | `{access_token, expires_in}` (+ rotated cookie) | public (cookie-bound) |
 | `POST /auth/logout` | — | `204` | authenticated |
 | `POST /auth/forgot-password` | `{email}` | `202` (always, no user-enumeration) | public |
@@ -24,6 +24,8 @@ Full interactive contract is auto-generated at runtime: `GET /docs` (Swagger UI)
 | `GET /auth/me` | — | `{id, email, company_id, is_super_admin, employee, permissions[], ai_chatbot_enabled}` | authenticated |
 
 `ai_chatbot_enabled` *(Phase 13)* is `company.ai_chatbot_enabled` piggybacked onto the already-fetched-once `/auth/me` response — the frontend nav item for "Ask HR" is the first nav item ever gated on a data-driven company setting rather than a permission, and this avoids introducing a second auth-adjacent fetch just for one sidebar link. It only refreshes on next login/page reload, not live — acceptable since flipping this Admin-side setting isn't a time-sensitive operation.
+
+**Refresh-token reuse detection**: each refresh token is single-use (rotated on every `/auth/refresh` call) and tracked in Redis, keyed by its own `jti` and indexed per-user. Presenting an already-rotated-away refresh token is treated as a signal that whole account may be compromised (e.g. a stolen cookie), not just that one token expiring oddly — every other still-active refresh token for that user (e.g. a concurrent login from a second device) is revoked too, not just the one caught being replayed.
 
 ## Companies — `/api/v1/companies` (Super Admin only)
 
@@ -102,7 +104,7 @@ The `/onboarding/{token}` routes are **unauthenticated by design** — `{token}`
 | `POST /employees/{id}/onboarding/hr-approve` | — | `{onboarding_status:"hr_approved"}` — 422 if any required document isn't `approved` yet | onboarding.review |
 | `POST /employees/{id}/onboarding/approve` | — | `{onboarding_status:"completed"}` — activates the account; 422 if not yet `hr_approved` | onboarding.approve |
 
-File uploads are limited to PDF/PNG/JPEG, 10 MB max, validated server-side regardless of client-declared content type.
+File uploads (here, `POST /branding/logo`, `POST /company-tour`, and the leave request attachment below) are limited to PDF/PNG/JPEG, 10 MB max. Validation is by magic bytes — the actual file signature (`%PDF-`, `\x89PNG\r\n\x1a\n`, `\xff\xd8\xff`) — not the client-declared multipart content type, which is trivially spoofable (nothing stops a request claiming `image/png` while the body is actually HTML/JS). `422` if the sniffed type doesn't match one of the three; the sniffed type, not the client-declared one, is what's stored as the object's content type in S3/MinIO.
 
 ## Branding — `/api/v1/branding` *(Phase 9c)*
 
@@ -288,6 +290,8 @@ Admin-only, self-scoped to the caller's own company — distinct from `/companie
 
 When `slack_webhook_url` is set, every event that already triggers an in-app notification (Leave, Timesheet, Assets, Onboarding, plus the two daily digest reminders below) also enqueues a fire-and-forget Celery task that `POST`s `{"text": "..."}` to that URL — the plain-text format both Slack incoming webhooks and Teams connectors accept. A fan-out event (e.g. onboarding submission notifying every `onboarding.review` holder) posts exactly one webhook message per event, not one per recipient. A dead or slow webhook URL never blocks or fails the request that triggered it — the in-app notification is created and pushed independently either way.
 
+`PATCH /integrations/slack` validates the URL against SSRF (`422` if it fails): must be `https://`, and must not resolve to a private/loopback/link-local/reserved address — a company Admin controls this value, but the Celery worker that delivers it sits on the same internal network as Postgres/Redis/MinIO, so an unvalidated URL would let a malicious or compromised Admin probe internal infrastructure (or a cloud instance-metadata endpoint) instead of an actual chat webhook. The same check re-runs at delivery time, right before the actual `POST`, to close a DNS-rebinding gap (a hostname resolving safely at save time but maliciously by delivery time) — silently no-ops on failure there rather than erroring, since there's no request to return an error to at that point.
+
 `enabled` toggles `company.ai_chatbot_enabled` (see `/ai/chat` below) — same get/set shape and permission as the Slack webhook, just a boolean instead of a URL.
 
 ## AI — `/api/v1/ai` *(Phase 13)*
@@ -299,6 +303,8 @@ The "Ask HR" chatbot. Fully stateless — the endpoint takes the whole conversat
 | `POST /ai/chat` | `{message, history: [{role: "user"\|"assistant", content}]}` | `{reply}` | authenticated (self-scoped) |
 
 Two independent failure modes, returned as distinct errors rather than conflated into one: `422` if the company hasn't enabled it (`company.ai_chatbot_enabled = false`), `503` if the company has it enabled but the platform has no `GEMINI_API_KEY` configured at all (or the upstream Gemini call itself fails/times out). Provider is Google Gemini (`gemini-3.6-flash`, plain REST call over `httpx`) — a single platform-wide key shared by every opted-in company, not a per-tenant "bring your own key."
+
+Also rate-limited: `429` past `AI_CHAT_RATE_LIMIT_PER_MINUTE` (default 10) messages per minute, enforced per-user (not per-IP — a shared office IP shouldn't throttle everyone behind it) via a Redis fixed-window counter keyed on `employee_id`, since this endpoint calls a paid external API on one platform-wide key and an unthrottled loop from a single account is a real cost/quota-exhaustion vector.
 
 Context sent to the LLM always includes the company's leave types and holiday calendar, plus whether HR sign-off is required in addition to Manager approval. Beyond that, scope splits on whether the caller holds `company.configure` — the same "Admin-only settings/insight" signal reused throughout this app (Integrations, the Headcount-by-Project dashboard chart):
 - **Admin** (`company.configure` holder): the full company-wide picture, end to end, across every operational module — not just Leave:
@@ -378,4 +384,4 @@ Unversioned and mounted at the application root (not under `/api/v1`), so infra 
 | `NOT_FOUND` | 404 | Entity not found in caller's company |
 | `VALIDATION_ERROR` | 422 | Pydantic validation failure |
 | `CONFLICT` | 409 | Unique constraint violation (e.g. duplicate email/employee_code) |
-| `RATE_LIMITED` | 429 | Too many requests (auth endpoints) |
+| `RATE_LIMITED` | 429 | Too many requests — `/auth/login` (per-IP, slowapi) or `/ai/chat` (per-user, Redis) |

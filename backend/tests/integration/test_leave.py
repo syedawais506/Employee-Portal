@@ -267,7 +267,7 @@ def test_attachment_required_when_leave_type_demands_it(client, tenant_a):
 
     with_attachment = _create_request(
         client, headers_employee, leave_type_id=leave_type["id"], start_date=MONDAY, end_date=MONDAY,
-        file_content=b"Demo medical certificate content.",
+        file_content=b"%PDF-1.4 Demo medical certificate content.",
     )
     assert with_attachment.status_code == 201, with_attachment.text
     assert with_attachment.json()["attachment_original_filename"] == "certificate.pdf"

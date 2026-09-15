@@ -2,10 +2,11 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationAppError
 from app.repositories.company_repository import CompanyRepository
 from app.services.audit_service import audit_service
 from app.services.webhook_service import webhook_service
+from app.utils.url_safety import UnsafeWebhookURLError, validate_outbound_webhook_url
 
 
 class IntegrationService:
@@ -21,6 +22,12 @@ class IntegrationService:
     def update_settings(
         self, db: Session, company_id: uuid.UUID, *, slack_webhook_url: str | None, actor_user_id: uuid.UUID
     ) -> str | None:
+        if slack_webhook_url:
+            try:
+                validate_outbound_webhook_url(slack_webhook_url)
+            except UnsafeWebhookURLError as exc:
+                raise ValidationAppError(str(exc)) from exc
+
         company = self.company_repo.get(db, company_id)
         if company is None:
             raise NotFoundError("Company not found")

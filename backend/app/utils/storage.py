@@ -6,6 +6,7 @@ from botocore.client import Config
 from botocore.exceptions import ClientError
 
 from app.core.config import settings
+from app.core.exceptions import ValidationAppError
 
 ALLOWED_CONTENT_TYPES = {
     "application/pdf",
@@ -13,6 +14,25 @@ ALLOWED_CONTENT_TYPES = {
     "image/jpeg",
 }
 MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+# Magic-byte signatures for ALLOWED_CONTENT_TYPES — `file.content_type` on an
+# UploadFile is populated straight from the client's multipart Content-Type
+# header, which is trivially spoofable (nothing stops a request claiming
+# "image/png" while the body is actually HTML/JS). Every caller already
+# pre-filters on the client-claimed type before reaching here, but the actual
+# bytes are what gets inspected and trusted for the S3 ContentType metadata.
+_MAGIC_BYTE_SIGNATURES: dict[str, bytes] = {
+    "application/pdf": b"%PDF-",
+    "image/png": b"\x89PNG\r\n\x1a\n",
+    "image/jpeg": b"\xff\xd8\xff",
+}
+
+
+def _detect_content_type(content: bytes) -> str | None:
+    for content_type, signature in _MAGIC_BYTE_SIGNATURES.items():
+        if content.startswith(signature):
+            return content_type
+    return None
 
 
 @lru_cache
@@ -72,12 +92,20 @@ def build_tour_step_image_key(*, company_id: uuid.UUID, filename: str) -> str:
     return f"{company_id}/branding/tour/{uuid.uuid4().hex}_{safe_name}"
 
 
-def upload_document(*, key: str, content: bytes, content_type: str) -> None:
+def upload_document(*, key: str, content: bytes) -> None:
+    detected_content_type = _detect_content_type(content)
+    if detected_content_type is None:
+        raise ValidationAppError(
+            "File content doesn't match a supported type (PDF, PNG, or JPEG) — the actual "
+            "file bytes were inspected, not just the declared content type"
+        )
     get_s3_client().put_object(
         Bucket=settings.s3_bucket_name,
         Key=key,
         Body=content,
-        ContentType=content_type,
+        # Trust the sniffed type, not the caller-supplied content-type header
+        # this app no longer even accepts a value for here.
+        ContentType=detected_content_type,
     )
 
 

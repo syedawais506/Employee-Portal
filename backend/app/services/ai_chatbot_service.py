@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from typing import cast
 
 import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.exceptions import ExternalServiceError, NotFoundError, ValidationAppError
+from app.core.exceptions import ExternalServiceError, NotFoundError, RateLimitExceededError, ValidationAppError
+from app.core.redis_client import get_redis
 from app.models.employee import Employee
 from app.repositories.company_repository import CompanyRepository
 from app.repositories.leave_repository import HolidayRepository, LeaveTypeRepository
@@ -239,6 +241,24 @@ class AIChatbotService:
 
         return "\n".join(lines)
 
+    def _check_rate_limit(self, employee_id: uuid.UUID) -> None:
+        """Per-user, fixed-window limit against Redis — this endpoint is
+        authenticated (so identity, not IP, is the right key: a shared office
+        IP shouldn't throttle everyone behind it) and calls a paid external
+        API on a single platform-wide key, so an unthrottled loop from one
+        account is a real cost/quota-exhaustion vector, not just noise.
+        """
+        redis_client = get_redis()
+        key = f"ai_chat_rl:{employee_id}"
+        # incr() is typed as Union[Awaitable[int], int] in redis-py's shared
+        # sync/async mixin even on this sync client — cast to the concrete
+        # sync return type so mypy allows the comparison below.
+        count = cast(int, redis_client.incr(key))
+        if count == 1:
+            redis_client.expire(key, 60)
+        if count > settings.ai_chat_rate_limit_per_minute:
+            raise RateLimitExceededError("You're sending messages too quickly — please wait a moment and try again")
+
     def ask(
         self,
         db: Session,
@@ -253,6 +273,7 @@ class AIChatbotService:
             raise ValidationAppError("The HR assistant is not enabled for your company")
         if not settings.gemini_api_key:
             raise ExternalServiceError("The HR assistant is not configured on this server")
+        self._check_rate_limit(employee.id)
 
         company = self.company_repo.get(db, company_id)
         company_name = company.name if company else "your company"

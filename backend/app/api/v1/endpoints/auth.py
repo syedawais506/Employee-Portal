@@ -37,7 +37,8 @@ def _set_refresh_cookie(response: Response, token: str, ttl_seconds: int) -> Non
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
+@limiter.limit(settings.auth_rate_limit)
+def login(request: Request, payload: LoginRequest, response: Response, db: Session = Depends(get_db)):  # noqa: ARG001
     user = auth_service.authenticate(db, payload.email, payload.password)
     access_token, expires_in, refresh_token, ttl = auth_service.issue_token_pair(
         db, user, remember_me=payload.remember_me

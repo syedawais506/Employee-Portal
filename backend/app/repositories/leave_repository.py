@@ -74,6 +74,14 @@ class LeaveBalanceRepository(TenantScopedRepository[LeaveBalance]):
         )
         return db.execute(stmt).scalar_one_or_none()
 
+    def list_for_company_year(self, db: Session, company_id: uuid.UUID, year: int) -> list[LeaveBalance]:
+        """Batch equivalent of calling get_for() once per (employee, leave_type)
+        pair — used by the company-wide balances view (Admin Balances tab, Ask
+        HR admin context) to avoid an O(employees x leave_types) query storm.
+        """
+        stmt = select(LeaveBalance).where(LeaveBalance.company_id == company_id, LeaveBalance.year == year)
+        return list(db.execute(stmt).scalars().all())
+
     def list_for_employee(
         self, db: Session, company_id: uuid.UUID, employee_id: uuid.UUID, year: int
     ) -> list[LeaveBalance]:
@@ -205,6 +213,27 @@ class LeaveRequestRepository(TenantScopedRepository[LeaveRequest]):
             LeaveRequest.status.in_(statuses),
         )
         return db.execute(stmt).scalar_one()
+
+    def sum_days_for_year_grouped(
+        self, db: Session, company_id: uuid.UUID, year: int, *, statuses: tuple[str, ...] = OPEN_LEAVE_STATUSES
+    ) -> dict[tuple[uuid.UUID, uuid.UUID], int]:
+        """Batch equivalent of calling sum_days_for_year() once per (employee,
+        leave_type) pair — same filters, grouped instead of looped.
+        """
+        stmt = (
+            select(
+                LeaveRequest.employee_id,
+                LeaveRequest.leave_type_id,
+                func.coalesce(func.sum(LeaveRequest.days_count), 0),
+            )
+            .where(
+                LeaveRequest.company_id == company_id,
+                func.extract("year", LeaveRequest.start_date) == year,
+                LeaveRequest.status.in_(statuses),
+            )
+            .group_by(LeaveRequest.employee_id, LeaveRequest.leave_type_id)
+        )
+        return {(employee_id, leave_type_id): used for employee_id, leave_type_id, used in db.execute(stmt).all()}
 
     def count_pending(self, db: Session, company_id: uuid.UUID) -> int:
         stmt = select(func.count()).where(

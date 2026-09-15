@@ -1,30 +1,36 @@
+import { lazy } from "react";
 import { createBrowserRouter } from "react-router-dom";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { AuthLayout } from "@/layouts/AuthLayout";
-import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
-import { LoginPage } from "@/features/auth/LoginPage";
-import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
-import { AskHRPage } from "@/features/ai/AskHRPage";
-import { AssetsPage } from "@/features/assets/AssetsPage";
-import { AttendancePage } from "@/features/attendance/AttendancePage";
-import { CompanyListPage } from "@/features/companies/CompanyListPage";
-import { DashboardPage } from "@/features/dashboard/DashboardPage";
-import { DepartmentListPage } from "@/features/departments/DepartmentListPage";
-import { EmployeeDetailPage } from "@/features/employees/EmployeeDetailPage";
-import { EmployeeListPage } from "@/features/employees/EmployeeListPage";
-import { IntegrationsPage } from "@/features/integrations/IntegrationsPage";
-import { LeavePage } from "@/features/leave/LeavePage";
-import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
-import { OnboardingReviewPage } from "@/features/onboarding/OnboardingReviewPage";
-import { PublicOnboardingPage } from "@/features/onboarding/PublicOnboardingPage";
-import { MyProfilePage } from "@/features/profile/MyProfilePage";
-import { ProjectDetailPage } from "@/features/projects/ProjectDetailPage";
-import { ProjectsEntryPage } from "@/features/projects/ProjectsEntryPage";
-import { ReportsPage } from "@/features/reports/ReportsPage";
-import { RoleListPage } from "@/features/roles/RoleListPage";
-import { TimesheetsPage } from "@/features/timesheets/TimesheetsPage";
 import { ProtectedRoute, RequireNotSuperAdmin, RequirePermission, RequireSuperAdmin } from "@/routes/ProtectedRoute";
+
+// Every page is its own chunk, only fetched when its route is actually
+// visited, instead of one >500KB bundle shipped on first load regardless of
+// which page (if any) the user lands on. See App.tsx for the Suspense
+// boundary that covers all of these.
+const ForgotPasswordPage = lazy(() => import("@/features/auth/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage })));
+const LoginPage = lazy(() => import("@/features/auth/LoginPage").then((m) => ({ default: m.LoginPage })));
+const ResetPasswordPage = lazy(() => import("@/features/auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })));
+const AskHRPage = lazy(() => import("@/features/ai/AskHRPage").then((m) => ({ default: m.AskHRPage })));
+const AssetsPage = lazy(() => import("@/features/assets/AssetsPage").then((m) => ({ default: m.AssetsPage })));
+const AttendancePage = lazy(() => import("@/features/attendance/AttendancePage").then((m) => ({ default: m.AttendancePage })));
+const CompanyListPage = lazy(() => import("@/features/companies/CompanyListPage").then((m) => ({ default: m.CompanyListPage })));
+const DashboardPage = lazy(() => import("@/features/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
+const DepartmentListPage = lazy(() => import("@/features/departments/DepartmentListPage").then((m) => ({ default: m.DepartmentListPage })));
+const EmployeeDetailPage = lazy(() => import("@/features/employees/EmployeeDetailPage").then((m) => ({ default: m.EmployeeDetailPage })));
+const EmployeeListPage = lazy(() => import("@/features/employees/EmployeeListPage").then((m) => ({ default: m.EmployeeListPage })));
+const IntegrationsPage = lazy(() => import("@/features/integrations/IntegrationsPage").then((m) => ({ default: m.IntegrationsPage })));
+const LeavePage = lazy(() => import("@/features/leave/LeavePage").then((m) => ({ default: m.LeavePage })));
+const OnboardingPage = lazy(() => import("@/features/onboarding/OnboardingPage").then((m) => ({ default: m.OnboardingPage })));
+const OnboardingReviewPage = lazy(() => import("@/features/onboarding/OnboardingReviewPage").then((m) => ({ default: m.OnboardingReviewPage })));
+const PublicOnboardingPage = lazy(() => import("@/features/onboarding/PublicOnboardingPage").then((m) => ({ default: m.PublicOnboardingPage })));
+const MyProfilePage = lazy(() => import("@/features/profile/MyProfilePage").then((m) => ({ default: m.MyProfilePage })));
+const ProjectDetailPage = lazy(() => import("@/features/projects/ProjectDetailPage").then((m) => ({ default: m.ProjectDetailPage })));
+const ProjectsEntryPage = lazy(() => import("@/features/projects/ProjectsEntryPage").then((m) => ({ default: m.ProjectsEntryPage })));
+const ReportsPage = lazy(() => import("@/features/reports/ReportsPage").then((m) => ({ default: m.ReportsPage })));
+const RoleListPage = lazy(() => import("@/features/roles/RoleListPage").then((m) => ({ default: m.RoleListPage })));
+const TimesheetsPage = lazy(() => import("@/features/timesheets/TimesheetsPage").then((m) => ({ default: m.TimesheetsPage })));
 
 export const router = createBrowserRouter([
   { path: "/onboarding/:token", element: <PublicOnboardingPage /> },

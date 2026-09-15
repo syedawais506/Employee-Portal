@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from sqlalchemy import extract, select
 from sqlalchemy.orm import Session
 
+from app.core.redis_client import get_redis
 from app.db.rls import set_tenant_context
 from app.db.session import SessionLocal
 from app.models.company import Company
@@ -21,12 +22,25 @@ from app.tasks.email_tasks import send_timesheet_reminder_email
 # lookahead window — avoids re-notifying the same document daily until it expires.
 DOCUMENT_EXPIRY_LEAD_DAYS = 7
 
+# 25h, not 24h: a small buffer past one calendar day so a slightly-delayed
+# retry can't slip past the lock right at the boundary.
+DAILY_DIGEST_LOCK_TTL_SECONDS = 25 * 60 * 60
+
 
 @celery_app.task(name="run_daily_digest")
 def run_daily_digest() -> None:
+    today = date.today()
+    # celery-beat has nothing today stopping it from being scaled to 2+
+    # replicas, which would otherwise fire this same scheduled job twice and
+    # double-send every anniversary/expiry/reminder notification and email
+    # for the day. This lock makes a second concurrent (or retried) run for
+    # the same calendar day a safe, silent no-op instead.
+    lock_key = f"daily_digest_lock:{today.isoformat()}"
+    if not get_redis().set(lock_key, "1", nx=True, ex=DAILY_DIGEST_LOCK_TTL_SECONDS):
+        return
+
     db = SessionLocal()
     try:
-        today = date.today()
         company_ids = (
             db.execute(select(Company.id).where(Company.status == "active", Company.deleted_at.is_(None)))
             .scalars()

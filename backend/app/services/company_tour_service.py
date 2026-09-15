@@ -56,7 +56,7 @@ class CompanyTourService:
             if len(content) > MAX_UPLOAD_SIZE_BYTES:
                 raise ValidationAppError("File exceeds the 10 MB upload limit.")
             image_key = build_tour_step_image_key(company_id=company_id, filename=filename)
-            upload_document(key=image_key, content=content, content_type=content_type)
+            upload_document(key=image_key, content=content)
 
         step = self.repo.create(db, company_id, title=title, body=body, sort_order=sort_order, image_key=image_key)
         audit_service.record(

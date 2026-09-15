@@ -72,7 +72,7 @@ def test_admin_can_upload_logo(client, tenant_a):
     response = client.post(
         "/api/v1/branding/logo",
         headers=headers_admin,
-        files={"file": ("logo.png", b"\x89PNG fake logo bytes", "image/png")},
+        files={"file": ("logo.png", b"\x89PNG\r\n\x1a\n fake logo bytes", "image/png")},
     )
     assert response.status_code == 200, response.text
     assert response.json()["logo_url"] is not None
@@ -132,7 +132,7 @@ def test_tour_step_can_include_an_image(client, tenant_a):
         "/api/v1/company-tour",
         headers=headers_admin,
         data={"title": "Our Culture", "body": "We value ownership.", "sort_order": "2"},
-        files={"image": ("culture.jpg", b"fake jpg bytes", "image/jpeg")},
+        files={"image": ("culture.jpg", b"\xff\xd8\xff fake jpg bytes", "image/jpeg")},
     )
     assert create.status_code == 201, create.text
     assert create.json()["image_url"] is not None

@@ -79,7 +79,7 @@ class LeaveRequest(UUIDPkMixin, TimestampMixin, Base):
     reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     attachment_file_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     attachment_original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False, index=True)
     manager_approved_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True
     )

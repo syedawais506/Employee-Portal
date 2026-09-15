@@ -20,4 +20,20 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Vendor libraries change far less often than app code and are
+        // shared across every route (unlike the per-page chunks from
+        // routes/router.tsx's React.lazy split), so they get their own
+        // cacheable chunk instead of being duplicated into/inflating every
+        // route chunk.
+        manualChunks: {
+          "vendor-mui": ["@mui/material", "@mui/icons-material"],
+          "vendor-charts": ["recharts"],
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+        },
+      },
+    },
+  },
 });

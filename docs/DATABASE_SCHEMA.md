@@ -737,6 +737,7 @@ Append-only; no `updated_at`/`deleted_at`. Indexed on `(company_id, entity_type,
 - `asset(asset_type_id)`, `asset_assignment(asset_id)`, `asset_assignment(employee_id)` *(Phase 6)*
 - `saved_report(company_id, name)` — implicit via the unique constraint *(Phase 7)*
 - `notification(user_id, is_read)` — the hot lookup path for the unread-count badge and the "unread only" feed filter *(Phase 7b)*
+- `leave_request(status)`, `timesheet_submission(status)` — every approval-queue query (and every admin Ask HR message) filters on these *(pre-deploy hardening, migration 0019)*
 
 ## Row-Level Security
 
@@ -745,7 +746,8 @@ ALTER TABLE employee ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON employee
   USING (company_id = current_setting('app.current_company_id', true)::uuid);
 -- mirrored on department, role (where company_id is not null), audit_log,
--- (Phase 2) document_type, employee_document, onboarding_invite,
+-- (Phase 2) document_type, employee_document — but NOT onboarding_invite,
+-- see below —
 -- (Phase 3) client, project — NOT project_member, which is a pure join
 -- table without its own company_id (see above) — and
 -- (Phase 4) timesheet_period_config, timesheet_submission, timesheet_entry,
@@ -756,4 +758,6 @@ CREATE POLICY tenant_isolation ON employee
 -- (Phase 1, post-ship) timesheet_reminder_rule
 ```
 
-Applied to every tenant-scoped table as defense-in-depth behind the repository-layer enforcement described in [LLD.md §4](./LLD.md#4-multi-tenant-enforcement--tenantscopedrepository). See [HLD.md §4](./HLD.md#4-multi-tenancy-strategy) for the caveat that this is currently inert in the local Docker Compose setup (superuser Postgres role) and needs a dedicated non-superuser app role to act as a real second layer in production.
+`onboarding_invite` was RLS-protected from Phase 2 through migration 0018, then deliberately made RLS-**exempt** in migration 0019 (`DROP POLICY` + `DISABLE ROW LEVEL SECURITY`): it's looked up by its unguessable `token_hash` before the caller's `company_id` is known at all (that's the entire point of a public, token-authenticated invite link) — with RLS forced on, that very first lookup would have no company_id to scope by and would always return zero rows once RLS is actually enforced. Same reasoning that already exempts `user_account` and `company` (both also looked up before a company context exists). The token itself is the access control for this table.
+
+Applied to every other tenant-scoped table as defense-in-depth behind the repository-layer enforcement described in [LLD.md §4](./LLD.md#4-multi-tenant-enforcement--tenantscopedrepository). **This is real enforcement, not inert**: the app connects at runtime as a dedicated non-superuser, non-`BYPASSRLS` role (`APP_DB_USER`, provisioned by `docker/postgres-initdb/01-create-app-role.sh`), distinct from the superuser role (`POSTGRES_USER`) that migrations run as — see [HLD.md §4](./HLD.md#4-multi-tenancy-strategy).

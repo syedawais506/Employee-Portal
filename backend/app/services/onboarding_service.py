@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError, TokenError, ValidationAppError
 from app.core.security import hash_password
+from app.db.rls import set_tenant_context
 from app.models.employee import Employee
 from app.models.onboarding import EmployeeDocument, OnboardingInvite
 from app.repositories.employee_repository import EmployeeRepository
@@ -66,9 +67,17 @@ class OnboardingService:
     # -- Public, token-authenticated side --------------------------------
 
     def _resolve_invite(self, db: Session, raw_token: str) -> tuple[OnboardingInvite, Employee]:
+        # onboarding_invite itself is exempt from RLS (see migration 0019) —
+        # it's looked up by its unguessable token hash before we know a
+        # company_id at all, so there's nothing to scope this first query by.
+        # Every RLS-protected table queried from here on (employee,
+        # document_type, employee_document, company_tour_step) does need
+        # tenant context, so it's set the moment we learn the invite's
+        # company_id, before any of those follow-on queries run.
         invite = self.invite_repo.get_by_token_hash(db, _hash_token(raw_token))
         if invite is None:
             raise TokenError("This onboarding link is invalid.")
+        set_tenant_context(db, str(invite.company_id))
         if invite.expires_at < datetime.now(timezone.utc):
             raise TokenError("This onboarding link has expired. Ask HR to resend an invite.")
         employee = self.employee_repo.get(db, invite.company_id, invite.employee_id)
@@ -163,7 +172,7 @@ class OnboardingService:
             document_type_id=document_type_id,
             filename=filename,
         )
-        upload_document(key=key, content=content, content_type=content_type)
+        upload_document(key=key, content=content)
 
         document = self.employee_document_repo.upsert(
             db,

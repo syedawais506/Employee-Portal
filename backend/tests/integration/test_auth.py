@@ -50,6 +50,37 @@ def test_refresh_rotates_token_and_old_cookie_is_rejected(client, tenant_a):
     assert second_refresh.status_code == 401
 
 
+def test_reusing_a_rotated_refresh_token_revokes_every_other_active_session(client, tenant_a):
+    """Reuse of a stolen/rotated-away refresh token is treated as a signal
+    the whole account may be compromised, not just that one token — every
+    other still-valid refresh token for the same user (e.g. a concurrent
+    login from a second device) must also stop working, not just the one
+    caught being replayed.
+    """
+    user, _, password = tenant_a.users["Admin"]
+
+    # Two independent sessions (e.g. two devices) for the same user.
+    session_one = client.post("/api/v1/auth/login", json={"email": user.email, "password": password})
+    session_one_refresh_cookie = session_one.cookies["refresh_token"]
+    session_two = client.post("/api/v1/auth/login", json={"email": user.email, "password": password})
+    session_two_refresh_cookie = session_two.cookies["refresh_token"]
+
+    # Session one rotates normally, then its old (now-stale) token gets replayed.
+    client.cookies.set("refresh_token", session_one_refresh_cookie)
+    first_refresh = client.post("/api/v1/auth/refresh")
+    assert first_refresh.status_code == 200
+
+    client.cookies.set("refresh_token", session_one_refresh_cookie)
+    replayed = client.post("/api/v1/auth/refresh")
+    assert replayed.status_code == 401
+
+    # Session two's refresh token was never itself reused, but the account-wide
+    # revocation triggered by the replay above must have invalidated it too.
+    client.cookies.set("refresh_token", session_two_refresh_cookie)
+    session_two_refresh_attempt = client.post("/api/v1/auth/refresh")
+    assert session_two_refresh_attempt.status_code == 401
+
+
 def test_forgot_password_never_reveals_account_existence(client):
     known = client.post("/api/v1/auth/forgot-password", json={"email": "nobody@nowhere-demo.com"})
     assert known.status_code == 202

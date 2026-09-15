@@ -77,6 +77,30 @@ def test_admin_can_get_and_update_slack_webhook(client, tenant_a):
     assert refetched.json()["slack_webhook_url"] == "https://hooks.slack.com/services/test"
 
 
+def test_webhook_url_must_be_https(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    response = client.patch(
+        "/api/v1/integrations/slack",
+        headers=headers_admin,
+        json={"slack_webhook_url": "http://hooks.slack.com/services/test"},
+    )
+    assert response.status_code == 422
+
+
+def test_webhook_url_rejects_private_and_loopback_addresses(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    for unsafe_url in (
+        "https://127.0.0.1/hook",
+        "https://localhost/hook",
+        "https://169.254.169.254/latest/meta-data/",  # cloud instance-metadata SSRF target
+        "https://10.0.0.5/hook",
+    ):
+        response = client.patch(
+            "/api/v1/integrations/slack", headers=headers_admin, json={"slack_webhook_url": unsafe_url}
+        )
+        assert response.status_code == 422, f"{unsafe_url} should have been rejected: {response.text}"
+
+
 def test_send_test_message_no_op_when_unconfigured(client, tenant_a, monkeypatch):
     headers_admin = tenant_a.auth_headers(client, "Admin")
     captured = _capture_webhooks(monkeypatch)

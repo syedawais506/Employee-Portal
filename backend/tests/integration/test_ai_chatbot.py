@@ -294,6 +294,36 @@ def test_employee_chat_context_excludes_timesheets_attendance_and_assets(client,
     assert "Asset inventory" not in system_prompt
 
 
+def test_chat_is_rate_limited_per_user(client, tenant_a, monkeypatch):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _enable(client, headers_admin)
+    _mock_gemini(monkeypatch)
+
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    for _ in range(10):
+        response = client.post("/api/v1/ai/chat", headers=headers_employee, json={"message": "Hi"})
+        assert response.status_code == 200, response.text
+
+    eleventh = client.post("/api/v1/ai/chat", headers=headers_employee, json={"message": "Hi"})
+    assert eleventh.status_code == 429
+
+
+def test_chat_rate_limit_is_per_user_not_shared_across_employees(client, tenant_a, monkeypatch):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _enable(client, headers_admin)
+    _mock_gemini(monkeypatch)
+
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    for _ in range(10):
+        response = client.post("/api/v1/ai/chat", headers=headers_employee, json={"message": "Hi"})
+        assert response.status_code == 200, response.text
+
+    # A different employee, still under their own limit, is unaffected.
+    headers_hr = tenant_a.auth_headers(client, "HR")
+    response = client.post("/api/v1/ai/chat", headers=headers_hr, json={"message": "Hi"})
+    assert response.status_code == 200, response.text
+
+
 def test_manager_hr_and_finance_get_employee_scoped_context_not_admin(client, tenant_a, monkeypatch):
     headers_admin = tenant_a.auth_headers(client, "Admin")
     _enable(client, headers_admin)
