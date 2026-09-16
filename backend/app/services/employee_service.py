@@ -194,6 +194,14 @@ class EmployeeService:
         employee.deleted_at = datetime.now(timezone.utc)
         employee.status = "exited"
         employee.user.is_active = False
+        # Frees the email for reuse (e.g. re-onboarding a replacement, or the
+        # same person rejoining later) — user_account.email is unique at the
+        # DB level and this is a soft delete, so the old row lives on forever
+        # otherwise. Keeps the +tag in the local part so it's still a
+        # syntactically valid address (EmailStr-typed schemas may still read
+        # this row) and the original value stays recoverable by inspection.
+        local_part, _, domain = employee.user.email.rpartition("@")
+        employee.user.email = f"{local_part}+deleted-{employee.id.hex}@{domain}"
         db.flush()
         audit_service.record(
             db,

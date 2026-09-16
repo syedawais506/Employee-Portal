@@ -19,6 +19,32 @@ def test_admin_role_can_delete_employee(client, tenant_a):
     assert get_response.json()["status"] == "exited"
 
 
+def test_deleting_an_employee_frees_their_email_for_reuse(client, tenant_a):
+    """A soft-deleted employee's user_account row (and its unique email)
+    lives on forever — without freeing the email, re-onboarding a
+    replacement (or the same person rejoining) at that address would be
+    permanently blocked with a false "already exists" error.
+    """
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _, target_employee, _ = tenant_a.users["Finance"]
+    email = target_employee.email
+
+    delete_response = client.delete(f"/api/v1/employees/{target_employee.id}", headers=headers_admin)
+    assert delete_response.status_code == 204
+
+    create_response = client.post(
+        "/api/v1/employees",
+        headers=headers_admin,
+        json={
+            "email": email,
+            "first_name": "Replacement",
+            "last_name": "Hire",
+            "employment_type": "full_time",
+        },
+    )
+    assert create_response.status_code == 201, create_response.text
+
+
 def test_employee_role_cannot_create_department(client, tenant_a):
     headers_employee = tenant_a.auth_headers(client, "Employee")
     response = client.post("/api/v1/departments", headers=headers_employee, json={"name": "Shadow IT"})
