@@ -18,6 +18,10 @@ frontend/.env.local
 
 # Docker
 docker/.env
+# Per-deployment resource tuning (worker/concurrency counts sized to one
+# specific host) — deliberately not shared config. See
+# docker/docker-compose.override.yml.example for the pattern.
+docker/docker-compose.override.yml
 
 # Editors / OS
 .DS_Store

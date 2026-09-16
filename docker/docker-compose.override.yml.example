@@ -1,0 +1,15 @@
+# Docker Compose automatically merges docker-compose.override.yml alongside
+# docker-compose.yml if present — no extra -f flag needed. Copy this to
+# docker-compose.override.yml (gitignored, deliberately not shared config)
+# and adjust for your actual host's size.
+#
+# The base docker-compose.yml's defaults (gunicorn --workers 4, celery
+# --concurrency=4) assume a reasonably sized box. On a small instance (e.g.
+# an AWS t3.small, 2 vCPU / 2GB RAM), that's more workers than the host has
+# cores for, and risks leaning on swap under normal load. Trim both down to
+# match what you actually have:
+services:
+  backend:
+    command: gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 2
+  celery-worker:
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2
