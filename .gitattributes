@@ -1,0 +1,5 @@
+# Shell scripts are executed inside Linux containers via their shebang line
+# (e.g. #!/usr/bin/env bash); a CRLF there breaks exec ("env: can't execute
+# 'bash'") because the interpreter name gets a trailing \r appended. Force LF
+# regardless of platform/core.autocrlf so this can't regress on Windows.
+*.sh text eol=lf
