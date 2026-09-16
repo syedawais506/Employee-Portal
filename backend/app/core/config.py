@@ -9,6 +9,17 @@ class Settings(BaseSettings):
     app_name: str = "Employee Portal"
     app_env: str = "development"
     debug: bool = False
+    # The refresh-token cookie is marked Secure whenever this is true — and a
+    # Secure cookie is one browsers silently refuse to store or send over a
+    # plain http:// origin, not just a "recommended" setting. Defaults to
+    # following app_env (secure in anything but development) since that's
+    # correct once real HTTPS is in front of the app. None means "derive from
+    # app_env"; set explicitly (true/false) to decouple the two — e.g. a
+    # production deployment that's temporarily HTTP-only (no domain/TLS yet)
+    # needs this set to false, or every user gets logged out on every reload,
+    # even though app_env should otherwise stay "production" (Swagger/HSTS
+    # etc. are unaffected by this setting).
+    cookie_secure: bool | None = None
     secret_key: str
     api_v1_prefix: str = "/api/v1"
 
@@ -82,6 +93,10 @@ class Settings(BaseSettings):
     @property
     def s3_public_endpoint_url_effective(self) -> str:
         return self.s3_public_endpoint_url or self.s3_endpoint_url
+
+    @property
+    def cookie_secure_effective(self) -> bool:
+        return self.cookie_secure if self.cookie_secure is not None else self.app_env != "development"
 
 
 @lru_cache

@@ -11,5 +11,11 @@
 services:
   backend:
     command: gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 2
+    # Remove this once the deployment has a real domain + TLS in front of it.
+    # Without it: the refresh-token cookie is marked Secure (correct once
+    # HTTPS exists), which browsers silently refuse to store over a plain
+    # http:// origin — every user gets logged out on every page reload.
+    environment:
+      COOKIE_SECURE: "false"
   celery-worker:
     command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2

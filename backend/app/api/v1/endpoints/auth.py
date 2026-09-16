@@ -30,7 +30,7 @@ def _set_refresh_cookie(response: Response, token: str, ttl_seconds: int) -> Non
         value=token,
         max_age=ttl_seconds,
         httponly=True,
-        secure=settings.app_env != "development",
+        secure=settings.cookie_secure_effective,
         samesite="lax",
         path="/api/v1/auth",
     )
