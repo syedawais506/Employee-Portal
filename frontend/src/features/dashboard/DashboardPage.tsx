@@ -1,6 +1,18 @@
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Box, Card, CardContent, Chip, Grid, Stack, Typography } from "@mui/material";
+import { alpha } from "@mui/material/styles";
+import ApartmentIcon from "@mui/icons-material/Apartment";
+import BeachAccessIcon from "@mui/icons-material/BeachAccess";
+import BusinessIcon from "@mui/icons-material/Business";
+import BlockIcon from "@mui/icons-material/Block";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import CakeIcon from "@mui/icons-material/Cake";
+import GroupsIcon from "@mui/icons-material/Groups";
+import PersonAddAlt1Icon from "@mui/icons-material/PersonAddAlt1";
+import ScheduleIcon from "@mui/icons-material/Schedule";
+import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
 
 import { listCompanies } from "@/api/companies";
 import { listDepartments } from "@/api/departments";
@@ -8,26 +20,62 @@ import { listEmployees } from "@/api/employees";
 import { getLeaveDashboard, listMyLeaveRequests } from "@/api/leave";
 import { listMyProjects, listProjects } from "@/api/projects";
 import { getTimesheetDashboard, listMyTimesheetEntries } from "@/api/timesheets";
+import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuthStore } from "@/store/authStore";
 import type { EmployeeSummary } from "@/types";
 import { computePeriodBounds, toISODate } from "@/utils/timesheetPeriod";
 
-function KpiCard({ label, value, helper }: { label: string; value: string | number; helper?: string }) {
+type Accent = "primary" | "secondary" | "success" | "warning";
+
+function KpiCard({
+  label,
+  value,
+  helper,
+  icon,
+  accent = "primary",
+}: {
+  label: string;
+  value: string | number;
+  helper?: string;
+  icon?: ReactNode;
+  accent?: Accent;
+}) {
   return (
     <Card variant="outlined">
       <CardContent>
-        <Typography variant="body2" color="text.secondary">
-          {label}
-        </Typography>
-        <Typography variant="h1" sx={{ mt: 0.5 }}>
-          {value}
-        </Typography>
-        {helper && (
-          <Typography variant="caption" color="text.secondary">
-            {helper}
-          </Typography>
-        )}
+        <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
+          <Box>
+            <Typography variant="body2" color="text.secondary">
+              {label}
+            </Typography>
+            <Typography variant="h1" sx={{ mt: 0.5 }}>
+              {value}
+            </Typography>
+            {helper && (
+              <Typography variant="caption" color="text.secondary">
+                {helper}
+              </Typography>
+            )}
+          </Box>
+          {icon && (
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: 2,
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: (theme) => alpha(theme.palette[accent].main, 0.12),
+                color: `${accent}.main`,
+              }}
+            >
+              {icon}
+            </Box>
+          )}
+        </Stack>
       </CardContent>
     </Card>
   );
@@ -55,7 +103,17 @@ interface ListCardItem {
   secondary: string;
 }
 
-function ListCard({ title, emptyLabel, items }: { title: string; emptyLabel: string; items: ListCardItem[] }) {
+function ListCard({
+  title,
+  emptyLabel,
+  emptyIcon,
+  items,
+}: {
+  title: string;
+  emptyLabel: string;
+  emptyIcon?: ReactNode;
+  items: ListCardItem[];
+}) {
   return (
     <Card variant="outlined" sx={{ height: "100%" }}>
       <CardContent>
@@ -63,9 +121,7 @@ function ListCard({ title, emptyLabel, items }: { title: string; emptyLabel: str
           {title}
         </Typography>
         {items.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            {emptyLabel}
-          </Typography>
+          <EmptyState compact title={emptyLabel} icon={emptyIcon} />
         ) : (
           <Stack spacing={1}>
             {items.map((item) => (
@@ -113,16 +169,23 @@ function SuperAdminDashboard() {
     <Stack spacing={3}>
       <Grid container spacing={2}>
         <Grid item xs={12} sm={4}>
-          <KpiCard label="Total Companies" value={data?.total ?? "—"} />
+          <KpiCard label="Total Companies" value={data?.total ?? "—"} icon={<BusinessIcon />} accent="primary" />
         </Grid>
         <Grid item xs={12} sm={4}>
           <KpiCard
             label="Active Companies"
             value={data?.items.filter((c) => c.status === "active").length ?? "—"}
+            icon={<CheckCircleOutlineIcon />}
+            accent="success"
           />
         </Grid>
         <Grid item xs={12} sm={4}>
-          <KpiCard label="Suspended Companies" value={data?.items.filter((c) => c.status !== "active").length ?? "—"} />
+          <KpiCard
+            label="Suspended Companies"
+            value={data?.items.filter((c) => c.status !== "active").length ?? "—"}
+            icon={<BlockIcon />}
+            accent="warning"
+          />
         </Grid>
       </Grid>
     </Stack>
@@ -253,17 +316,19 @@ function TenantDashboard() {
     <Stack spacing={3}>
       <Grid container spacing={2}>
         <Grid item xs={12} sm={4}>
-          <KpiCard label="Total Employees" value={totalEmployees?.total ?? "—"} />
+          <KpiCard label="Total Employees" value={totalEmployees?.total ?? "—"} icon={<GroupsIcon />} accent="primary" />
         </Grid>
         <Grid item xs={12} sm={4}>
           <KpiCard
             label="Active Employees"
             value={activeEmployees?.total ?? "—"}
             helper={totalEmployees ? `${totalEmployees.total} total` : undefined}
+            icon={<CheckCircleOutlineIcon />}
+            accent="success"
           />
         </Grid>
         <Grid item xs={12} sm={4}>
-          <KpiCard label="Departments" value={departments?.total ?? "—"} />
+          <KpiCard label="Departments" value={departments?.total ?? "—"} icon={<ApartmentIcon />} accent="secondary" />
         </Grid>
         {canViewProjects && (
           <Grid item xs={12} sm={4}>
@@ -271,6 +336,8 @@ function TenantDashboard() {
               label="Active Projects"
               value={allProjects?.items.filter((p) => p.status === "active").length ?? "—"}
               helper={allProjects ? `${allProjects.total} total` : undefined}
+              icon={<WorkOutlineIcon />}
+              accent="secondary"
             />
           </Grid>
         )}
@@ -284,12 +351,20 @@ function TenantDashboard() {
                   ? `${timesheetDashboard.rejected_count} rejected, ${timesheetDashboard.late_count} late`
                   : undefined
               }
+              icon={<ScheduleIcon />}
+              accent="warning"
             />
           </Grid>
         )}
         {canLogTimesheets && (
           <Grid item xs={12} sm={4}>
-            <KpiCard label="My Hours This Week" value={myWeekHours.toFixed(2)} helper="Log time in Timesheets" />
+            <KpiCard
+              label="My Hours This Week"
+              value={myWeekHours.toFixed(2)}
+              helper="Log time in Timesheets"
+              icon={<ScheduleIcon />}
+              accent="secondary"
+            />
           </Grid>
         )}
         {canApproveLeave && (
@@ -298,6 +373,8 @@ function TenantDashboard() {
               label="Pending Leave Requests"
               value={leaveDashboard?.pending_count ?? "—"}
               helper={leaveDashboard ? `${leaveDashboard.on_leave_today_count} on leave today` : undefined}
+              icon={<BeachAccessIcon />}
+              accent="warning"
             />
           </Grid>
         )}
@@ -307,6 +384,8 @@ function TenantDashboard() {
               label="My Pending Leave Requests"
               value={myPendingLeave?.length ?? "—"}
               helper="Request time off in Leave"
+              icon={<BeachAccessIcon />}
+              accent="warning"
             />
           </Grid>
         )}
@@ -347,7 +426,12 @@ function TenantDashboard() {
       <Grid container spacing={2}>
         {!canViewProjects && (
           <Grid item xs={12} md={4}>
-            <ListCard title="My Projects" emptyLabel="You're not assigned to any projects yet." items={myProjectItems} />
+            <ListCard
+              title="My Projects"
+              emptyLabel="You're not assigned to any projects yet."
+              emptyIcon={<WorkOutlineIcon fontSize="inherit" />}
+              items={myProjectItems}
+            />
           </Grid>
         )}
         {hasPermission("employee", "view") && (
@@ -356,6 +440,7 @@ function TenantDashboard() {
               <ListCard
                 title="New Hires (Last 7 Days)"
                 emptyLabel="No new hires in the last 7 days."
+                emptyIcon={<PersonAddAlt1Icon fontSize="inherit" />}
                 items={newHireItems}
               />
             </Grid>
@@ -363,6 +448,7 @@ function TenantDashboard() {
               <ListCard
                 title="Birthdays This Week"
                 emptyLabel="No birthdays coming up this week."
+                emptyIcon={<CakeIcon fontSize="inherit" />}
                 items={birthdayItems}
               />
             </Grid>

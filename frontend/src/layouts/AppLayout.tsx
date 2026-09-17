@@ -193,7 +193,21 @@ export function AppLayout() {
 
   const navList = (
     <>
-      <Toolbar sx={{ px: 3 }}>
+      <Toolbar sx={{ px: 3, gap: 1.25 }}>
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: 1.5,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "linear-gradient(135deg, #4F46E5 0%, #0EA5E9 100%)",
+          }}
+        >
+          <DashboardIcon sx={{ fontSize: 18, color: "#fff" }} />
+        </Box>
         <Typography variant="h3" sx={{ color: "sidebar.text" }}>
           Employee Portal
         </Typography>
@@ -239,7 +253,15 @@ export function AppLayout() {
           "& .MuiDrawer-paper": {
             width: DRAWER_WIDTH,
             boxSizing: "border-box",
-            bgcolor: "sidebar.background",
+            // "background" (not "bgcolor") since sidebar.background is a
+            // gradient — bgcolor only ever maps to background-color, which
+            // silently ignores a gradient value. Must be a theme-callback,
+            // not a "sidebar.background" path string: sx only resolves
+            // dotted palette-path strings for specially-recognized keys
+            // (color, bgcolor, borderColor, ...) — "background" isn't one of
+            // them, so a string here is passed straight through as a
+            // (invalid) literal CSS value instead of being looked up.
+            background: (theme) => theme.palette.sidebar.background,
             color: "sidebar.text",
             border: "none",
           },

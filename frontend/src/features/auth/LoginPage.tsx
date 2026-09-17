@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
-import { Alert, Box, Button, Checkbox, FormControlLabel, Link, Stack, TextField } from "@mui/material";
+import { Alert, Box, Button, Checkbox, FormControlLabel, InputAdornment, Link, Stack, TextField } from "@mui/material";
+import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 
 import { fetchCurrentUser, login } from "@/api/auth";
 import { extractApiErrorMessage } from "@/api/client";
@@ -61,6 +63,15 @@ export function LoginPage() {
               error={Boolean(fieldState.error)}
               helperText={fieldState.error?.message}
               fullWidth
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <EmailOutlinedIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
           )}
         />
@@ -78,6 +89,15 @@ export function LoginPage() {
               error={Boolean(fieldState.error)}
               helperText={fieldState.error?.message}
               fullWidth
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockOutlinedIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
           )}
         />
