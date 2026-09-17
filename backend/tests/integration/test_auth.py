@@ -84,3 +84,41 @@ def test_reusing_a_rotated_refresh_token_revokes_every_other_active_session(clie
 def test_forgot_password_never_reveals_account_existence(client):
     known = client.post("/api/v1/auth/forgot-password", json={"email": "nobody@nowhere-demo.com"})
     assert known.status_code == 202
+
+
+def test_login_blocked_when_company_is_suspended(client, tenant_a):
+    user, _, password = tenant_a.users["Admin"]
+    tenant_a.company.status = "suspended"
+    tenant_a.db.commit()
+
+    response = client.post("/api/v1/auth/login", json={"email": user.email, "password": password})
+    assert response.status_code == 401
+
+
+def test_suspending_a_company_immediately_blocks_an_already_logged_in_session(client, tenant_a):
+    """Suspension must cut off access right away — not just block future
+    logins — since a Super Admin suspending a company (e.g. for a policy
+    violation or non-payment) has no reason to expect it takes up to
+    access_token_expire_minutes to actually take effect.
+    """
+    headers = tenant_a.auth_headers(client, "Admin")
+
+    still_active = client.get("/api/v1/auth/me", headers=headers)
+    assert still_active.status_code == 200
+
+    tenant_a.company.status = "suspended"
+    tenant_a.db.commit()
+
+    response = client.get("/api/v1/auth/me", headers=headers)
+    assert response.status_code == 401
+
+
+def test_reactivating_a_company_restores_access(client, tenant_a):
+    user, _, password = tenant_a.users["Admin"]
+    tenant_a.company.status = "suspended"
+    tenant_a.db.commit()
+    tenant_a.company.status = "active"
+    tenant_a.db.commit()
+
+    response = client.post("/api/v1/auth/login", json={"email": user.email, "password": password})
+    assert response.status_code == 200

@@ -16,6 +16,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User
+from app.repositories.company_repository import CompanyRepository
 from app.repositories.role_repository import RoleRepository
 from app.repositories.user_repository import UserRepository
 from app.services import permission_cache
@@ -35,6 +36,16 @@ class AuthService:
     def __init__(self) -> None:
         self.user_repo = UserRepository()
         self.role_repo = RoleRepository()
+        self.company_repo = CompanyRepository()
+
+    def check_company_active(self, db: Session, company_id: uuid.UUID) -> None:
+        """Super Admin has no company_id and never goes through this check.
+        Everyone else's company must be active — neither suspended (Super
+        Admin's Suspend action on the Companies page) nor soft-deleted.
+        """
+        company = self.company_repo.get(db, company_id)
+        if company is None or company.deleted_at is not None or company.status != "active":
+            raise InvalidCredentialsError("Your company's account is not currently active")
 
     def authenticate(self, db: Session, email: str, password: str) -> User:
         from datetime import datetime, timezone
@@ -44,6 +55,8 @@ class AuthService:
             raise InvalidCredentialsError("Incorrect email or password")
         if not user.is_active:
             raise InvalidCredentialsError("Account is deactivated")
+        if user.company_id is not None:
+            self.check_company_active(db, user.company_id)
         user.last_login_at = datetime.now(timezone.utc)
         db.commit()
         return user
@@ -91,6 +104,11 @@ class AuthService:
         user = self.user_repo.get_by_id(db, uuid.UUID(user_id))
         if user is None or not user.is_active:
             raise TokenError("User no longer active")
+        if user.company_id is not None:
+            try:
+                self.check_company_active(db, user.company_id)
+            except InvalidCredentialsError as exc:
+                raise TokenError(str(exc)) from exc
 
         access_token, expires_in, new_refresh_token, ttl = self.issue_token_pair(db, user)
         return access_token, expires_in, new_refresh_token, ttl

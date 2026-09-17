@@ -43,6 +43,13 @@ def get_current_user(
     user = _user_repo.get_by_id(db, uuid.UUID(payload["sub"]))
     if user is None or not user.is_active:
         raise InvalidCredentialsError("User not found or inactive")
+    if user.company_id is not None:
+        # The real enforcement point for a suspended/deleted company: this
+        # runs on every authenticated request, not just at login, so
+        # suspending a company takes effect immediately for anyone already
+        # holding a live access token — not just at their next login or
+        # their next refresh (up to access_token_expire_minutes later).
+        auth_service.check_company_active(db, user.company_id)
 
     request.state.company_id = user.company_id
     set_tenant_context(db, str(user.company_id) if user.company_id else None)
