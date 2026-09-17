@@ -115,6 +115,11 @@ class CompanyService:
         actor_user_id: uuid.UUID | None,
     ) -> Company:
         company = self.get_company(db, company_id)
+        # Super Admin has no company_id of their own, so the session's tenant
+        # context is never set to this (or any) target company otherwise —
+        # the audit_log row below is scoped to company.id and RLS would
+        # silently reject the insert without this, same as create_company.
+        set_tenant_context(db, str(company.id))
         before = {"name": company.name, "status": company.status}
         if name is not None:
             company.name = name
@@ -138,6 +143,8 @@ class CompanyService:
         from datetime import datetime, timezone
 
         company = self.get_company(db, company_id)
+        # Same reasoning as update_company above.
+        set_tenant_context(db, str(company.id))
         company.deleted_at = datetime.now(timezone.utc)
         db.flush()
         audit_service.record(

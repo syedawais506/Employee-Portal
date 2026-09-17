@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AddIcon from "@mui/icons-material/Add";
 import {
+  Alert,
   Button,
   Chip,
   Paper,
@@ -25,6 +26,7 @@ export function CompanyListPage() {
   const [pageSize, setPageSize] = useState(10);
   const [formOpen, setFormOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [statusErrorMessage, setStatusErrorMessage] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["companies", page, pageSize],
@@ -42,7 +44,11 @@ export function CompanyListPage() {
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => updateCompanyStatus(id, status),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["companies"] }),
+    onSuccess: () => {
+      setStatusErrorMessage(null);
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+    },
+    onError: (error) => setStatusErrorMessage(extractApiErrorMessage(error)),
   });
 
   return (
@@ -63,6 +69,12 @@ export function CompanyListPage() {
           </Button>
         }
       />
+
+      {statusErrorMessage && (
+        <Alert severity="error" onClose={() => setStatusErrorMessage(null)} sx={{ mb: 2 }}>
+          {statusErrorMessage}
+        </Alert>
+      )}
 
       <TableContainer component={Paper} variant="outlined">
         <Table>
