@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationAppError
@@ -124,6 +125,22 @@ class RoleService:
     def update_permissions(
         self, db: Session, company_id: uuid.UUID, role_id: uuid.UUID, grants: list[dict]
     ) -> Role:
+        # Row lock so two concurrent saves for the same role (double-clicked
+        # Save, a retried request) can't interleave: set_role_permissions
+        # below does a delete-then-insert of role_permission rows, and
+        # without this two overlapping calls can both pass the delete and
+        # then collide inserting the same (role_id, permission_id) pair,
+        # crashing with a unique-violation instead of the second call simply
+        # applying its own (now up to date) grants after the first commits.
+        # with_for_update() can't be combined with the joinedload'd
+        # role_permissions query below (Postgres rejects FOR UPDATE on the
+        # nullable side of an outer join), hence this separate lock-only read.
+        locked_id = db.execute(
+            select(Role.id).where(Role.id == role_id, Role.company_id == company_id).with_for_update()
+        ).scalar_one_or_none()
+        if locked_id is None:
+            raise NotFoundError("Role not found")
+
         role = self.get_role(db, company_id, role_id)
         permission_ids = []
         for grant in grants:
