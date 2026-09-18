@@ -40,6 +40,7 @@ import SmartToyIcon from "@mui/icons-material/SmartToy";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
 
 import { logout as logoutRequest } from "@/api/auth";
+import { LogoMark } from "@/components/LogoMark";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
@@ -194,21 +195,16 @@ export function AppLayout() {
   const navList = (
     <>
       <Toolbar sx={{ px: 3, gap: 1.25 }}>
-        <Box
+        <LogoMark size={32} />
+        <Typography
+          variant="h3"
           sx={{
-            width: 32,
-            height: 32,
-            borderRadius: 1.5,
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "linear-gradient(135deg, #4F46E5 0%, #0EA5E9 100%)",
+            background: "linear-gradient(90deg, #FFFFFF 0%, #C7D2FE 100%)",
+            backgroundClip: "text",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
           }}
         >
-          <DashboardIcon sx={{ fontSize: 18, color: "#fff" }} />
-        </Box>
-        <Typography variant="h3" sx={{ color: "sidebar.text" }}>
           Employee Portal
         </Typography>
       </Toolbar>
