@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
-from app.db.rls import register_tenant_context_listener
+from app.db import rls  # noqa: F401 — import registers the after_begin tenant-context listener
 
 engine = create_engine(
     settings.database_url,
@@ -13,7 +13,6 @@ engine = create_engine(
     max_overflow=settings.db_max_overflow,
     future=True,
 )
-register_tenant_context_listener(engine)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 
