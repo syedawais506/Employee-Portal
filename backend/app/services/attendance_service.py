@@ -6,13 +6,16 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ConflictError
+from app.core.exceptions import ConflictError, NotFoundError, ValidationAppError
 from app.models.attendance import AttendanceRecord, AttendanceShiftConfig
 from app.repositories.attendance_repository import AttendanceRecordRepository, AttendanceShiftConfigRepository
+from app.repositories.company_repository import CompanyRepository
 from app.schemas.attendance import TodayAttendanceEntry
 from app.schemas.common import Page
 from app.services.audit_service import audit_service
 from app.utils.csv_export import build_csv
+
+ATTENDANCE_MODES = ("check_in_out", "timesheet")
 
 
 def _time_plus_minutes(value: time, minutes: int) -> time:
@@ -28,6 +31,73 @@ class AttendanceService:
     def __init__(self) -> None:
         self.shift_config_repo = AttendanceShiftConfigRepository()
         self.record_repo = AttendanceRecordRepository()
+        self.company_repo = CompanyRepository()
+
+    # -- Module on/off + mode -------------------------------------------------
+
+    def is_enabled(self, db: Session, company_id: uuid.UUID) -> bool:
+        company = self.company_repo.get(db, company_id)
+        if company is None:
+            raise NotFoundError("Company not found")
+        return company.attendance_enabled
+
+    def get_mode(self, db: Session, company_id: uuid.UUID) -> str:
+        company = self.company_repo.get(db, company_id)
+        if company is None:
+            raise NotFoundError("Company not found")
+        return company.attendance_mode
+
+    def update_module_settings(
+        self,
+        db: Session,
+        company_id: uuid.UUID,
+        *,
+        enabled: bool | None,
+        mode: str | None,
+        actor_user_id: uuid.UUID,
+    ) -> None:
+        company = self.company_repo.get(db, company_id)
+        if company is None:
+            raise NotFoundError("Company not found")
+        if mode is not None and mode not in ATTENDANCE_MODES:
+            raise ValidationAppError(f"Unknown attendance mode: {mode}")
+        before = {"enabled": company.attendance_enabled, "mode": company.attendance_mode}
+        if enabled is not None:
+            company.attendance_enabled = enabled
+        if mode is not None:
+            company.attendance_mode = mode
+        db.flush()
+        audit_service.record(
+            db,
+            company_id=company_id,
+            actor_user_id=actor_user_id,
+            entity_type="attendance_module_settings",
+            action="update",
+            entity_id=company_id,
+            before=before,
+            after={"enabled": company.attendance_enabled, "mode": company.attendance_mode},
+        )
+        db.commit()
+
+    def mark_present_from_timesheet(
+        self, db: Session, company_id: uuid.UUID, employee_id: uuid.UUID, dates: set[date]
+    ) -> None:
+        """Called when a timesheet submission covers these dates and the
+        company runs attendance in "timesheet" mode. Only fills in a day that
+        has no attendance record yet — never overwrites a real check-in/out,
+        e.g. from before the company switched modes.
+        """
+        for attendance_date in dates:
+            existing = self.record_repo.get_by_employee_date(db, company_id, employee_id, attendance_date)
+            if existing is not None:
+                continue
+            self.record_repo.create(
+                db,
+                company_id,
+                employee_id=employee_id,
+                attendance_date=attendance_date,
+                source="timesheet",
+            )
 
     # -- Shift settings ------------------------------------------------------
 
@@ -78,9 +148,19 @@ class AttendanceService:
     # accurate for companies operating in UTC until a real timezone field is
     # added company-wide.
 
+    def _require_manual_mode(self, db: Session, company_id: uuid.UUID) -> None:
+        company = self.company_repo.get(db, company_id)
+        if company is None or not company.attendance_enabled:
+            raise ValidationAppError("Attendance tracking is turned off for your company.")
+        if company.attendance_mode != "check_in_out":
+            raise ValidationAppError(
+                "Your company tracks attendance from timesheet submissions, not manual check-in/out."
+            )
+
     def check_in(
         self, db: Session, company_id: uuid.UUID, employee_id: uuid.UUID, *, now: datetime | None = None
     ) -> AttendanceRecord:
+        self._require_manual_mode(db, company_id)
         now = now or datetime.now(timezone.utc)
         today = now.date()
         existing = self.record_repo.get_by_employee_date(db, company_id, employee_id, today)
@@ -105,6 +185,7 @@ class AttendanceService:
     def check_out(
         self, db: Session, company_id: uuid.UUID, employee_id: uuid.UUID, *, now: datetime | None = None
     ) -> AttendanceRecord:
+        self._require_manual_mode(db, company_id)
         now = now or datetime.now(timezone.utc)
         today = now.date()
         record = self.record_repo.get_by_employee_date(db, company_id, employee_id, today)

@@ -14,6 +14,8 @@ function buildUser(overrides: Partial<CurrentUser> = {}): CurrentUser {
     employee_id: "employee-1",
     full_name: "Alex Admin",
     ai_chatbot_enabled: false,
+    attendance_enabled: true,
+    attendance_mode: "check_in_out",
     ...overrides,
   };
 }

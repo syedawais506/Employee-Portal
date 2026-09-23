@@ -26,6 +26,7 @@ const STATUS_COLOR: Record<AttendanceStatus, "success" | "info" | "default"> = {
   checked_in: "info",
   checked_out: "success",
   not_checked_in: "default",
+  present: "success",
 };
 
 function formatTime(value: string | null): string {

@@ -23,6 +23,10 @@ class Company(UUIDPkMixin, TimestampMixin, SoftDeleteMixin, Base):
     logo_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     primary_color: Mapped[str | None] = mapped_column(String(20), nullable=True)
     ai_chatbot_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Existing companies already rely on manual check-in/out, so both default to
+    # preserve that behavior for everyone until an Admin explicitly changes it.
+    attendance_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    attendance_mode: Mapped[str] = mapped_column(String(20), default="check_in_out", nullable=False)
 
     departments: Mapped[list["Department"]] = relationship(
         back_populates="company", cascade="all, delete-orphan"

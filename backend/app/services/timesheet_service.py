@@ -18,6 +18,7 @@ from app.repositories.timesheet_repository import (
 )
 from app.schemas.common import Page
 from app.schemas.timesheet import VALID_PERIOD_TYPES, VALID_REMINDER_CADENCES, VALID_WORK_TYPES
+from app.services.attendance_service import attendance_service
 from app.services.audit_service import audit_service
 from app.services.auth_service import auth_service
 from app.services.notification_service import notification_service
@@ -376,6 +377,13 @@ class TimesheetService:
         for entry in entries:
             entry.submission_id = submission.id
         db.flush()
+
+        # Only when the company runs attendance in "timesheet" mode — a
+        # submitted timesheet is what stands in for a check-in/out there, so
+        # every date it covers should show as present.
+        if attendance_service.is_enabled(db, company_id) and attendance_service.get_mode(db, company_id) == "timesheet":
+            covered_dates = {entry.entry_date for entry in entries}
+            attendance_service.mark_present_from_timesheet(db, company_id, employee_id, covered_dates)
 
         audit_service.record(
             db,

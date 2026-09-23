@@ -23,6 +23,8 @@ export interface CurrentUser {
   employee_id: string | null;
   full_name: string | null;
   ai_chatbot_enabled: boolean;
+  attendance_enabled: boolean;
+  attendance_mode: "check_in_out" | "timesheet";
 }
 
 export interface Company {
@@ -333,12 +335,14 @@ export interface ChatMessage {
 }
 
 export interface AttendanceShiftConfig {
+  enabled: boolean;
+  mode: "check_in_out" | "timesheet";
   shift_start: string;
   shift_end: string;
   grace_period_minutes: number;
 }
 
-export type AttendanceStatus = "checked_in" | "checked_out" | "not_checked_in";
+export type AttendanceStatus = "checked_in" | "checked_out" | "not_checked_in" | "present";
 
 export interface AttendanceRecord {
   id: string;

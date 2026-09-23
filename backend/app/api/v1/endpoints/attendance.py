@@ -24,13 +24,24 @@ def _current_employee_id(current_user: User, db: Session) -> uuid.UUID:
     return employee_service.get_employee_by_user_id(db, current_user.id).id
 
 
+def _settings_response(db: Session, company_id: uuid.UUID) -> AttendanceShiftConfigResponse:
+    config = attendance_service.get_shift_config(db, company_id)
+    return AttendanceShiftConfigResponse(
+        enabled=attendance_service.is_enabled(db, company_id),
+        mode=attendance_service.get_mode(db, company_id),
+        shift_start=config.shift_start,
+        shift_end=config.shift_end,
+        grace_period_minutes=config.grace_period_minutes,
+    )
+
+
 @router.get("/settings", response_model=AttendanceShiftConfigResponse)
 def get_settings(
     company_id: uuid.UUID = Depends(get_current_company_id),
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("attendance", "view")),
 ):
-    return attendance_service.get_shift_config(db, company_id)
+    return _settings_response(db, company_id)
 
 
 @router.patch("/settings", response_model=AttendanceShiftConfigResponse)
@@ -41,7 +52,15 @@ def update_settings(
     db: Session = Depends(get_db),
 ):
     updates = payload.model_dump(exclude_unset=True)
-    return attendance_service.update_shift_config(db, company_id, actor_user_id=current_user.id, **updates)
+    enabled = updates.pop("enabled", None)
+    mode = updates.pop("mode", None)
+    if enabled is not None or mode is not None:
+        attendance_service.update_module_settings(
+            db, company_id, enabled=enabled, mode=mode, actor_user_id=current_user.id
+        )
+    if updates:
+        attendance_service.update_shift_config(db, company_id, actor_user_id=current_user.id, **updates)
+    return _settings_response(db, company_id)
 
 
 @router.post("/check-in", response_model=AttendanceRecordResponse, status_code=201)

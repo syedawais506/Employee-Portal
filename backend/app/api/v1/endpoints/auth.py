@@ -16,6 +16,7 @@ from app.schemas.auth import (
     VerifyEmailRequest,
 )
 from app.services.ai_chatbot_service import ai_chatbot_service
+from app.services.attendance_service import attendance_service
 from app.services.auth_service import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -95,6 +96,12 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
     ai_chatbot_enabled = (
         ai_chatbot_service.is_enabled(db, current_user.company_id) if current_user.company_id else False
     )
+    attendance_enabled = (
+        attendance_service.is_enabled(db, current_user.company_id) if current_user.company_id else True
+    )
+    attendance_mode = (
+        attendance_service.get_mode(db, current_user.company_id) if current_user.company_id else "check_in_out"
+    )
     return CurrentUserResponse(
         id=current_user.id,
         email=current_user.email,
@@ -105,4 +112,6 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
         employee_id=employee.id if employee else None,
         full_name=employee.full_name if employee else None,
         ai_chatbot_enabled=ai_chatbot_enabled,
+        attendance_enabled=attendance_enabled,
+        attendance_mode=attendance_mode,
     )

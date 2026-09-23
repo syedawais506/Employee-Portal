@@ -186,6 +186,104 @@ def test_check_out_no_overtime_within_shift_hours(db_session, tenant_a):
     assert record.overtime_hours == Decimal("0")
 
 
+def test_admin_can_disable_attendance_and_it_hides_from_employees(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+
+    disable = client.patch("/api/v1/attendance/settings", headers=headers_admin, json={"enabled": False})
+    assert disable.status_code == 200
+    assert disable.json()["enabled"] is False
+
+    me = client.get("/api/v1/auth/me", headers=headers_employee)
+    assert me.json()["attendance_enabled"] is False
+
+    check_in = client.post("/api/v1/attendance/check-in", headers=headers_employee)
+    assert check_in.status_code == 422
+
+
+def test_admin_can_switch_to_timesheet_mode_and_manual_check_in_is_rejected(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+
+    switched = client.patch("/api/v1/attendance/settings", headers=headers_admin, json={"mode": "timesheet"})
+    assert switched.status_code == 200
+    assert switched.json()["mode"] == "timesheet"
+
+    me = client.get("/api/v1/auth/me", headers=headers_employee)
+    assert me.json()["attendance_mode"] == "timesheet"
+
+    check_in = client.post("/api/v1/attendance/check-in", headers=headers_employee)
+    assert check_in.status_code == 422
+
+
+def _create_project_with_employee_member(client, headers_admin, tenant, name):
+    _, employee, _ = tenant.users["Employee"]
+    response = client.post(
+        "/api/v1/projects",
+        headers=headers_admin,
+        json={"name": name, "member_ids": [{"employee_id": str(employee.id), "role_on_project": "member"}]},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def test_submitting_a_timesheet_auto_marks_attendance_present_in_timesheet_mode(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    client.patch("/api/v1/attendance/settings", headers=headers_admin, json={"mode": "timesheet"})
+    project_id = _create_project_with_employee_member(client, headers_admin, tenant_a, "Attendance Test Project")
+
+    entry_date = date.today().isoformat()
+    entry = client.post(
+        "/api/v1/timesheets/entries",
+        headers=headers_employee,
+        json={"project_id": project_id, "entry_date": entry_date, "hours": "8"},
+    )
+    assert entry.status_code == 201, entry.text
+
+    submit = client.post(
+        "/api/v1/timesheets/submissions",
+        headers=headers_employee,
+        json={"period_start": entry_date, "period_end": entry_date},
+    )
+    assert submit.status_code == 201, submit.text
+
+    mine = client.get(
+        "/api/v1/attendance/mine", headers=headers_employee, params={"date_from": entry_date, "date_to": entry_date}
+    )
+    assert mine.status_code == 200
+    records = mine.json()
+    assert len(records) == 1
+    assert records[0]["status"] == "present"
+    assert records[0]["check_in_at"] is None
+
+
+def test_submitting_a_timesheet_does_not_mark_attendance_in_check_in_out_mode(client, tenant_a):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    headers_employee = tenant_a.auth_headers(client, "Employee")
+    # Default mode is check_in_out — explicit here for clarity/robustness against future default changes.
+    client.patch("/api/v1/attendance/settings", headers=headers_admin, json={"mode": "check_in_out"})
+    project_id = _create_project_with_employee_member(client, headers_admin, tenant_a, "Manual Mode Project")
+
+    entry_date = date.today().isoformat()
+    client.post(
+        "/api/v1/timesheets/entries",
+        headers=headers_employee,
+        json={"project_id": project_id, "entry_date": entry_date, "hours": "8"},
+    )
+    submit = client.post(
+        "/api/v1/timesheets/submissions",
+        headers=headers_employee,
+        json={"period_start": entry_date, "period_end": entry_date},
+    )
+    assert submit.status_code == 201, submit.text
+
+    mine = client.get(
+        "/api/v1/attendance/mine", headers=headers_employee, params={"date_from": entry_date, "date_to": entry_date}
+    )
+    assert mine.json() == []
+
+
 def test_attendance_isolated_per_company(client, tenant_a, tenant_b):
     headers_employee_a = tenant_a.auth_headers(client, "Employee")
     client.post("/api/v1/attendance/check-in", headers=headers_employee_a)

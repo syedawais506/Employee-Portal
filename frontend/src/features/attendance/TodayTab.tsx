@@ -8,12 +8,14 @@ const STATUS_LABEL: Record<AttendanceStatus, string> = {
   checked_in: "Checked in",
   checked_out: "Checked out",
   not_checked_in: "Not checked in",
+  present: "Present (via timesheet)",
 };
 
 const STATUS_COLOR: Record<AttendanceStatus, "success" | "info" | "default"> = {
   checked_in: "info",
   checked_out: "success",
   not_checked_in: "default",
+  present: "success",
 };
 
 function formatTime(value: string | null): string {

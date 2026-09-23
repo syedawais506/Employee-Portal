@@ -8,6 +8,8 @@ export async function getAttendanceSettings(): Promise<AttendanceShiftConfig> {
 }
 
 export interface AttendanceSettingsUpdateInput {
+  enabled?: boolean;
+  mode?: "check_in_out" | "timesheet";
   shift_start?: string;
   shift_end?: string;
   grace_period_minutes?: number;

@@ -18,12 +18,14 @@ import {
 
 import { extractApiErrorMessage } from "@/api/client";
 import { checkIn, checkOut, listMyAttendance } from "@/api/attendance";
+import { useAuthStore } from "@/store/authStore";
 import type { AttendanceStatus } from "@/types";
 
 const STATUS_COLOR: Record<AttendanceStatus, "success" | "info" | "default"> = {
   checked_in: "info",
   checked_out: "success",
   not_checked_in: "default",
+  present: "success",
 };
 
 function toISODate(date: Date): string {
@@ -38,6 +40,8 @@ function formatTime(value: string | null): string {
 export function MyAttendanceTab() {
   const queryClient = useQueryClient();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const attendanceMode = useAuthStore((state) => state.user?.attendance_mode ?? "check_in_out");
+  const isTimesheetMode = attendanceMode === "timesheet";
 
   const { dateFrom, dateTo, today } = useMemo(() => {
     const now = new Date();
@@ -79,7 +83,19 @@ export function MyAttendanceTab() {
         <Typography variant="h3" sx={{ mb: 2 }}>
           Today
         </Typography>
-        {!todayRecord && (
+        {isTimesheetMode && (
+          <Typography color="text.secondary">
+            Your attendance is tracked automatically from your submitted timesheets — there's nothing to check
+            in or out of here.
+            {todayRecord?.status === "present" && (
+              <>
+                {" "}
+                You're marked present today via a timesheet submission.
+              </>
+            )}
+          </Typography>
+        )}
+        {!isTimesheetMode && !todayRecord && (
           <Stack spacing={2}>
             <Typography color="text.secondary">You haven't checked in yet today.</Typography>
             <Button variant="contained" onClick={() => checkInMutation.mutate()} disabled={checkInMutation.isPending}>
@@ -87,7 +103,7 @@ export function MyAttendanceTab() {
             </Button>
           </Stack>
         )}
-        {todayRecord && todayRecord.status === "checked_in" && (
+        {!isTimesheetMode && todayRecord && todayRecord.status === "checked_in" && (
           <Stack spacing={2}>
             <Box>
               <Typography color="text.secondary">Checked in at {formatTime(todayRecord.check_in_at)}</Typography>
@@ -103,7 +119,7 @@ export function MyAttendanceTab() {
             </Button>
           </Stack>
         )}
-        {todayRecord && todayRecord.status === "checked_out" && (
+        {!isTimesheetMode && todayRecord && todayRecord.status === "checked_out" && (
           <Stack spacing={1}>
             <Typography color="text.secondary">
               Checked in {formatTime(todayRecord.check_in_at)} · Checked out {formatTime(todayRecord.check_out_at)}

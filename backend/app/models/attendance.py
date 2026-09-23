@@ -3,7 +3,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, Time, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Time, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,6 +38,10 @@ class AttendanceRecord(UUIDPkMixin, TimestampMixin, Base):
     check_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_late: Mapped[bool] = mapped_column(default=False, nullable=False)
     overtime_hours: Mapped[Decimal] = mapped_column(Numeric(4, 2), default=Decimal("0"), nullable=False)
+    # "manual" = employee checked in/out themselves; "timesheet" = created automatically
+    # when a timesheet submission covered this date (see TimesheetService.submit_period).
+    # Existing rows default to "manual" so historic check-in/out data keeps its meaning.
+    source: Mapped[str] = mapped_column(String(20), default="manual", nullable=False)
 
     employee: Mapped["Employee"] = relationship()
 
@@ -47,4 +51,6 @@ class AttendanceRecord(UUIDPkMixin, TimestampMixin, Base):
 
     @property
     def status(self) -> str:
+        if self.source == "timesheet" and self.check_in_at is None:
+            return "present"
         return "checked_out" if self.check_out_at is not None else "checked_in"

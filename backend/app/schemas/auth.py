@@ -49,3 +49,5 @@ class CurrentUserResponse(ORMModel):
     employee_id: uuid.UUID | None = None
     full_name: str | None = None
     ai_chatbot_enabled: bool = False
+    attendance_enabled: bool = True
+    attendance_mode: str = "check_in_out"
