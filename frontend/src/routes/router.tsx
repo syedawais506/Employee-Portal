@@ -20,7 +20,6 @@ const DashboardPage = lazy(() => import("@/features/dashboard/DashboardPage").th
 const DepartmentListPage = lazy(() => import("@/features/departments/DepartmentListPage").then((m) => ({ default: m.DepartmentListPage })));
 const EmployeeDetailPage = lazy(() => import("@/features/employees/EmployeeDetailPage").then((m) => ({ default: m.EmployeeDetailPage })));
 const EmployeeListPage = lazy(() => import("@/features/employees/EmployeeListPage").then((m) => ({ default: m.EmployeeListPage })));
-const IntegrationsPage = lazy(() => import("@/features/integrations/IntegrationsPage").then((m) => ({ default: m.IntegrationsPage })));
 const LeavePage = lazy(() => import("@/features/leave/LeavePage").then((m) => ({ default: m.LeavePage })));
 const OnboardingPage = lazy(() => import("@/features/onboarding/OnboardingPage").then((m) => ({ default: m.OnboardingPage })));
 const OnboardingReviewPage = lazy(() => import("@/features/onboarding/OnboardingReviewPage").then((m) => ({ default: m.OnboardingReviewPage })));
@@ -96,10 +95,6 @@ export const router = createBrowserRouter([
           {
             element: <RequirePermission module="report" action="view" />,
             children: [{ path: "/reports", element: <ReportsPage /> }],
-          },
-          {
-            element: <RequirePermission module="company" action="configure" />,
-            children: [{ path: "/integrations", element: <IntegrationsPage /> }],
           },
           {
             element: <RequireSuperAdmin />,

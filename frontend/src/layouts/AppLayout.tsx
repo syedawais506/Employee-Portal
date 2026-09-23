@@ -31,7 +31,6 @@ import Brightness7Icon from "@mui/icons-material/Brightness7";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import DomainIcon from "@mui/icons-material/Domain";
 import HowToRegIcon from "@mui/icons-material/HowToReg";
-import IntegrationInstructionsIcon from "@mui/icons-material/IntegrationInstructions";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -56,6 +55,7 @@ interface NavItem {
     isSuperAdmin: boolean;
     hasPermission: (m: string, a: string) => boolean;
     aiChatbotEnabled: boolean;
+    attendanceEnabled: boolean;
   }) => boolean;
 }
 
@@ -66,6 +66,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: <DashboardIcon fontSize="small" />,
     match: (p) => p === "/",
     visible: () => true,
+  },
+  {
+    label: "Onboarding",
+    to: "/onboarding",
+    icon: <HowToRegIcon fontSize="small" />,
+    match: (p) => p.startsWith("/onboarding"),
+    visible: ({ isSuperAdmin, hasPermission }) => !isSuperAdmin && hasPermission("onboarding", "view"),
   },
   {
     label: "Employees",
@@ -93,7 +100,10 @@ const NAV_ITEMS: NavItem[] = [
     to: "/attendance",
     icon: <EventAvailableIcon fontSize="small" />,
     match: (p) => p.startsWith("/attendance"),
-    visible: ({ isSuperAdmin }) => !isSuperAdmin,
+    // Admins can always reach it (even disabled) to turn it back on; anyone
+    // else only sees it while attendance is actually enabled for the company.
+    visible: ({ isSuperAdmin, hasPermission, attendanceEnabled }) =>
+      !isSuperAdmin && (attendanceEnabled || hasPermission("attendance", "configure")),
   },
   {
     label: "Timesheets",
@@ -117,20 +127,6 @@ const NAV_ITEMS: NavItem[] = [
     visible: ({ isSuperAdmin }) => !isSuperAdmin,
   },
   {
-    label: "Ask HR",
-    to: "/ask-hr",
-    icon: <SmartToyIcon fontSize="small" />,
-    match: (p) => p.startsWith("/ask-hr"),
-    visible: ({ isSuperAdmin, aiChatbotEnabled }) => !isSuperAdmin && aiChatbotEnabled,
-  },
-  {
-    label: "Onboarding",
-    to: "/onboarding",
-    icon: <HowToRegIcon fontSize="small" />,
-    match: (p) => p.startsWith("/onboarding"),
-    visible: ({ isSuperAdmin, hasPermission }) => !isSuperAdmin && hasPermission("onboarding", "view"),
-  },
-  {
     label: "Reports",
     to: "/reports",
     icon: <AssessmentIcon fontSize="small" />,
@@ -145,11 +141,11 @@ const NAV_ITEMS: NavItem[] = [
     visible: ({ isSuperAdmin, hasPermission }) => !isSuperAdmin && hasPermission("role", "view"),
   },
   {
-    label: "Integrations",
-    to: "/integrations",
-    icon: <IntegrationInstructionsIcon fontSize="small" />,
-    match: (p) => p.startsWith("/integrations"),
-    visible: ({ isSuperAdmin, hasPermission }) => !isSuperAdmin && hasPermission("company", "configure"),
+    label: "Ask HR",
+    to: "/ask-hr",
+    icon: <SmartToyIcon fontSize="small" />,
+    match: (p) => p.startsWith("/ask-hr"),
+    visible: ({ isSuperAdmin, aiChatbotEnabled }) => !isSuperAdmin && aiChatbotEnabled,
   },
   {
     label: "Companies",
@@ -180,7 +176,10 @@ export function AppLayout() {
   const breadcrumbLabel = useBreadcrumbLabel(location.pathname);
   const isSuperAdmin = user?.is_super_admin ?? false;
   const aiChatbotEnabled = user?.ai_chatbot_enabled ?? false;
-  const visibleNavItems = NAV_ITEMS.filter((item) => item.visible({ isSuperAdmin, hasPermission, aiChatbotEnabled }));
+  const attendanceEnabled = user?.attendance_enabled ?? true;
+  const visibleNavItems = NAV_ITEMS.filter((item) =>
+    item.visible({ isSuperAdmin, hasPermission, aiChatbotEnabled, attendanceEnabled }),
+  );
 
   async function handleLogout() {
     setMenuAnchor(null);
