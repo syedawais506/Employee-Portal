@@ -250,7 +250,7 @@ def test_fanout_notification_dispatches_webhook_exactly_once(client, tenant_a, d
     upload = client.post(
         f"/api/v1/onboarding/{raw_token}/documents",
         data={"document_type_id": doc_type["id"]},
-        files={"file": ("resume.pdf", b"%PDF-1.4 fake", "application/pdf")},
+        files=[("files", ("resume.pdf", b"%PDF-1.4 fake", "application/pdf"))],
     )
     assert upload.status_code == 201, upload.text
 

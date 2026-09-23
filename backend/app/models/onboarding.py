@@ -21,9 +21,9 @@ class DocumentType(UUIDPkMixin, TimestampMixin, Base):
 
 class EmployeeDocument(UUIDPkMixin, Base):
     __tablename__ = "employee_document"
-    __table_args__ = (
-        UniqueConstraint("employee_id", "document_type_id", name="uq_employee_document_type"),
-    )
+    # No unique constraint on (employee_id, document_type_id): an employee can
+    # upload several files under the same document type (e.g. multiple
+    # "Education" documents) — each upload is its own row, never overwritten.
 
     company_id: Mapped[uuid.UUID] = company_fk()
     employee_id: Mapped[uuid.UUID] = mapped_column(

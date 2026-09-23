@@ -202,7 +202,7 @@ def test_onboarding_submission_notifies_hr_reviewers(client, tenant_a, monkeypat
     upload = client.post(
         f"/api/v1/onboarding/{raw_token}/documents",
         data={"document_type_id": doc_type["id"]},
-        files={"file": ("resume.pdf", b"%PDF-1.4 fake", "application/pdf")},
+        files=[("files", ("resume.pdf", b"%PDF-1.4 fake", "application/pdf"))],
     )
     assert upload.status_code == 201, upload.text
 

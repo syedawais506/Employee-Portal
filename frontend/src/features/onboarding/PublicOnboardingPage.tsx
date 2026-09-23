@@ -21,7 +21,7 @@ import {
 } from "@mui/material";
 
 import { extractApiErrorMessage } from "@/api/client";
-import { getOnboardingContext, setOnboardingPassword, uploadOnboardingDocument } from "@/api/onboarding";
+import { getOnboardingContext, setOnboardingPassword, uploadOnboardingDocuments } from "@/api/onboarding";
 import type { CompanyBranding, CompanyTourStep, DocumentType, EmployeeDocument } from "@/types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -114,16 +114,22 @@ function CompanyTour({
   );
 }
 
+function statusColorFor(status: string): "success" | "error" | "default" {
+  if (status === "approved") return "success";
+  if (status === "rejected") return "error";
+  return "default";
+}
+
 function DocumentRow({
   token,
   documentType,
-  document,
+  documents,
   disabled,
   onUploaded,
 }: {
   token: string;
   documentType: DocumentType;
-  document?: EmployeeDocument;
+  documents: EmployeeDocument[];
   disabled: boolean;
   onUploaded: () => void;
 }) {
@@ -131,12 +137,10 @@ function DocumentRow({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (file: File) => uploadOnboardingDocument(token, documentType.id, file),
+    mutationFn: (files: File[]) => uploadOnboardingDocuments(token, documentType.id, files),
     onSuccess: onUploaded,
     onError: (error) => setErrorMessage(extractApiErrorMessage(error)),
   });
-
-  const statusColor = document?.status === "approved" ? "success" : document?.status === "rejected" ? "error" : "default";
 
   return (
     <Box sx={{ py: 1.5 }}>
@@ -144,42 +148,47 @@ function DocumentRow({
         <Stack direction="row" spacing={1} alignItems="center">
           <Typography variant="body1">{documentType.name}</Typography>
           {documentType.is_required && <Chip label="Required" size="small" variant="outlined" />}
-          {document && <Chip label={document.status} size="small" color={statusColor} />}
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center">
-          {document && (
-            <Typography variant="caption" color="text.secondary">
-              {document.original_filename}
-            </Typography>
-          )}
-          <Button
-            size="small"
-            startIcon={mutation.isPending ? <CircularProgress size={14} /> : <UploadFileIcon fontSize="small" />}
-            disabled={disabled || mutation.isPending}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {document ? "Replace" : "Upload"}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            hidden
-            accept="application/pdf,image/png,image/jpeg"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) {
-                setErrorMessage(null);
-                mutation.mutate(file);
-              }
-              event.target.value = "";
-            }}
-          />
-        </Stack>
+        <Button
+          size="small"
+          startIcon={mutation.isPending ? <CircularProgress size={14} /> : <UploadFileIcon fontSize="small" />}
+          disabled={disabled || mutation.isPending}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {documents.length > 0 ? "Add more files" : "Upload files"}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          hidden
+          accept="application/pdf,image/png,image/jpeg"
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? []);
+            if (files.length > 0) {
+              setErrorMessage(null);
+              mutation.mutate(files);
+            }
+            event.target.value = "";
+          }}
+        />
       </Stack>
-      {document?.status === "rejected" && document.review_notes && (
-        <Alert severity="warning" sx={{ mt: 1 }}>
-          HR requested changes: {document.review_notes}
-        </Alert>
+      {documents.length > 0 && (
+        <Stack spacing={0.5} sx={{ mt: 1 }}>
+          {documents.map((document) => (
+            <Stack key={document.id} direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+              <Typography variant="caption" color="text.secondary">
+                {document.original_filename}
+              </Typography>
+              <Chip label={document.status} size="small" color={statusColorFor(document.status)} />
+              {document.status === "rejected" && document.review_notes && (
+                <Typography variant="caption" color="warning.main">
+                  HR requested changes: {document.review_notes}
+                </Typography>
+              )}
+            </Stack>
+          ))}
+        </Stack>
       )}
       {errorMessage && (
         <Alert severity="error" sx={{ mt: 1 }}>
@@ -355,7 +364,7 @@ export function PublicOnboardingPage() {
                       key={documentType.id}
                       token={token as string}
                       documentType={documentType}
-                      document={context.uploaded_documents.find((d) => d.document_type_id === documentType.id)}
+                      documents={context.uploaded_documents.filter((d) => d.document_type_id === documentType.id)}
                       disabled={!["invited", "submitted"].includes(context.employee.onboarding_status)}
                       onUploaded={refetchContext}
                     />

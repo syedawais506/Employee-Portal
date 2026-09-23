@@ -144,16 +144,19 @@ class OnboardingService:
         self._maybe_advance_to_submitted(db, employee)
         db.commit()
 
-    def upload_document(
+    def upload_documents(
         self,
         db: Session,
         raw_token: str,
         *,
         document_type_id: uuid.UUID,
-        filename: str,
-        content_type: str,
-        content: bytes,
-    ) -> EmployeeDocument:
+        files: list[tuple[str, str, bytes]],
+    ) -> list[EmployeeDocument]:
+        """files is a list of (filename, content_type, content) — one upload
+        call can add several files at once under the same document type,
+        each becoming its own row (see EmployeeDocumentRepository.create);
+        none of them overwrite an existing upload.
+        """
         invite, employee = self._resolve_invite(db, raw_token)
         if employee.onboarding_status not in ("invited", "submitted"):
             raise ValidationAppError("Documents can no longer be updated at this onboarding stage.")
@@ -161,32 +164,42 @@ class OnboardingService:
         document_type = self.document_type_repo.get(db, employee.company_id, document_type_id)
         if document_type is None:
             raise ValidationAppError("Unknown document type")
-        if content_type not in ALLOWED_CONTENT_TYPES:
-            raise ValidationAppError("Only PDF, PNG, and JPEG files are accepted.")
-        if len(content) > MAX_UPLOAD_SIZE_BYTES:
-            raise ValidationAppError("File exceeds the 10 MB upload limit.")
+        if not files:
+            raise ValidationAppError("Select at least one file to upload.")
 
-        key = build_document_key(
-            company_id=employee.company_id,
-            employee_id=employee.id,
-            document_type_id=document_type_id,
-            filename=filename,
-        )
-        upload_document(key=key, content=content)
+        # Validate every file before uploading any of them, so a bad file
+        # later in the batch doesn't leave earlier ones orphaned in storage
+        # with no corresponding (never-committed) database row.
+        for filename, content_type, content in files:
+            if content_type not in ALLOWED_CONTENT_TYPES:
+                raise ValidationAppError(f'"{filename}": only PDF, PNG, and JPEG files are accepted.')
+            if len(content) > MAX_UPLOAD_SIZE_BYTES:
+                raise ValidationAppError(f'"{filename}" exceeds the 10 MB upload limit.')
 
-        document = self.employee_document_repo.upsert(
-            db,
-            company_id=employee.company_id,
-            employee_id=employee.id,
-            document_type_id=document_type_id,
-            file_key=key,
-            original_filename=filename,
-            content_type=content_type,
-            size_bytes=len(content),
-        )
+        documents = []
+        for filename, content_type, content in files:
+            key = build_document_key(
+                company_id=employee.company_id,
+                employee_id=employee.id,
+                document_type_id=document_type_id,
+                filename=filename,
+            )
+            upload_document(key=key, content=content)
+            documents.append(
+                self.employee_document_repo.create(
+                    db,
+                    company_id=employee.company_id,
+                    employee_id=employee.id,
+                    document_type_id=document_type_id,
+                    file_key=key,
+                    original_filename=filename,
+                    content_type=content_type,
+                    size_bytes=len(content),
+                )
+            )
         self._maybe_advance_to_submitted(db, employee)
         db.commit()
-        return document
+        return documents
 
     def _maybe_advance_to_submitted(self, db: Session, employee: Employee) -> None:
         if employee.onboarding_status != "invited":

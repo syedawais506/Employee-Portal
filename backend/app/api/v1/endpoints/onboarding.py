@@ -20,6 +20,22 @@ onboarding_router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 management_router = APIRouter(prefix="/employees", tags=["onboarding"])
 
 
+def _to_response(document) -> EmployeeDocumentResponse:  # noqa: ANN001
+    return EmployeeDocumentResponse(
+        id=document.id,
+        document_type_id=document.document_type_id,
+        document_type_name=document.document_type.name,
+        original_filename=document.original_filename,
+        content_type=document.content_type,
+        size_bytes=document.size_bytes,
+        status=document.status,
+        review_notes=document.review_notes,
+        uploaded_at=document.uploaded_at,
+        reviewed_at=document.reviewed_at,
+        expiry_date=document.expiry_date,
+    )
+
+
 @onboarding_router.get("/queue", response_model=list[OnboardingQueueEntry])
 def onboarding_queue(
     company_id: uuid.UUID = Depends(get_current_company_id),
@@ -47,35 +63,21 @@ def set_onboarding_password(token: str, payload: OnboardingCompleteRequest, db: 
     onboarding_service.set_password(db, token, payload.password)
 
 
-@onboarding_router.post("/{token}/documents", response_model=EmployeeDocumentResponse, status_code=201)
-async def upload_onboarding_document(
+@onboarding_router.post("/{token}/documents", response_model=list[EmployeeDocumentResponse], status_code=201)
+async def upload_onboarding_documents(
     token: str,
     document_type_id: uuid.UUID = Form(...),
-    file: UploadFile = File(...),
+    files: list[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
-    content = await file.read()
-    document = onboarding_service.upload_document(
-        db,
-        token,
-        document_type_id=document_type_id,
-        filename=file.filename or "document",
-        content_type=file.content_type or "application/octet-stream",
-        content=content,
+    file_payloads = [
+        (file.filename or "document", file.content_type or "application/octet-stream", await file.read())
+        for file in files
+    ]
+    documents = onboarding_service.upload_documents(
+        db, token, document_type_id=document_type_id, files=file_payloads
     )
-    return EmployeeDocumentResponse(
-        id=document.id,
-        document_type_id=document.document_type_id,
-        document_type_name=document.document_type.name,
-        original_filename=document.original_filename,
-        content_type=document.content_type,
-        size_bytes=document.size_bytes,
-        status=document.status,
-        review_notes=document.review_notes,
-        uploaded_at=document.uploaded_at,
-        reviewed_at=document.reviewed_at,
-        expiry_date=document.expiry_date,
-    )
+    return [_to_response(document) for document in documents]
 
 
 @management_router.get("/{employee_id}/documents", response_model=list[EmployeeDocumentResponse])
@@ -86,22 +88,7 @@ def list_employee_documents(
     _: User = Depends(require_permission("onboarding", "view")),
 ):
     documents = onboarding_service.employee_document_repo.list_for_employee(db, company_id, employee_id)
-    return [
-        EmployeeDocumentResponse(
-            id=d.id,
-            document_type_id=d.document_type_id,
-            document_type_name=d.document_type.name,
-            original_filename=d.original_filename,
-            content_type=d.content_type,
-            size_bytes=d.size_bytes,
-            status=d.status,
-            review_notes=d.review_notes,
-            uploaded_at=d.uploaded_at,
-            reviewed_at=d.reviewed_at,
-            expiry_date=d.expiry_date,
-        )
-        for d in documents
-    ]
+    return [_to_response(d) for d in documents]
 
 
 @management_router.post("/{employee_id}/documents/{document_id}/review", response_model=EmployeeDocumentResponse)
@@ -122,19 +109,7 @@ def review_employee_document(
         actor_user_id=current_user.id,
         expiry_date=payload.expiry_date,
     )
-    return EmployeeDocumentResponse(
-        id=document.id,
-        document_type_id=document.document_type_id,
-        document_type_name=document.document_type.name,
-        original_filename=document.original_filename,
-        content_type=document.content_type,
-        size_bytes=document.size_bytes,
-        status=document.status,
-        review_notes=document.review_notes,
-        uploaded_at=document.uploaded_at,
-        reviewed_at=document.reviewed_at,
-        expiry_date=document.expiry_date,
-    )
+    return _to_response(document)
 
 
 @management_router.get("/{employee_id}/documents/{document_id}/download")

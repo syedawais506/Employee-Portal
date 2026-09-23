@@ -10,15 +10,15 @@ export async function setOnboardingPassword(token: string, password: string): Pr
   await apiClient.post(`/onboarding/${token}/password`, { password });
 }
 
-export async function uploadOnboardingDocument(
+export async function uploadOnboardingDocuments(
   token: string,
   documentTypeId: string,
-  file: File,
-): Promise<EmployeeDocument> {
+  files: File[],
+): Promise<EmployeeDocument[]> {
   const formData = new FormData();
   formData.append("document_type_id", documentTypeId);
-  formData.append("file", file);
-  const response = await apiClient.post<EmployeeDocument>(`/onboarding/${token}/documents`, formData, {
+  files.forEach((file) => formData.append("files", file));
+  const response = await apiClient.post<EmployeeDocument[]>(`/onboarding/${token}/documents`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return response.data;

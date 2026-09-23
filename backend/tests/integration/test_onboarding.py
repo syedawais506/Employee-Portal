@@ -63,9 +63,10 @@ def test_full_onboarding_workflow_activates_the_account(client, tenant_a, monkey
     upload = client.post(
         f"/api/v1/onboarding/{raw_token}/documents",
         data={"document_type_id": document_type_id},
-        files={"file": ("resume.pdf", b"%PDF-1.4 fake resume content", "application/pdf")},
+        files=[("files", ("resume.pdf", b"%PDF-1.4 fake resume content", "application/pdf"))],
     )
     assert upload.status_code == 201, upload.text
+    assert len(upload.json()) == 1
 
     # Uploading the only required document (with a password already set)
     # should auto-advance the employee to "submitted".
@@ -104,6 +105,73 @@ def test_full_onboarding_workflow_activates_the_account(client, tenant_a, monkey
         "/api/v1/auth/login", json={"email": "newhire@acme-demo.com", "password": "NewHirePass1"}
     )
     assert activated_login.status_code == 200
+
+
+def test_multiple_documents_can_be_uploaded_for_the_same_type_without_overwriting(client, tenant_a, monkeypatch):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    document_type_id = _create_document_type(client, headers_admin, name="Education")
+    employee, raw_token = _create_invited_employee(client, headers_admin, monkeypatch, email="multi@acme-demo.com")
+    employee_id = employee["id"]
+
+    client.post(f"/api/v1/onboarding/{raw_token}/password", json={"password": "NewHirePass1"})
+
+    upload = client.post(
+        f"/api/v1/onboarding/{raw_token}/documents",
+        data={"document_type_id": document_type_id},
+        files=[
+            ("files", ("degree.pdf", b"%PDF-1.4 degree", "application/pdf")),
+            ("files", ("transcript.pdf", b"%PDF-1.4 transcript", "application/pdf")),
+        ],
+    )
+    assert upload.status_code == 201, upload.text
+    assert {d["original_filename"] for d in upload.json()} == {"degree.pdf", "transcript.pdf"}
+
+    # A second, separate upload call for the same type adds to what's there — it doesn't replace it.
+    second_upload = client.post(
+        f"/api/v1/onboarding/{raw_token}/documents",
+        data={"document_type_id": document_type_id},
+        files=[("files", ("certificate.pdf", b"%PDF-1.4 certificate", "application/pdf"))],
+    )
+    assert second_upload.status_code == 201, second_upload.text
+
+    documents = client.get(f"/api/v1/employees/{employee_id}/documents", headers=headers_admin)
+    filenames = {d["original_filename"] for d in documents.json()}
+    assert filenames == {"degree.pdf", "transcript.pdf", "certificate.pdf"}
+
+    # Approving just one of the three files is enough to satisfy this required type.
+    first_document_id = documents.json()[0]["id"]
+    review = client.post(
+        f"/api/v1/employees/{employee_id}/documents/{first_document_id}/review",
+        headers=headers_admin,
+        json={"approve": True},
+    )
+    assert review.status_code == 200
+
+    hr_approve = client.post(f"/api/v1/employees/{employee_id}/onboarding/hr-approve", headers=headers_admin)
+    assert hr_approve.status_code == 200
+    assert hr_approve.json()["onboarding_status"] == "hr_approved"
+
+
+def test_upload_rejects_a_bad_file_without_uploading_the_good_ones_in_the_batch(client, tenant_a, monkeypatch):
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    document_type_id = _create_document_type(client, headers_admin)
+    _, raw_token = _create_invited_employee(client, headers_admin, monkeypatch, email="badbatch@acme-demo.com")
+    client.post(f"/api/v1/onboarding/{raw_token}/password", json={"password": "NewHirePass1"})
+
+    upload = client.post(
+        f"/api/v1/onboarding/{raw_token}/documents",
+        data={"document_type_id": document_type_id},
+        files=[
+            ("files", ("resume.pdf", b"%PDF-1.4 fake", "application/pdf")),
+            ("files", ("virus.exe", b"not allowed", "application/x-msdownload")),
+        ],
+    )
+    assert upload.status_code == 422
+
+    documents = client.get(
+        f"/api/v1/onboarding/{raw_token}"
+    ).json()["uploaded_documents"]
+    assert documents == []
 
 
 def test_admin_approve_blocked_before_hr_approval(client, tenant_a, monkeypatch):

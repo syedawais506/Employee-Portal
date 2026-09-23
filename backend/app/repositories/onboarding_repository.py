@@ -55,15 +55,15 @@ class EmployeeDocumentRepository:
         )
         return db.execute(stmt).scalar_one_or_none()
 
-    def get_by_type(
+    def list_by_type(
         self, db: Session, employee_id: uuid.UUID, document_type_id: uuid.UUID
-    ) -> EmployeeDocument | None:
+    ) -> list[EmployeeDocument]:
         stmt = select(EmployeeDocument).where(
             EmployeeDocument.employee_id == employee_id, EmployeeDocument.document_type_id == document_type_id
         )
-        return db.execute(stmt).scalar_one_or_none()
+        return list(db.execute(stmt).scalars().all())
 
-    def upsert(
+    def create(
         self,
         db: Session,
         *,
@@ -75,19 +75,8 @@ class EmployeeDocumentRepository:
         content_type: str,
         size_bytes: int,
     ) -> EmployeeDocument:
-        existing = self.get_by_type(db, employee_id, document_type_id)
-        if existing is not None:
-            existing.file_key = file_key
-            existing.original_filename = original_filename
-            existing.content_type = content_type
-            existing.size_bytes = size_bytes
-            existing.status = "pending"
-            existing.review_notes = None
-            existing.reviewed_by = None
-            existing.reviewed_at = None
-            db.flush()
-            return existing
-
+        # Always a new row — an employee can upload several files under the
+        # same document type, and none of them should overwrite another.
         document = EmployeeDocument(
             company_id=company_id,
             employee_id=employee_id,
