@@ -12,6 +12,9 @@ import { ProtectedRoute, RequireNotSuperAdmin, RequirePermission, RequireSuperAd
 const ForgotPasswordPage = lazy(() => import("@/features/auth/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage })));
 const LoginPage = lazy(() => import("@/features/auth/LoginPage").then((m) => ({ default: m.LoginPage })));
 const ResetPasswordPage = lazy(() => import("@/features/auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })));
+const AiAssistantSettingsPage = lazy(() =>
+  import("@/features/ai/AiAssistantSettingsPage").then((m) => ({ default: m.AiAssistantSettingsPage })),
+);
 const AskHRPage = lazy(() => import("@/features/ai/AskHRPage").then((m) => ({ default: m.AskHRPage })));
 const AssetsPage = lazy(() => import("@/features/assets/AssetsPage").then((m) => ({ default: m.AssetsPage })));
 const AttendancePage = lazy(() => import("@/features/attendance/AttendancePage").then((m) => ({ default: m.AttendancePage })));
@@ -95,6 +98,10 @@ export const router = createBrowserRouter([
           {
             element: <RequirePermission module="report" action="view" />,
             children: [{ path: "/reports", element: <ReportsPage /> }],
+          },
+          {
+            element: <RequirePermission module="company" action="configure" />,
+            children: [{ path: "/ai-assistant", element: <AiAssistantSettingsPage /> }],
           },
           {
             element: <RequireSuperAdmin />,

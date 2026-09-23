@@ -35,6 +35,7 @@ import InventoryIcon from "@mui/icons-material/Inventory";
 import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import SecurityIcon from "@mui/icons-material/Security";
+import SettingsSuggestIcon from "@mui/icons-material/SettingsSuggest";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
 
@@ -139,6 +140,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: <SecurityIcon fontSize="small" />,
     match: (p) => p.startsWith("/roles"),
     visible: ({ isSuperAdmin, hasPermission }) => !isSuperAdmin && hasPermission("role", "view"),
+  },
+  {
+    label: "AI Assistant",
+    to: "/ai-assistant",
+    icon: <SettingsSuggestIcon fontSize="small" />,
+    match: (p) => p.startsWith("/ai-assistant"),
+    visible: ({ isSuperAdmin, hasPermission }) => !isSuperAdmin && hasPermission("company", "configure"),
   },
   {
     label: "Ask HR",
