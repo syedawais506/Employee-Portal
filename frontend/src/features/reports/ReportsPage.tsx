@@ -60,7 +60,12 @@ export function ReportsPage() {
   const optionsBySource = useMemo<Record<string, ReportFieldOption[]>>(
     () => ({
       department: (departments?.items ?? []).map((d) => ({ value: d.id, label: d.name })),
-      employee: (employees?.items ?? []).map((e) => ({ value: e.id, label: `${e.first_name} ${e.last_name}` })),
+      employee: (employees?.items ?? []).map((e) => ({
+        value: e.id,
+        label: `${e.first_name} ${e.last_name}`,
+        subtitle: [e.employee_code, e.designation, e.department?.name].filter(Boolean).join(" · "),
+        searchText: [e.employee_code, e.designation, e.department?.name, e.location].filter(Boolean).join(" "),
+      })),
       project: (projects?.items ?? []).map((p) => ({ value: p.id, label: p.name })),
       client: (clients ?? []).map((c) => ({ value: c.id, label: c.name })),
       leaveType: (leaveTypes ?? []).map((lt) => ({ value: lt.id, label: lt.name })),

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Box,
   MenuItem,
   Paper,
   Table,
@@ -15,6 +16,7 @@ import {
 
 import { listEmployees } from "@/api/employees";
 import { listCompanyLeaveBalances, listMyLeaveBalances } from "@/api/leave";
+import { EmployeeAutocomplete } from "@/components/EmployeeAutocomplete";
 import { useAuthStore } from "@/store/authStore";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -104,21 +106,13 @@ export function BalancesTab() {
           <Typography variant="h3" sx={{ mb: 1.5 }}>
             Team Balances
           </Typography>
-          <TextField
-            select
-            label="Employee"
-            size="small"
-            value={employeeId}
-            onChange={(event) => setEmployeeId(event.target.value)}
-            sx={{ mb: 2, width: 240 }}
-          >
-            <MenuItem value="">All employees</MenuItem>
-            {(employees?.items ?? []).map((employee) => (
-              <MenuItem key={employee.id} value={employee.id}>
-                {employee.first_name} {employee.last_name}
-              </MenuItem>
-            ))}
-          </TextField>
+          <Box sx={{ mb: 2, width: 280 }}>
+            <EmployeeAutocomplete
+              employees={employees?.items ?? []}
+              value={employeeId}
+              onChange={setEmployeeId}
+            />
+          </Box>
           <Paper variant="outlined">
             <TableContainer>
             <Table>

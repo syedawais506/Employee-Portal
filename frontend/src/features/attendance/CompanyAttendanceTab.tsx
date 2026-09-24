@@ -5,7 +5,6 @@ import {
   Button,
   Chip,
   Grid,
-  MenuItem,
   Paper,
   Table,
   TableBody,
@@ -19,6 +18,7 @@ import {
 
 import { downloadAttendanceExportCsv, listAttendance } from "@/api/attendance";
 import { listEmployees } from "@/api/employees";
+import { EmployeeAutocomplete } from "@/components/EmployeeAutocomplete";
 import { useAuthStore } from "@/store/authStore";
 import type { AttendanceStatus } from "@/types";
 
@@ -92,21 +92,11 @@ export function CompanyAttendanceTab() {
           />
         </Grid>
         <Grid item xs={12} sm={3}>
-          <TextField
-            select
-            label="Employee"
-            fullWidth
-            size="small"
+          <EmployeeAutocomplete
+            employees={employees?.items ?? []}
             value={employeeId}
-            onChange={(event) => setEmployeeId(event.target.value)}
-          >
-            <MenuItem value="">All employees</MenuItem>
-            {(employees?.items ?? []).map((employee) => (
-              <MenuItem key={employee.id} value={employee.id}>
-                {employee.first_name} {employee.last_name}
-              </MenuItem>
-            ))}
-          </TextField>
+            onChange={setEmployeeId}
+          />
         </Grid>
         {canExport && (
           <Grid item xs={12} sm={3}>

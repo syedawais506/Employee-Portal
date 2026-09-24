@@ -3,6 +3,10 @@ import type { ReportModule } from "@/types";
 export interface ReportFieldOption {
   value: string;
   label: string;
+  /** Shown as a muted second line under the label — e.g. an employee's code/department. */
+  subtitle?: string;
+  /** Extra terms matched as the user types, in addition to the label. */
+  searchText?: string;
 }
 
 export interface ReportFieldConfig {

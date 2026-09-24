@@ -1,5 +1,6 @@
 import { Grid, MenuItem, TextField } from "@mui/material";
 
+import { SearchableSelect } from "@/components/SearchableSelect";
 import type { ReportFieldConfig, ReportFieldOption } from "@/features/reports/reportModules";
 
 interface ReportFilterFormProps {
@@ -61,6 +62,19 @@ export function ReportFilterForm({ fields, values, optionsBySource, onChange }: 
           );
         }
         const options = field.options ?? (field.optionsSource ? optionsBySource[field.optionsSource] : []) ?? [];
+        if (field.optionsSource === "employee") {
+          return (
+            <Grid item xs={12} sm={6} md={4} key={field.name}>
+              <SearchableSelect
+                label={field.label}
+                placeholder="Any"
+                options={options}
+                value={value}
+                onChange={(newValue) => onChange(field.name, newValue)}
+              />
+            </Grid>
+          );
+        }
         return (
           <Grid item xs={12} sm={6} md={4} key={field.name}>
             <TextField

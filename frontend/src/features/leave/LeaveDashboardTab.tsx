@@ -5,6 +5,7 @@ import { Button, Card, CardContent, Grid, MenuItem, Paper, Stack, TextField, Typ
 
 import { listEmployees } from "@/api/employees";
 import { downloadLeaveExportCsv, getLeaveDashboard, listLeaveTypes } from "@/api/leave";
+import { EmployeeAutocomplete } from "@/components/EmployeeAutocomplete";
 
 function KpiCard({ label, value }: { label: string; value: string | number }) {
   return (
@@ -99,21 +100,11 @@ export function LeaveDashboardTab() {
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              select
-              label="Employee"
-              fullWidth
-              size="small"
+            <EmployeeAutocomplete
+              employees={employees?.items ?? []}
               value={filters.employeeId}
-              onChange={(event) => updateFilter("employeeId", event.target.value)}
-            >
-              <MenuItem value="">All employees</MenuItem>
-              {(employees?.items ?? []).map((employee) => (
-                <MenuItem key={employee.id} value={employee.id}>
-                  {employee.first_name} {employee.last_name}
-                </MenuItem>
-              ))}
-            </TextField>
+              onChange={(value) => updateFilter("employeeId", value)}
+            />
           </Grid>
           <Grid item xs={12} sm={6} md={2}>
             <TextField
