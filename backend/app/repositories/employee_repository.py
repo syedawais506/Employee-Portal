@@ -10,6 +10,21 @@ from app.models.user import User
 from app.repositories.base import TenantScopedRepository
 
 
+def _search_condition(search: str):
+    # Matching each column separately misses a query that spans both names
+    # (e.g. "Syed A" matches neither first_name="Syed" nor last_name="Awaiz"
+    # alone) — the concatenated full name catches that, on top of still
+    # matching a single first/last name or an employee code by itself.
+    like = f"%{search}%"
+    full_name = func.concat(Employee.first_name, " ", Employee.last_name)
+    return or_(
+        Employee.first_name.ilike(like),
+        Employee.last_name.ilike(like),
+        Employee.employee_code.ilike(like),
+        full_name.ilike(like),
+    )
+
+
 class EmployeeRepository(TenantScopedRepository[Employee]):
     model = Employee
 
@@ -51,14 +66,7 @@ class EmployeeRepository(TenantScopedRepository[Employee]):
     ) -> tuple[list[Employee], int]:
         conditions = [Employee.company_id == company_id, Employee.deleted_at.is_(None)]
         if search:
-            like = f"%{search}%"
-            conditions.append(
-                or_(
-                    Employee.first_name.ilike(like),
-                    Employee.last_name.ilike(like),
-                    Employee.employee_code.ilike(like),
-                )
-            )
+            conditions.append(_search_condition(search))
         if department_id:
             conditions.append(Employee.department_id == department_id)
         if status:
@@ -96,14 +104,7 @@ class EmployeeRepository(TenantScopedRepository[Employee]):
     ) -> list[Employee]:
         conditions = [Employee.company_id == company_id, Employee.deleted_at.is_(None)]
         if search:
-            like = f"%{search}%"
-            conditions.append(
-                or_(
-                    Employee.first_name.ilike(like),
-                    Employee.last_name.ilike(like),
-                    Employee.employee_code.ilike(like),
-                )
-            )
+            conditions.append(_search_condition(search))
         if department_id:
             conditions.append(Employee.department_id == department_id)
         if status:

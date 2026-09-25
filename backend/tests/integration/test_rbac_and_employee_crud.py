@@ -93,6 +93,22 @@ def test_full_employee_crud_lifecycle_via_admin(client, tenant_a):
     assert delete_response.status_code == 204
 
 
+def test_search_matches_full_name_spanning_first_and_last_name(client, tenant_a):
+    """A query combining first and last name (e.g. "Jane Doe") must match
+    even though neither word alone is a substring of the *other* field —
+    matching first_name/last_name/employee_code independently misses this.
+    """
+    headers_admin = tenant_a.auth_headers(client, "Admin")
+    _, employee, _ = tenant_a.users["Employee"]
+
+    response = client.get(
+        "/api/v1/employees", headers=headers_admin, params={"search": f"{employee.first_name} {employee.last_name}"}
+    )
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    assert response.json()["items"][0]["id"] == str(employee.id)
+
+
 def test_creating_employee_with_duplicate_email_returns_409(client, tenant_a):
     headers_admin = tenant_a.auth_headers(client, "Admin")
     existing_user, _, _ = tenant_a.users["Employee"]
