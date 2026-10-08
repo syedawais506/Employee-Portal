@@ -119,7 +119,9 @@ export function LeaveCalendar({
               key={dayIso}
               onClick={() => onDayClick(dayIso)}
               sx={{
-                minHeight: 96,
+                // Fixed, not min — minHeight alone lets a day with requests
+                // grow taller than its empty neighbors in the same row.
+                height: 104,
                 border: "1px solid",
                 borderColor: holidayName ? "secondary.main" : "divider",
                 borderRadius: 1,
@@ -142,7 +144,7 @@ export function LeaveCalendar({
                   </Typography>
                 </Tooltip>
               )}
-              <Stack spacing={0.5} sx={{ flexGrow: 1, overflow: "hidden" }}>
+              <Stack spacing={0.5} sx={{ flexGrow: 1, overflowY: "auto", overflowX: "hidden" }}>
                 {requestChips(requests)}
               </Stack>
             </Box>

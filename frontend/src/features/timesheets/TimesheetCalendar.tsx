@@ -125,7 +125,11 @@ export function TimesheetCalendar({
               key={dayIso}
               onClick={() => clickable && onDayClick(dayIso)}
               sx={{
-                minHeight: 104,
+                // A fixed height (not minHeight) is what actually keeps every
+                // cell in a calendar row the same size — minHeight only sets a
+                // floor, so a day with entries still grows taller than its
+                // empty neighbors instead of the row staying uniform.
+                height: 112,
                 border: "1px solid",
                 borderColor: inActivePeriod ? "primary.main" : "divider",
                 borderRadius: 1,
@@ -141,7 +145,7 @@ export function TimesheetCalendar({
               <Typography variant="caption" color={inActivePeriod ? "primary.main" : "text.secondary"}>
                 {day.getDate()}
               </Typography>
-              <Stack spacing={0.5} sx={{ flexGrow: 1, overflow: "hidden" }}>
+              <Stack spacing={0.5} sx={{ flexGrow: 1, overflowY: "auto", overflowX: "hidden" }}>
                 {entryChips(entries)}
               </Stack>
               {totalHours > 0 && (
